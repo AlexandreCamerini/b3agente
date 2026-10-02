@@ -16,7 +16,7 @@ metrics:
 
 # Phase 46 Plan 12: faixa ancorada (G-06) Summary
 
-Status: Task 1 concluída; Task 2 (checkpoint humano no iPhone) PENDENTE.
+Status: Task 1 concluída; Task 2 (checkpoint humano no iPhone) RESOLVIDA em 2026-10-02: aprovado com ressalvas.
 
 `FaixaVencimento` recebe `leitura={leituraPlano}`; "hoje" usa `leitura.preco` (nunca marcação) e entra no domínio da régua. O grid de 3 colunas saiu: "◆ equilíbrio R$ x" e "teto R$ x" são posicionados pelo x do marcador (`rotulosSemColisao` + `ancoraRotulo`, padrão do SimuladorEstudo) e valores usam `rsNbsp`. Legenda "● hoje R$ x" com notas "· sem piso" / "· sem teto". Segmentos/ALFA, role="img" e aria-label intactos.
 
@@ -34,4 +34,7 @@ Adicionado `rsNbsp` ao import de estruturaCard.js (ainda não importado no App.j
 None.
 
 ## Checkpoint
-Task 2 (human-verify) PENDENTE: aprovação do Alex no iPhone, G-01..G-06 + passos do 46-08.
+Task 2 (human-verify): Alex aprovou com ressalvas em 2026-10-02 (iPhone, G-01..G-06 + passos do 46-08). Ressalvas:
+- Nome da empresa ausente nos cards de Posições → G-07 (aberto, ver 46-UAT.md).
+- "Total suspenso" na UGPA3 sem causa explicada → G-08 (aberto). Causa provável: servidor local com provedor Yahoo (cadeia vazia para B3); produção usa mydata (ADR-020).
+- Aba Opções não executa a estrutura da oportunidade: NÃO reproduzido (falta modo/ativo/estrutura); tratar separadamente, fora da 46.

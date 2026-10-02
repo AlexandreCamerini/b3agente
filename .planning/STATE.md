@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Estruturas de opções na carteira
-status: phase_46_gaps_awaiting_checkpoint
-stopped_at: 'Fase 45 concluída em código (2026-09-30): 5 planos, verificação human_needed sem gaps, code review 0 críticos com WR-01..06 corrigidos, suíte canônica verde (pytest 3136 passed). Pendente: validação em aparelho com backend da Fase 44 em produção; promoção v2 → main e deploy manual (decisão do Alex, nada enviado). Próximo: /gsd-discuss-phase 46 (Didática).'
-last_updated: "2026-09-30T00:00:00.000Z"
-last_activity: 2026-10-01 -- Fase 46 em execução — onda 7/7: 46-08 tarefa 1 feita (guardiões transversais), cores da quick 261001-0or revertidas (deddf454, d8ab3b92) e paleta do design v6 reaplicada só no card (fe6dba75, 2c78e563, `cartaoV6Cores.js`); suíte verde; plano de correção 46-09..46-12 (gap closure do UAT no iPhone: G-01..G-06, card fechado) criado e aprovado pelo plan-checker; gap closure em execução: ondas 1-3/3 em código (46-09..46-12 tarefa 1; régua ancorada), suíte canônica verde (3211 pytest); AGUARDANDO checkpoint humano do Alex no iPhone (46-12 tarefa 2: G-01..G-06 + passos do 46-08); depois code review, verificação e phase.complete; checkpoint humano do 46-08 será repetido no 46-12; depois verificação, code review e fechamento da fase
+status: ready_to_plan
+stopped_at: 'Fase 46 fechada com ressalvas (2026-10-02): 12/12 planos, verifier passed 7/7, code review 0 críticos / 2 altos (AL-01, AL-02) abertos. Próximo: /gsd-plan-phase 46.1 (G-07, G-08, AL-01, AL-02) antes de publicar; depois /gsd-discuss-phase 47. Nada pushado nem publicado.'
+last_updated: 2026-10-02T20:48:26.696Z
+last_activity: 2026-10-02 -- Fase 46 fechada com ressalvas (phase.complete; checkpoint do iPhone aprovado com ressalvas); Fase 46.1 aberta no ROADMAP. | antes, em 2026-10-01 — Fase 46 em execução — onda 7/7: 46-08 tarefa 1 feita (guardiões transversais), cores da quick 261001-0or revertidas (deddf454, d8ab3b92) e paleta do design v6 reaplicada só no card (fe6dba75, 2c78e563, `cartaoV6Cores.js`); suíte verde; plano de correção 46-09..46-12 (gap closure do UAT no iPhone: G-01..G-06, card fechado) criado e aprovado pelo plan-checker; gap closure em execução: ondas 1-3/3 em código (46-09..46-12 tarefa 1; régua ancorada), suíte canônica verde (3211 pytest); AGUARDANDO checkpoint humano do Alex no iPhone (46-12 tarefa 2: G-01..G-06 + passos do 46-08); depois code review, verificação e phase.complete; checkpoint humano do 46-08 será repetido no 46-12; depois verificação, code review e fechamento da fase
 progress:
-  total_phases: 3
-  completed_phases: 2
-  total_plans: 8
-  completed_plans: 8
-  percent: 67
+  total_phases: 5
+  completed_phases: 3
+  total_plans: 20
+  completed_plans: 20
+  percent: 60
 ---
 
 # Project State
@@ -21,13 +21,13 @@ progress:
 See: .planning/PROJECT.md (updated 2026-09-27)
 
 **Core value:** O usuário leigo sai do Modo Estudo entendendo de verdade como o mercado funciona — não decorou uma resposta, aprendeu o raciocínio — e só então tem acesso a automações do Modo Operador.
-**Current focus:** Milestone v2.0 Estruturas de opções na carteira (Fases 44-46) — ver `.planning/ROADMAP.md`.
+**Current focus:** Phase 46.1 (ressalvas da 46: G-07, G-08, AL-01, AL-02), depois Phase 47 — didática
 
 ## Current Position
 
-Milestone: v2.0 Estruturas de opções na carteira (Fases 44-46).
-Phase: 45 — Card de posição estruturada (COMPLETA em código: 45-01 vocabulário → 45-02 lógica pura + one-shot → 45-03 hook e card → 45-04 régua e limites → 45-05 verificação e checkpoint; 44 também completa).
-Status: phase_46_planned — 8 planos em 7 ondas (46-01..46-08), CART6-01..07, 17/17 decisões cobertas; próximo /gsd-execute-phase 46 (sessão limpa). Checkpoint do Alex confirma prioridade de estados (risco antes da trava, UI-SPEC Pergunta 1). 45: validação em aparelho pendente. Requirements em `.planning/REQUIREMENTS.md`.
+Milestone: v2.0 Estruturas de opções na carteira (Fases 44-47, mais 46.1).
+Phase: 46.1 (a planejar) — Fase 46 COMPLETA com ressalvas (12/12; verifier passed; review 0 crít./2 altos).
+Status: Ready to plan 46.1. Ressalvas do Alex (2026-10-02): G-07 nome da empresa sem fallback; G-08 "total suspenso" sem causa; aba Opções não executa a estrutura (NÃO reproduzida, fora da 46.1 até ter modo/ativo/estrutura). Review: AL-01 (collar mostra conta errada no Estudo, cartao_posicao.py:466-487) e AL-02 (leitura antiga mantida como atual quando /api/carteira/leitura falha, App.jsx:4484-4530) devem ser corrigidos antes de publicar; MD-01..06 e BX-01..07 em 46-REVIEW.md.
 Decisões do Alex (2026-09-29): régua de faixa mantida; pernas sempre visíveis;
   texto do Estudo completo; escopo motor + front aprovado. Instrução
   principal: economizar modelo (CLAUDE.md §Estratégia de execução).

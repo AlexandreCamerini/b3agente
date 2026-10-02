@@ -60,22 +60,22 @@ Todo cálculo é do motor determinístico (princípio 5); nada estimado.
 
 IDs propostos na 46-UI-SPEC (Pergunta 6) e fixados no plan-phase de 2026-09-30.
 
-- [ ] **CART6-01**: O card de posição fechado tem um visual e um estado, igual
+- [x] **CART6-01**: O card de posição fechado tem um visual e um estado, igual
   nos dois modos: régua stop←agora→alvo (ação com plano) ou faixa piso·◆BE·teto
   (composta com BE do backend), estado principal por prioridade (D-13/D-14).
-- [ ] **CART6-02**: O card aberto tem seletor Ação | Opções (n) e flip 3D só
+- [x] **CART6-02**: O card aberto tem seletor Ação | Opções (n) e flip 3D só
   nessa área (170+170 ms; `prefers-reduced-motion` troca sem animação).
-- [ ] **CART6-03**: Estudo mostra o simulador "e se?" (grade de preços do
+- [x] **CART6-03**: Estudo mostra o simulador "e se?" (grade de preços do
   backend, zona por ponto) e termos tocáveis (definição da KB + "No seu caso"
   do backend) e "Bóris explica" determinístico.
-- [ ] **CART6-04**: Operador mostra o payoff no vencimento (curva do backend,
+- [x] **CART6-04**: Operador mostra o payoff no vencimento (curva do backend,
   sem texto no desenho) e a grade 3×2 com a conta de cada célula.
-- [ ] **CART6-05**: O backend entrega, de forma aditiva, cenários/simulador/
+- [x] **CART6-05**: O backend entrega, de forma aditiva, cenários/simulador/
   grade/leitura do plano/didática; UGPA3 e CXSE3 viram pytest do backend
   (sem `optionsCalc` no cliente).
-- [ ] **CART6-06**: A KB ganha os verbetes lastro, call coberta, teto, piso,
+- [x] **CART6-06**: A KB ganha os verbetes lastro, call coberta, teto, piso,
   equilíbrio e preço médio, sem promessa de rentabilidade.
-- [ ] **CART6-07**: Todo texto novo nasce em `skill_ref.py` com espelho byte a
+- [x] **CART6-07**: Todo texto novo nasce em `skill_ref.py` com espelho byte a
   byte em `copy.js`; guardiões da Fase 45 contraditos são atualizados com nota.
 
 ### Didática (Fase 47)

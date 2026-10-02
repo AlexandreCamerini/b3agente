@@ -1,9 +1,9 @@
 ---
-status: diagnosed
+status: closed_with_caveats
 phase: 46-carteira-v6-card-de-posi-o-com-modos-estudo-e-operador
 source: [teste do Alex no iPhone, 2026-10-01 (print UGPA3/CXSE3, Modo Operador)]
 started: 2026-10-01
-updated: 2026-10-01
+updated: 2026-10-02
 ---
 
 # 46 — UAT (lacunas do card fechado v6 com texto longo)
@@ -66,6 +66,19 @@ acceptance: guardião estático trava `nowrap`/NBSP no componente; teste de pior
 status: failed
 truth: Rótulos da régua ficam ancorados sob o respectivo marcador (equilíbrio ◆ valor; teto valor), usando a anti-colisão já existente (`ancoraRotulo` em `estruturaCard.js`, 46-02), em vez de 3 colunas fixas; o ponto "hoje" ganha legenda ("● hoje") e "sem piso" vira nota discreta na legenda. Valores vêm de `leitura_plano`/`estrutura`; "hoje" usa `quotes[t].price` (nunca `markPrice`).
 observed: losango do equilíbrio a ~13 % da barra com o texto no meio; ponto "hoje" sem rótulo.
+
+### G-07 — Nome da empresa não aparece nos cards da aba Posições
+status: open (aberto em 2026-10-02, ressalva do checkpoint do 46-12; fora do fechamento da 46)
+truth: O card de posição sempre mostra o nome da empresa sob o ticker quando ele é conhecido; sem nome conhecido, mostra só o ticker (nunca texto inventado).
+observed: `CartaoPosicao` recebe `nomeEmpresa={q.name}` (App.jsx ~5647) e o nome some quando a cotação não traz `name`; não há fallback.
+hipotese: fallback por catálogo de tickers (`CATALOG_TICKERS`/nome local) ou último nome conhecido; confirmar a causa no aparelho antes de implementar (cotação sem `name` por fonte vs. dado ausente no catálogo).
+acceptance: teste com cotação sem `name` mostra o nome do catálogo; sem catálogo, só o ticker; nenhum nome inventado.
+
+### G-08 — "Total suspenso" sem explicar a causa
+status: open (aberto em 2026-10-02, ressalva do checkpoint do 46-12; fora do fechamento da 46)
+truth: Quando o total da estrutura fica suspenso por prêmio de opção sem cotação (regra D-05, `estrutura_posicao.py`), o card diz a causa em linguagem do modo ("sem cotação da opção <contrato> nesta fonte") e continua mostrando "—" no cabeçalho. Nunca estima prêmio nem total.
+observed: UGPA3 com UGPAK42 sem prêmio → "total suspenso" sem motivo. No teste do iPhone o servidor local rodava com provedor Yahoo (default do código), que devolve cadeia vazia para B3; produção usa `B3_OPTIONS_PROVIDER=mydata` (ADR-020). O sintoma provavelmente é artefato do setup de teste, mas a mensagem deve explicar a causa de qualquer forma.
+acceptance: texto novo por modo em `skill_ref.py` ↔ `copy.js` (byte a byte); guardião da frase; sem vocabulário proibido; default de `B3_OPTIONS_PROVIDER` no código NÃO muda.
 
 ## Verificação esperada (para o plan-checker/verifier)
 - `npx vite build`; guardiões do card v6 + os listados na SUMMARY do 46-08 verdes; `test_estrutura_card_contraste.mjs` com os novos pares (chip âmbar #FFE3A0/#2D2618, vermelho/verde sobre #111B29, 4 combinações tema × modo, ≥ 4.5:1 texto).

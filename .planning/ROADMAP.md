@@ -321,7 +321,8 @@ Requirements: `.planning/REQUIREMENTS.md`. Mock: https://claude.ai/artifact/JEpy
 
 - [x] Phase 44: Motor — estrutura por ativo (ESTR-01..06)
 - [x] Phase 45: Card de posição estruturada (CARD-01..06) — concluída em código 2026-09-30; validação em aparelho pendente (backend da Fase 44 ainda não em produção)
-- [ ] Phase 46: Carteira v6 — card de posição com modos Estudo e Operador (CART6-01..07)
+- [x] Phase 46: Carteira v6 — card de posição com modos Estudo e Operador (CART6-01..07) (completed 2026-10-02)
+- [ ] Phase 46.1: Fechamento das ressalvas da 46 (G-07, G-08, AL-01, AL-02)
 - [ ] Phase 47: Didática — expectativa matemática × taxa de acerto (DIDA-01..02)
 
 ### Phase 44: Motor — estrutura por ativo
@@ -359,21 +360,34 @@ Plans:
 **Depends on:** Phase 45
 **Prototype:** `~/Downloads/Carteira Boris+ v6 (standalone).html`
 **Decisão (Alex, 2026-09-30):** todo cálculo é do backend; o front só lê e posiciona (sem `optionsCalc` no cliente). Simulador usa grade de preços devolvida pelo backend.
-**Plans:** 12 plans (7 ondas + 3 ondas de gap closure do 46-UAT; App.jsx serializa as ondas 4-7 e 46-11 → 46-12)
+**Plans:** 12/12 plans complete
 
 Plans:
-- [ ] 46-01-PLAN.md — vocabulário v6 (CARTAO_POSICAO/CARTAO_DIDATICA skill_ref↔copy.js) + 6 verbetes KB (onda 1)
-- [ ] 46-02-PLAN.md — helpers puros do card (prioridade de estado, âncora/anti-colisão, flip reduzido, grade por índice) (onda 1)
-- [ ] 46-03-PLAN.md — motor puro cartao_posicao.py: leitura do plano, cenários/simulador/grade com conta, didática (onda 2)
-- [ ] 46-04-PLAN.md — fiação: estrutura.cenarios/didatica aditivos + POST /api/carteira/leitura + stores; pytest UGPA3/CXSE3/ITSA4 (onda 3)
-- [ ] 46-05-PLAN.md — card fechado v6 para toda posição (régua/faixa, um estado, Bóris explica, rodapé) (onda 4)
-- [ ] 46-06-PLAN.md — card aberto: seletor Ação|Opções, flip, faces, bloco BÓRIS IA e saída (onda 5)
-- [ ] 46-07-PLAN.md — camadas: Estudo (simulador + termos) e Operador (payoff SVG + grade com conta) (onda 6)
-- [ ] 46-08-PLAN.md — guardiões transversais (contraste/SP/higiene) + checkpoint do Alex (onda 7)
-- [ ] 46-09-PLAN.md — gap G-01..G-06: chaves novas do card fechado (skill_ref↔copy.js) + texto do cadeado (gap onda 1)
-- [ ] 46-10-PLAN.md — gap G-01..G-05: helpers puros (um estado, linhas rótulo/valor, chips, NBSP, fonte do valor) + CSS vars pendente/info e contraste (gap onda 1)
-- [ ] 46-11-PLAN.md — gap G-01..G-05: cabeçalho, linhas Ações/Opções/Estrutura, chips e um estado em CartaoPosicao + guardiões reancorados (gap onda 2)
-- [ ] 46-12-PLAN.md — gap G-06: faixa com rótulos ancorados e "● hoje" + checkpoint do Alex no iPhone (gap onda 3)
+- [x] 46-01-PLAN.md — vocabulário v6 (CARTAO_POSICAO/CARTAO_DIDATICA skill_ref↔copy.js) + 6 verbetes KB (onda 1)
+- [x] 46-02-PLAN.md — helpers puros do card (prioridade de estado, âncora/anti-colisão, flip reduzido, grade por índice) (onda 1)
+- [x] 46-03-PLAN.md — motor puro cartao_posicao.py: leitura do plano, cenários/simulador/grade com conta, didática (onda 2)
+- [x] 46-04-PLAN.md — fiação: estrutura.cenarios/didatica aditivos + POST /api/carteira/leitura + stores; pytest UGPA3/CXSE3/ITSA4 (onda 3)
+- [x] 46-05-PLAN.md — card fechado v6 para toda posição (régua/faixa, um estado, Bóris explica, rodapé) (onda 4)
+- [x] 46-06-PLAN.md — card aberto: seletor Ação|Opções, flip, faces, bloco BÓRIS IA e saída (onda 5)
+- [x] 46-07-PLAN.md — camadas: Estudo (simulador + termos) e Operador (payoff SVG + grade com conta) (onda 6)
+- [x] 46-08-PLAN.md — guardiões transversais (contraste/SP/higiene) + checkpoint do Alex (onda 7)
+- [x] 46-09-PLAN.md — gap G-01..G-06: chaves novas do card fechado (skill_ref↔copy.js) + texto do cadeado (gap onda 1)
+- [x] 46-10-PLAN.md — gap G-01..G-05: helpers puros (um estado, linhas rótulo/valor, chips, NBSP, fonte do valor) + CSS vars pendente/info e contraste (gap onda 1)
+- [x] 46-11-PLAN.md — gap G-01..G-05: cabeçalho, linhas Ações/Opções/Estrutura, chips e um estado em CartaoPosicao + guardiões reancorados (gap onda 2)
+- [x] 46-12-PLAN.md — gap G-06: faixa com rótulos ancorados e "● hoje" + checkpoint do Alex no iPhone (gap onda 3)
+
+### Phase 46.1: Fechamento das ressalvas da Fase 46
+**Goal:** corrigir o que o checkpoint do iPhone e o code review da 46 deixaram aberto, sem reabrir o desenho do card v6.
+**Origem:** `46-UAT.md` (G-07, G-08), `46-REVIEW.md` (AL-01, AL-02; MD-01..06 candidatos), checkpoint do 46-12 (aprovado com ressalvas, 2026-10-02).
+**Depends on:** Phase 46
+**Escopo:**
+1. G-07 — nome da empresa com fallback (catálogo/último conhecido); sem nome, só o ticker.
+2. G-08 — "total suspenso" explica a causa por modo (skill_ref.py ↔ copy.js); default de `B3_OPTIONS_PROVIDER` não muda.
+3. AL-01 — conta do Estudo para collar ignora o prêmio da put (número errado; cálculo é do backend, `cartao_posicao.py`).
+4. AL-02 — `plano.status` ignorado: falha de `/api/carteira/leitura` mantém leitura antiga como atual (princípio 4 do produto).
+5. Triagem de MD-01..06 (estado "Sem stop e alvo" com put; "sem teto" com cobertura parcial; preço sem fonte/horário; cabeçalho só com ações; idx do simulador) — incluir só o que o planner justificar.
+**Fora de escopo:** aba Opções não executa a estrutura (não reproduzida); BX-01..07 (backlog).
+**Plans:** a planejar (`/gsd-plan-phase 46.1`)
 
 ### Phase 47: Didática — expectativa matemática × taxa de acerto
 **Goal:** o tema obrigatório do CLAUDE.md ganha verbete e o microtexto passa a abri-lo.
