@@ -120,18 +120,23 @@ def _segmentos(modelo_txt: Optional[str], casos: dict) -> list:
 def _nota_pm(avg, qty, compras, modo) -> Optional[str]:
     if avg is None or not isinstance(compras, (list, tuple)):
         return None
+    # 46.1 (MD-03a): a equação "PM = total ÷ qtd" só aparece sobre histórico completo
+    # (qualquer item descartado -> None) e que reconcilia com o PM da posição
+    # (posição importada, ajuste por exercício ou histórico truncado -> None).
     total = q = 0.0
     n = 0
     for c in compras:
         if not isinstance(c, dict):
-            continue
+            return None
         cq, cpv = _num(c.get("qty")), _num(c.get("price"))
         if cq is None or cpv is None:
-            continue
+            return None
         total += cq * cpv
         q += cq
         n += 1
     if n == 0 or q <= 0:
+        return None
+    if abs(total / q - avg) > 0.005 + 1e-9:
         return None
     nota = _txt(modo, "nota_pm", pm=skill_ref.num_br(avg), total=skill_ref.num_br(total),
                 qtd=skill_ref.num_br_inteiro(q))
@@ -373,7 +378,14 @@ def cenarios_da_estrutura(entrada, faixa, nome, spot, vencimento_iso, ticker, mo
     ys = [p["resultado"] for p in pts]
     aria_dados = {"ticker": ticker, "be": _n(be), "teto": _n(k), "ganhoMaximo": _rs(ganho),
                   "perdaMaxima": _rs(perda) if perda is not None else "não calculada"}
-    chave_aria = "payoff_aria" if k is not None and ganho is not None else "payoff_aria_sem_teto"
+    # 46.1 (MD-02): teto que cobre só parte das ações (k definido, ganho não calculado)
+    # não é "sem teto" para o leitor de tela.
+    if k is None:
+        chave_aria = "payoff_aria_sem_teto"
+    elif ganho is None:
+        chave_aria = "payoff_aria_teto_parcial"
+    else:
+        chave_aria = "payoff_aria"
     out["payoff"] = {"pontos": pts, "xMin": lo, "xMax": hi, "yMin": min(ys), "yMax": max(ys),
                      "aria": _txt(modo, chave_aria, **aria_dados)}
 
@@ -477,14 +489,34 @@ def didatica_estrutura(nome, faixa, entrada, cenarios, acoes, pernas, ticker, mo
     if n["teto"] and n["ganhoMaximo"]:
         casos["teto"] = _dt("caso_teto", teto=n["teto"], ganhoMaximo=n["ganhoMaximo"])
     # sem teto (put de proteção): sem caso → vira texto simples (D-09)
-    if pm is not None and premio is not None and n["be"]:
-        d = {"be": n["be"], "pm": skill_ref.num_br(pm), "premio": skill_ref.num_br(premio)}
-        if cen and cen.get("hoje") is not None:
-            casos["equilibrio"] = _dt("caso_equilibrio", hoje=skill_ref.num_br(cen["hoje"]), **d)
-        else:
-            casos["equilibrio"] = _dt("caso_equilibrio_sem_hoje", **d)
-    else:
-        casos["equilibrio"] = ag
+    # 46.1 (2026-10-02, AL-01): a frase só cita a conta que o motor sustenta. A conta
+    # do equilíbrio é por estrutura (call coberta: PM - prêmio da call; collar: PM -
+    # prêmio da call + prêmio da put) e só é exibida se reconcilia com `cenarios.be`
+    # (tolerância de 1 centavo = arredondamento do be a 2 casas). Cobertura parcial,
+    # dado divergente ou estrutura sem conta própria caem em "aguardando o cálculo do app".
+    puts_c = [p for p in pernas if p.get("tipo") == "PUT" and p.get("lado") == "compra"]
+    premio_put = None
+    if len(puts_c) == 1:
+        premio_put = _num(puts_c[0].get("premioEntrada", puts_c[0].get("premio")))
+    be_num = _num(be)
+    tol = 0.01 + 1e-9
+    hoje = cen.get("hoje") if cen else None
+    casos["equilibrio"] = ag
+    if pm is not None and premio is not None and be_num is not None and n["be"]:
+        if nome == "call_coberta" and abs(pm - premio - be_num) <= tol:
+            d = {"be": n["be"], "pm": skill_ref.num_br(pm), "premio": skill_ref.num_br(premio)}
+            if hoje is not None:
+                casos["equilibrio"] = _dt("caso_equilibrio", hoje=skill_ref.num_br(hoje), **d)
+            else:
+                casos["equilibrio"] = _dt("caso_equilibrio_sem_hoje", **d)
+        elif (nome == "collar" and premio_put is not None
+              and abs(pm - premio + premio_put - be_num) <= tol):
+            d = {"be": n["be"], "pm": skill_ref.num_br(pm),
+                 "premioCall": skill_ref.num_br(premio), "premioPut": skill_ref.num_br(premio_put)}
+            if hoje is not None:
+                casos["equilibrio"] = _dt("caso_equilibrio_collar", hoje=skill_ref.num_br(hoje), **d)
+            else:
+                casos["equilibrio"] = _dt("caso_equilibrio_collar_sem_hoje", **d)
     if n["piso"] and n["perdaMaxima"]:
         casos["piso"] = _dt("caso_piso", piso=n["piso"], perdaMaxima=n["perdaMaxima"])
     elif piso is None and n["perdaMaxima"]:
