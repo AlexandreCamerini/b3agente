@@ -6,6 +6,7 @@
 #   bash scripts/mydata-local.sh --validar                 # testa o token guardado no hub (so imprime o resultado)
 #   bash scripts/mydata-local.sh                           # valida e sobe o backend (scripts/run.sh) com mydata
 #   bash scripts/mydata-local.sh --remover                 # apaga o token do Keychain
+#   bash scripts/mydata-local.sh --mercado-aberto          # igual ao padrao, forcando o pregao ABERTO (so dev; ver abaixo)
 #
 # Regras (nao mudar sem motivo):
 #  - A UNICA fonte do token e o Keychain do macOS (item abaixo). Variavel de ambiente da shell
@@ -14,6 +15,10 @@
 #    viaja por stdin do curl (-H @-); para o Keychain, por stdin do `security -i`.
 #  - Recusa qualquer valor que comece com "sk-ant-" (chave da Anthropic) ANTES de ir a rede.
 #  - Nao usar `set -x` / `bash -x` neste script: vazaria o token no trace.
+#  - --mercado-aberto liga B3_DEV_MERCADO_ABERTO=1 (pregao.dev_mercado_aberto_forcado): so forca
+#    in_market_hours(). Cotacao/candle/opcoes continuam da fonte real (mydata e COTAHIST, publicado
+#    apos o fechamento: pode estar parado). NAO destrava o agente autonomo (exige tambem B3_AGENT_KILL=0).
+#    So para dev local/staging; nunca em producao (ver docstring em server/app/pregao.py).
 #  - Nao muda o default de B3_OPTIONS_PROVIDER no codigo (ADR-020): mydata e so env desta sessao.
 set -uo pipefail
 
@@ -95,17 +100,25 @@ token_guardado() {
   printf '%s' "$t"
 }
 
+MERCADO_ABERTO=0; ARGS=()
+for a in "$@"; do if [[ "$a" == "--mercado-aberto" ]]; then MERCADO_ABERTO=1; else ARGS+=("$a"); fi; done
+set -- ${ARGS[@]+"${ARGS[@]}"}
+
 case "${1:-}" in
   --salvar)          cmd_salvar;;
   --salvar-railway)  shift; cmd_salvar_railway "${1:-}";;
   --remover)         kc_apagar && echo "Removido do Keychain." || echo "Nada para remover.";;
   --validar)         t="$(token_guardado)" || exit 1; validar_no_hub "$t";;
-  -h|--help)         sed -n '2,8p' "$0" | sed 's/^# \{0,1\}//';;
+  -h|--help)         sed -n '2,10p' "$0" | sed 's/^# \{0,1\}//';;
   "")
     t="$(token_guardado)" || exit 1
     validar_no_hub "$t" || { echo "Backend NAO iniciado."; exit 1; }
     bash "$SCRIPT_DIR/run.sh" --stop >/dev/null 2>&1 || true
     echo "Subindo backend (8787) com B3_OPTIONS_PROVIDER=mydata..."
+    if [[ "$MERCADO_ABERTO" == 1 ]]; then
+      export B3_DEV_MERCADO_ABERTO=1
+      echo "ATENCAO: pregao FORCADO ABERTO (B3_DEV_MERCADO_ABERTO=1). Cotacao e opcoes continuam da fonte real e podem estar paradas fora do horario. So dev local."
+    fi
     # O token entra so no ambiente do processo filho; nada e impresso.
     MYDATA_TOKEN="$t" B3_OPTIONS_PROVIDER=mydata exec bash "$SCRIPT_DIR/run.sh";;
   *) echo "Opcao desconhecida: $1 (use --help)"; exit 1;;
