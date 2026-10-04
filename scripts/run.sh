@@ -30,17 +30,20 @@ esac
 VENV="$SERVER_DIR/.venv"
 venv_py(){ if [ -x "$VENV/bin/python" ]; then echo "$VENV/bin/python"; else echo "$VENV/Scripts/python.exe"; fi; }
 
-# Mata SÓ o que é NOSSO na porta (cwd == $ROOT ou $SERVER_DIR) — nunca um
+# PIDs em LISTEN numa porta. Usa netstat (nao lsof): o lsof pode travar por minutos
+# nesta maquina e prendia `run.sh --stop` e o `mydata-local.sh` sem imprimir nada.
+port_pids(){ netstat -anv -p tcp 2>/dev/null | awk -v p="$1" '$6=="LISTEN" && $4 ~ ("[.:]" p "$") { for (i=7;i<=NF;i++) if ($i ~ /^[^ ]+:[0-9]+$/) { n=split($i,a,":"); print a[n]; break } }' | sort -u; }
+
+# Mata SÓ o que é NOSSO na porta (comando do processo do nosso backend/Vite) — nunca um
 # processo de outro projeto que por acaso esteja na mesma porta. Regra do
 # ~/.claude/CLAUDE.md: "Nunca matar processo que não é seu."
 free_port(){
-  local p="$1"; command -v lsof >/dev/null 2>&1 || return 0
-  local pid cwd
-  for pid in $(lsof -ti tcp:"$p" 2>/dev/null || true); do
-    cwd="$(lsof -a -p "$pid" -d cwd -Fn 2>/dev/null | sed -n 's/^n//p')"
-    case "$cwd" in
-      "$ROOT"|"$ROOT"/*|"$SERVER_DIR"|"$SERVER_DIR"/*) kill "$pid" 2>/dev/null || true ;;
-      *) echo "  [!] porta $p ocupada por PID $pid de OUTRO projeto (cwd=$cwd) — não vou matar. Libere manualmente ou rode noutra porta." >&2 ;;
+  local p="$1" pid cmd
+  for pid in $(port_pids "$p"); do
+    cmd="$(ps -p "$pid" -o command= 2>/dev/null)"
+    case "$cmd" in
+      *"app.main"*|*"$SERVER_DIR"*|*"$ROOT"*|*vite*) kill "$pid" 2>/dev/null || true ;;
+      *) echo "  [!] porta $p ocupada por PID $pid de OUTRO projeto ($cmd) — não vou matar. Libere manualmente ou rode noutra porta." >&2 ;;
     esac
   done
 }
@@ -77,7 +80,7 @@ ensure_backend(){
 
 if [ "$MODE" = "status" ]; then
   for p in "$PORT" "$VITE_PORT"; do
-    if command -v lsof >/dev/null 2>&1 && lsof -ti tcp:"$p" >/dev/null 2>&1; then echo "porta $p: EM USO"; else echo "porta $p: livre"; fi
+    if [ -n "$(port_pids "$p")" ]; then echo "porta $p: EM USO"; else echo "porta $p: livre"; fi
   done; exit 0
 fi
 if [ "$MODE" = "stop" ]; then free_port "$PORT"; free_port "$VITE_PORT"; echo "Encerrado."; exit 0; fi
