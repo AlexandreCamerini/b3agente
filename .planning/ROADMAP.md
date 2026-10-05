@@ -324,6 +324,7 @@ Requirements: `.planning/REQUIREMENTS.md`. Mock: https://claude.ai/artifact/JEpy
 - [x] Phase 46: Carteira v6 — card de posição com modos Estudo e Operador (CART6-01..07) (completed 2026-10-02)
 - [ ] Phase 46.1: Fechamento das ressalvas da 46 (G-07, G-08, AL-01, AL-02)
 - [ ] Phase 47: Didática — expectativa matemática × taxa de acerto (DIDA-01..02)
+- [ ] Phase 48: Opções, caminho B — redesenho da aba Opções (hub → ativo + escada por objetivo) — numerada 48 por ordem de abertura; execução recomendada ANTES da 47
 
 ### Phase 44: Motor — estrutura por ativo
 **Goal:** o backend entrega, por ativo, todas as pernas e a leitura determinística da estrutura (resultado, faixa, estado, motivos), sem estimar nada.
@@ -401,3 +402,13 @@ Plans:
 1. Verbete determinístico na KB, sem promessa de rentabilidade.
 2. A cláusula tocável do microtexto abre o verbete (não `confluencia`); paridade `skill_ref.py`↔`copy.js` verde.
 **Modelo:** Sonnet.
+
+### Phase 48: Opções, caminho B — redesenho da aba Opções
+**Goal:** a aba Opções passa a ter o hub → ativo (A) como estrutura e a escada por objetivo (B) como entrada em "Estruturas"; C (payoff com alças) fica como experimento futuro.
+**Depends on:** Phase 46 (execução recomendada antes da 47; sem dependência de código da 47)
+**Requirements:** TBD (definir no ui-phase/plan-phase)
+**Insumos:** memória `opcoes-caminho-b-aprovado.md`; análise https://claude.ai/artifact/6zxcBstLMsM2JVBPV7EfKn; protótipo do B https://claude.ai/artifact/5vqtxot1Ma29uAxCe9uWSo (ler com Artifact `read`).
+**Decisões fechadas:** matriz de vencimentos atrás de botão com custo `2N+1` (ADR-027); gráfico em R$ total nas 300 ações com alternância por ação; termos novos (prêmio, put protetora, collar, perda máxima) como conceito com números do caso + verbete KB, mesmo texto, 2 modos, em duas ondas.
+**A confirmar no código antes de planejar:** `cenarios_da_estrutura` (`cartao_posicao.py:326`), `/mcp/possibilidades` por vencimento, `opcoes_payoff` (pior/melhor caso/equilíbrio por degrau).
+**Guardiões a reancorar com nota datada:** `test_opcoes_nav_tres_abas_ui`, `test_opcoes_subabas_ui`, `test_opcoes_jornada_ui`, `test_opcoes_continuidade_ui`, `test_opcoes_hub_workspace_ui`, `test_telas_registro`, `test_tour_opcoes`; corrigir "Watchlist" na ajuda/tour (`App.jsx:2703`, `2769`).
+**Plans:** 0 plans (rodar `/gsd-ui-phase 48` e depois `/gsd-plan-phase 48`, cada um em sessão limpa)

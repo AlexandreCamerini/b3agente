@@ -21,7 +21,7 @@ progress:
 See: .planning/PROJECT.md (updated 2026-09-27)
 
 **Core value:** O usuário leigo sai do Modo Estudo entendendo de verdade como o mercado funciona — não decorou uma resposta, aprendeu o raciocínio — e só então tem acesso a automações do Modo Operador.
-**Current focus:** Phase 46.1 (ressalvas da 46: G-07, G-08, AL-01, AL-02), depois Phase 47 — didática
+**Current focus:** Phase 46.1 (ressalvas da 46: G-07, G-08, AL-01, AL-02), depois Phase 48 (Opções, caminho B; aberta 2026-10-05) e Phase 47 — didática
 
 ## Current Position
 
