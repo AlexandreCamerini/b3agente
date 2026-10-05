@@ -327,28 +327,35 @@ Requirements: `.planning/REQUIREMENTS.md`. Mock: https://claude.ai/artifact/JEpy
 - [ ] Phase 48: Opções, caminho B — redesenho da aba Opções (hub → ativo + escada por objetivo) — numerada 48 por ordem de abertura; execução recomendada ANTES da 47
 
 ### Phase 44: Motor — estrutura por ativo
+
 **Goal:** o backend entrega, por ativo, todas as pernas e a leitura determinística da estrutura (resultado, faixa, estado, motivos), sem estimar nada.
 **Requirements:** ESTR-01, ESTR-02, ESTR-03, ESTR-04, ESTR-05, ESTR-06
 **Success criteria:**
+
 1. Ativo com put + call abertas retorna as 2 pernas e classifica como collar (hoje só a primeira).
 2. Resultado = P&L das ações + prêmio marcado a mercado; prêmio sem cotação devolve `null` e "incompleto", nunca 0.
 3. Faixa no vencimento (piso/teto, perda/ganho máx.) bate com a conta pelos strikes em teste unitário; `null` quando indeterminável.
 4. Estrutura aberta com gate de liquidez reprovado vira `aberta_sem_proposta` e não some; motivos distintos, frases só de `skill_ref.py` com paridade em `copy.js`.
+
 **Modelo:** Sonnet executa/verifica; Opus só orquestra e planeja.
 
 ### Phase 45: Card de posição estruturada
+
 **Goal:** o card de Posições mostra a estrutura inteira, com estados claros, sem aviso falso.
 **Requirements:** CARD-01, CARD-02, CARD-03, CARD-04, CARD-05, CARD-06
 **Depends on:** Phase 44
 **Success criteria:**
+
 1. UGPA3 (ações + put + call) mostra "collar", resultado total, régua de faixa e as 2 pernas visíveis.
 2. Nenhum "sem stop" nem `R:R —` para estrutura protegida; piso/teto em texto do motor.
 3. Os 5 estados renderizam; "Encerrar" bloqueado com motivo quando o prêmio está indisponível.
 4. Estudo e Operador × claro/escuro passam contraste AA; `vite build` e guardiões verdes.
+
 **UI hint:** yes (UI-SPEC a partir do mock)
 **Plans:** 5 plans (4 ondas; App.jsx serializa as ondas 2-3)
 
 Plans:
+
 - [x] 45-01-PLAN.md — vocabulário ESTRUTURA_CARD (skill_ref.py↔copy.js), "collar" no lugar de "trava protetora", nota D-11 em CARD-06 (onda 1)
 - [x] 45-02-PLAN.md — lógica pura do card (estruturaCard.js) + one-shot goOpcoes("oportunidades", {abrirTicker}) + verificação do destino do Encerrar (onda 1)
 - [x] 45-03-PLAN.md — busca da estrutura, estados carregando/falha e CardPosicaoEstruturada (chips, resultado, estado, pernas, fonte, Encerrar) (onda 2)
@@ -356,6 +363,7 @@ Plans:
 - [x] 45-05-PLAN.md — verificação final + checkpoint humano (4 combinações, M1, P4) (onda 4)
 
 ### Phase 46: Carteira v6 — card de posição com modos Estudo e Operador
+
 **Goal:** o card de posição da Carteira segue o protótipo aprovado v6 — um visual e um estado no card fechado, flip Ação/Opções no aberto, e camada didática por modo (Estudo: simulador "e se?" e termos tocáveis; Operador: payoff e grade com a conta) — com todo cálculo no backend.
 **Requirements:** CART6-01, CART6-02, CART6-03, CART6-04, CART6-05, CART6-06, CART6-07
 **Depends on:** Phase 45
@@ -364,6 +372,7 @@ Plans:
 **Plans:** 12/12 plans complete
 
 Plans:
+
 - [x] 46-01-PLAN.md — vocabulário v6 (CARTAO_POSICAO/CARTAO_DIDATICA skill_ref↔copy.js) + 6 verbetes KB (onda 1)
 - [x] 46-02-PLAN.md — helpers puros do card (prioridade de estado, âncora/anti-colisão, flip reduzido, grade por índice) (onda 1)
 - [x] 46-03-PLAN.md — motor puro cartao_posicao.py: leitura do plano, cenários/simulador/grade com conta, didática (onda 2)
@@ -378,17 +387,21 @@ Plans:
 - [x] 46-12-PLAN.md — gap G-06: faixa com rótulos ancorados e "● hoje" + checkpoint do Alex no iPhone (gap onda 3)
 
 ### Phase 46.1: Fechamento das ressalvas da Fase 46
+
 **Goal:** corrigir o que o checkpoint do iPhone e o code review da 46 deixaram aberto, sem reabrir o desenho do card v6.
 **Origem:** `46-UAT.md` (G-07, G-08), `46-REVIEW.md` (AL-01, AL-02; MD-01..06 candidatos), checkpoint do 46-12 (aprovado com ressalvas, 2026-10-02).
 **Depends on:** Phase 46
 **Escopo:**
+
 1. G-07 — nome da empresa com fallback (catálogo/último conhecido); sem nome, só o ticker.
 2. G-08 — "total suspenso" explica a causa por modo (skill_ref.py ↔ copy.js); default de `B3_OPTIONS_PROVIDER` não muda.
 3. AL-01 — conta do Estudo para collar ignora o prêmio da put (número errado; cálculo é do backend, `cartao_posicao.py`).
 4. AL-02 — `plano.status` ignorado: falha de `/api/carteira/leitura` mantém leitura antiga como atual (princípio 4 do produto).
 5. Triagem de MD-01..06 (estado "Sem stop e alvo" com put; "sem teto" com cobertura parcial; preço sem fonte/horário; cabeçalho só com ações; idx do simulador) — incluir só o que o planner justificar.
+
 **Fora de escopo:** aba Opções não executa a estrutura (não reproduzida); BX-01..07 (backlog).
 **Plans:** 5 plans
+
 - [ ] 46.1-01-PLAN.md — vocabulário 46.1 (skill_ref ↔ copy) + AL-01 equilíbrio do collar + MD-02 aria teto parcial + MD-03a nota de PM (onda 1)
 - [ ] 46.1-02-PLAN.md — G-08 backend: causa da falta de prêmio por perna (`motivoSemCotacao`) + MD-03b corte das compras recentes (onda 1)
 - [ ] 46.1-03-PLAN.md — helpers puros: G-07 nome com fallback, AL-02 situação da leitura, G-08 notas, MD-01, MD-05 (onda 1)
@@ -396,19 +409,60 @@ Plans:
 - [ ] 46.1-05-PLAN.md — checkpoint do Alex no iPhone (servidor local mydata): G-07, G-08, AL-02 (onda 3)
 
 ### Phase 47: Didática — expectativa matemática × taxa de acerto
+
 **Goal:** o tema obrigatório do CLAUDE.md ganha verbete e o microtexto passa a abri-lo.
 **Requirements:** DIDA-01, DIDA-02
 **Success criteria:**
+
 1. Verbete determinístico na KB, sem promessa de rentabilidade.
 2. A cláusula tocável do microtexto abre o verbete (não `confluencia`); paridade `skill_ref.py`↔`copy.js` verde.
+
 **Modelo:** Sonnet.
 
 ### Phase 48: Opções, caminho B — redesenho da aba Opções
+
 **Goal:** a aba Opções passa a ter o hub → ativo (A) como estrutura e a escada por objetivo (B) como entrada em "Estruturas"; C (payoff com alças) fica como experimento futuro.
 **Depends on:** Phase 46 (execução recomendada antes da 47; sem dependência de código da 47)
-**Requirements:** TBD (definir no ui-phase/plan-phase)
+**Requirements:** OPC-01, OPC-02, OPC-03, OPC-04, OPC-05, OPC-06, OPC-07, OPC-08, OPC-09, OPC-10, OPC-11, OPC-12, OPC-13
 **Insumos:** memória `opcoes-caminho-b-aprovado.md`; análise https://claude.ai/artifact/6zxcBstLMsM2JVBPV7EfKn; protótipo do B https://claude.ai/artifact/5vqtxot1Ma29uAxCe9uWSo (ler com Artifact `read`).
 **Decisões fechadas:** matriz de vencimentos atrás de botão com custo `2N+1` (ADR-027); gráfico em R$ total nas 300 ações com alternância por ação; termos novos (prêmio, put protetora, collar, perda máxima) como conceito com números do caso + verbete KB, mesmo texto, 2 modos, em duas ondas.
 **A confirmar no código antes de planejar:** `cenarios_da_estrutura` (`cartao_posicao.py:326`), `/mcp/possibilidades` por vencimento, `opcoes_payoff` (pior/melhor caso/equilíbrio por degrau).
 **Guardiões a reancorar com nota datada:** `test_opcoes_nav_tres_abas_ui`, `test_opcoes_subabas_ui`, `test_opcoes_jornada_ui`, `test_opcoes_continuidade_ui`, `test_opcoes_hub_workspace_ui`, `test_telas_registro`, `test_tour_opcoes`; corrigir "Watchlist" na ajuda/tour (`App.jsx:2703`, `2769`).
-**Plans:** 0 plans (rodar `/gsd-ui-phase 48` e depois `/gsd-plan-phase 48`, cada um em sessão limpa)
+**Pré-condições verificadas no código (2026-10-05):** (1) `cenarios_da_estrutura` serve com ressalvas (1 breakeven; faixa derivada da estrutura; 1 chamada por degrau); (2) `/mcp/possibilidades` NÃO serve para degraus (1 estrutura por vencimento por tese) → rota nova `/api/options/mcp/escada-matriz` com o mesmo custo 2N+1 (1 + cadeia PUT + cadeia CALL por vencimento); (3) `opcoes_payoff` serve por estrutura. Escada grátis sai de `opcoes_curadoria` via `_curadoria_scan_posicao` (o motor que a execução re-deriva).
+**Plans:** 14 plans (7 ondas; OpcoesScreen.jsx serializa a onda 4; reancoragem fecha nas ondas 4-6)
+
+Plans:
+**Wave 1**
+
+- [ ] 48-01-PLAN.md — vocabulário OPCOES_ESCADA (skill_ref.py ↔ copy.js) + chaves de Ajuda/tour + guardião de paridade (onda 1)
+- [ ] 48-02-PLAN.md — termos onda 1: prêmio e perda máxima (conceito com números + verbete KB, mesmo texto, 2 modos; setores) (onda 1)
+- [ ] 48-03-PLAN.md — navOpcoes.js (estado único em profundidade) + useEscada.js + 3 métodos nos dois stores + guardião de custo estendido (onda 1)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [ ] 48-04-PLAN.md — motor puro opcoes_escada.py (degraus por objetivo, perfil total/por ação, gráfico, frase de risco, células da matriz) — TDD (onda 2)
+- [ ] 48-05-PLAN.md — termos onda 2: put protetora e collar (onda 2)
+- [ ] 48-08-PLAN.md — componentes Hub, Objetivo, Confirmar, TermoOpcoes, fluxoEstilo (onda 2)
+- [ ] 48-11-PLAN.md — Ajuda/tour sem "Watchlist" (App.jsx ~2704/~2769 + docs/AJUDA.md), toast do caminho B, test_tour_opcoes/test_telas_registro (onda 2)
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [ ] 48-06-PLAN.md — rotas grátis GET /api/options/escada/{ticker} e POST /api/options/escada/leitura (onda 3)
+- [ ] 48-07-PLAN.md — rota paga POST /api/options/mcp/escada-matriz (2N+1, cap) + guardiões MCP (onda 3)
+- [ ] 48-09-PLAN.md — componentes Escada, Gráfico (total/por ação), Matriz (onda 3)
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
+- [ ] 48-10-PLAN.md — fiação no OpcoesScreen.jsx + reancoragem dos 5 guardiões de navegação (onda 4)
+
+**Wave 5** *(blocked on Wave 4 completion)*
+
+- [ ] 48-12-PLAN.md — reancoragem dos demais guardiões de Opções (nota datada, sem apagar) (onda 5)
+
+**Wave 6** *(blocked on Wave 5 completion)*
+
+- [ ] 48-13-PLAN.md — ConceitoSheet acessível + guardião transversal test_opcoes_caminho_b_ui (onda 6)
+
+**Wave 7** *(blocked on Wave 6 completion)*
+
+- [ ] 48-14-PLAN.md — checkpoint do Alex no iPhone e no web (onda 7)
