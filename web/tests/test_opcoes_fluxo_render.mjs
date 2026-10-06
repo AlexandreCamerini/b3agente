@@ -142,6 +142,9 @@ const p3 = pernas({ optionPositions: [posCall], estrutura: { pernas: [{ id: "ITU
 ok("G-02: resultado null mostra motivo do motor, sem 0,00", p3.includes(ox.anat_hoje_sem_negocio) && !p3.includes("0,00"));
 const p4 = pernas({ optionPositions: [posCall], estrutura: { pernas: [{ id: "ITUBJ492", resultado: null, encerrar: { permitido: false, texto: "VETO-DO-MOTOR" } }] } });
 ok("G-02: encerrar.permitido false -> aria-disabled com texto do motor e describedby", p4.includes('aria-disabled="true"') && p4.includes("VETO-DO-MOTOR") && p4.includes("aria-describedby"));
+// WR-02 (49-REVIEW, 2026-10-06): fallback 48-16 com a mesma regra — premio_indisponivel nunca desabilita Encerrar.
+const p4b = pernas({ optionPositions: [posCall], estrutura: { pernas: [{ id: "ITUBJ492", resultado: null, encerrar: { permitido: false, motivo: "premio_indisponivel", texto: "AVISO-PREMIO" } }] } });
+ok("WR-02: premio_indisponivel mantém Encerrar habilitado com o texto do motor", !p4b.includes('aria-disabled="true"') && p4b.includes("AVISO-PREMIO") && p4b.includes(">" + ox.pernas_encerrar + "<"));
 const p5 = pernas({ optionPositions: [posLastro, posVendida] });
 ok("G-02: lastro e vendida sem botão Encerrar", !p5.includes(">" + ox.pernas_encerrar + "<") && p5.includes(ox.pernas_na_estrutura) && p5.includes(ox.pernas_vendida_sem_acao));
 ok("G-02: perna de PETR4 ausente na lista de ITUB4", !pernas({ optionPositions: [posCall, posOutra] }).includes("PETRJ300"));

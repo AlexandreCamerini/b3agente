@@ -23,6 +23,16 @@ const fmtBRL = (v) => (ehNum(v) ? (v < 0 ? "−" : "") + "R$ " + fmt(Math.abs(v)
 // "+R$ 5,00" / "−R$ 5,00" / "R$ 0,00" (zero real do motor, nunca ausência)
 const fmtBRLsinal = (v) => (ehNum(v) ? (v > 0 ? "+" : "") + fmtBRL(v) : "—");
 
+// WR-02 (49-REVIEW, 2026-10-06): invariante 48-16 — Encerrar nunca é vetado por
+// falta de cotação ou de negócio. `premio_indisponivel` vira AVISO (texto do
+// motor ao lado do botão habilitado; a confirmação já diz o que não se sabe e a
+// rota de venda recusa com mensagem própria se não houver prêmio). Só os vetos
+// estruturais do motor (vencida, dados_invalidos e afins) desabilitam o botão.
+export const MOTIVO_SO_AVISO = "premio_indisponivel";
+export const encerrarVetado = (enc) => !!(enc && enc.permitido === false && enc.motivo !== MOTIVO_SO_AVISO);
+export const encerrarAviso = (enc) =>
+  enc && enc.permitido === false && enc.motivo === MOTIVO_SO_AVISO && enc.texto ? enc.texto : null;
+
 const comFoco = {
   onFocus: (e) => Object.assign(e.currentTarget.style, FOCO),
   onBlur: (e) => { e.currentTarget.style.outline = "none"; },
@@ -74,7 +84,8 @@ export default function AnatomiaPerna({
   const precos = grade && Array.isArray(grade.precos) ? grade.precos : [];
 
   const encerravel = !!pos && !pos.lastro && pos.side !== "vendida";
-  const vetado = !!(perna.encerrar && perna.encerrar.permitido === false);
+  const vetado = encerrarVetado(perna.encerrar);
+  const avisoEnc = encerrarAviso(perna.encerrar);
   const emCurso = ocupado === perna.id;
 
   const piorValor = perna.piorIlimitado ? tx("anat_pior_ilimitado") : fmtBRL(perna.piorCaso);
@@ -165,10 +176,14 @@ export default function AnatomiaPerna({
                 <div id={idVeto} style={{ ...TIPO.corpo, color: T.textPrimary }}>{(perna.encerrar && perna.encerrar.texto) || "—"}</div>
               </div>
             ) : confirmando ? null : (
-              <button type="button" ref={refEncerrar} aria-label={tx("pernas_encerrar_aria", { id: perna.id })}
-                onClick={() => setConfirmando(true)} {...comFoco} style={BOTAO}>
-                {tx("pernas_encerrar")}
-              </button>
+              <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                <button type="button" ref={refEncerrar} aria-label={tx("pernas_encerrar_aria", { id: perna.id })}
+                  aria-describedby={avisoEnc ? idVeto : undefined}
+                  onClick={() => setConfirmando(true)} {...comFoco} style={{ ...BOTAO, alignSelf: "flex-start" }}>
+                  {tx("pernas_encerrar")}
+                </button>
+                {avisoEnc ? <div id={idVeto} style={{ ...TIPO.corpo, color: T.textPrimary }}>{avisoEnc}</div> : null}
+              </div>
             )}
           </div>
 

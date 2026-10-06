@@ -77,6 +77,9 @@ const e = card(perna({ encerrar: { permitido: false, motivo: "x", texto: "VETO-M
 ok("5. encerrar.permitido false: aria-disabled + texto + describedby", e.includes('aria-disabled="true"') && e.includes("VETO-MOTOR") && e.includes("aria-describedby"));
 const e2 = card(perna({ encerrar: { permitido: true, motivo: null, texto: null } }));
 ok("5. encerrar.permitido true: habilitado", !e2.includes('aria-disabled="true"'));
+// WR-02 (49-REVIEW, 2026-10-06): premio_indisponivel é aviso (botão habilitado + texto do motor), não veto.
+const e3 = card(perna({ encerrar: { permitido: false, motivo: "premio_indisponivel", texto: "AVISO-SEM-PREMIO" } }));
+ok("5. premio_indisponivel: botão habilitado e texto do motor como aviso", !e3.includes('aria-disabled="true"') && e3.includes("AVISO-SEM-PREMIO") && tem(e3, tx("estudo", "pernas_encerrar")));
 
 // 6. lastro e vendida
 const f = card(perna(), { pos: { ...pos, lastro: { t: "ITUB4", qty: 100 } } });

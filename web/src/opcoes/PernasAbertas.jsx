@@ -14,7 +14,7 @@ import { opcoesEscadaTxt } from "../copy.js";
 import { T, FOCO, TIPO, ALVO_MIN, NUM } from "./fluxoEstilo.js";
 import { useAnatomia } from "./useAnatomia.js";
 import PosicaoTotal from "./PosicaoTotal.jsx";
-import AnatomiaPerna from "./AnatomiaPerna.jsx";
+import AnatomiaPerna, { encerrarVetado, encerrarAviso } from "./AnatomiaPerna.jsx";
 
 const ehNum = (v) => typeof v === "number" && isFinite(v);
 const fmt = (v) =>
@@ -62,7 +62,9 @@ function LinhaPerna48({ pos, motor, tx, carregandoEstrutura, confirmando, setCon
   const semNumero = resultado === null
     ? (frasePorMotivo || (carregandoEstrutura ? tx("pernas_carregando") : null))
     : null;
-  const vetado = !!(m && m.encerrar && m.encerrar.permitido === false);
+  // WR-02 (49-REVIEW): mesma regra do card da anatomia — premio_indisponivel é aviso, não veto.
+  const vetado = encerrarVetado(m && m.encerrar);
+  const avisoEnc = encerrarAviso(m && m.encerrar);
   const encerravel = !pos.lastro && pos.side !== "vendida";
   const idVeto = "perna-veto-" + pos.id;
   const emConfirmacao = confirmando === pos.id;
@@ -108,10 +110,14 @@ function LinhaPerna48({ pos, motor, tx, carregandoEstrutura, confirmando, setCon
           <div id={idVeto} style={{ ...TIPO.corpo, color: T.textPrimary }}>{(m.encerrar && m.encerrar.texto) || "—"}</div>
         </div>
       ) : (
-        <button type="button" aria-label={tx("pernas_encerrar_aria", { id: pos.id })}
-          onClick={() => setConfirmando(pos.id)} {...comFoco} style={{ ...BOTAO, alignSelf: "flex-start" }}>
-          {tx("pernas_encerrar")}
-        </button>
+        <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+          <button type="button" aria-label={tx("pernas_encerrar_aria", { id: pos.id })}
+            aria-describedby={avisoEnc ? idVeto : undefined}
+            onClick={() => setConfirmando(pos.id)} {...comFoco} style={{ ...BOTAO, alignSelf: "flex-start" }}>
+            {tx("pernas_encerrar")}
+          </button>
+          {avisoEnc ? <div id={idVeto} style={{ ...TIPO.corpo, color: T.textPrimary }}>{avisoEnc}</div> : null}
+        </div>
       )}
     </li>
   );
