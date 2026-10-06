@@ -291,5 +291,36 @@ ok("a tabela chega ao CriarSetup e ao BotaoDesativar por PROP",
 ok("CriarSetup.jsx não importa a tabela de OpcoesScreen.jsx (seria ciclo)",
    !/from\s+["'][^"']*OpcoesScreen\.jsx["']/.test(criarBruto));
 
+// ------------------- 11) Fase 48 (2026-10-05): o hook novo useEscada.js entra
+// na cobertura — estende, não afrouxa. A única chamada paga do caminho B
+// (`mcpEscadaMatriz`, 2N+1) só pode sair de clique (`verMatriz`), nunca de
+// efeito; o rótulo de custo vem do backend (escada.dados.comparar), não de
+// literal no hook.
+const escadaHook = semComentario(ler(join(dirOpcoes, "useEscada.js")));
+const corposDeEfeito = [];
+{
+  let pos = 0;
+  while ((pos = escadaHook.indexOf("useEffect(", pos)) >= 0) {
+    let prof = 0, j = pos + "useEffect".length;
+    for (; j < escadaHook.length; j++) {
+      if (escadaHook[j] === "(") prof++;
+      else if (escadaHook[j] === ")" && --prof === 0) break;
+    }
+    corposDeEfeito.push(escadaHook.slice(pos, j + 1));
+    pos = j + 1;
+  }
+}
+ok("sanidade: a extração enxerga os useEffect de useEscada.js", corposDeEfeito.length >= 2,
+   `achou ${corposDeEfeito.length}`);
+ok("useEscada: mcpEscadaMatriz NÃO aparece dentro de nenhum useEffect (custo só em clique)",
+   corposDeEfeito.every((c) => !c.includes("mcpEscadaMatriz")));
+const mVer = escadaHook.match(/const verMatriz = useCallback\(([\s\S]*?)\n  \}, \[/);
+ok("useEscada: mcpEscadaMatriz aparece dentro de verMatriz", !!mVer && mVer[1].includes("mcpEscadaMatriz"));
+const mcpEscada = [...escadaHook.matchAll(/store\.(mcp[A-Za-z0-9_]*)/g)].map((m) => m[1]);
+ok("useEscada: a única chamada store.mcp* é mcpEscadaMatriz",
+   mcpEscada.length >= 1 && mcpEscada.every((m) => m === "mcpEscadaMatriz"), mcpEscada.join());
+ok("useEscada: sem literal numérico de custo junto de \"consulta\"",
+   !/\d+[^\n]{0,40}consulta|consulta[^\n]{0,40}\d+/i.test(escadaHook));
+
 console.log(fails === 0 ? "\ntodos os testes passaram" : `\n${fails} FALHA(S)`);
 process.exit(fails === 0 ? 0 : 1);

@@ -297,6 +297,8 @@ function serverStore() {
     mcpOperaveis: (t, q) => api.mcpOperaveis(t, q),
     mcpProposta: (body) => api.mcpProposta(body),
     mcpPossibilidades: (body) => api.mcpPossibilidades(body),
+    // Fase 48 (caminho B): escada/leitura grátis; matriz paga só em clique.
+    mcpEscadaMatriz: (body) => api.mcpEscadaMatriz(body),
     // aba-opcoes F5 (plano 24-04): as três rotas de ESCRITA de setup. Mesma
     // delegação pura das irmãs de leitura, e aqui por uma razão a mais:
     // criar/desativar setup mexe num armazém COMPARTILHADO e sem dono no
@@ -319,6 +321,9 @@ function serverStore() {
     // velho como se fosse o do dia. Sem o prefixo `mcp` de propósito (ver o
     // comentário em api.js): `mcp*` neste código significa "custa cota".
     opcoesTecnico: (t, q) => api.opcoesTecnico(t, q),
+    // Fase 48 (caminho B): escada e leitura de célula, custo MCP 0.
+    opcoesEscada: (t, q) => api.opcoesEscada(t, q),
+    opcoesEscadaLeitura: (body) => api.opcoesEscadaLeitura(body),
     // 260911-k9g: carimbo do SERVIDOR ATUAL para o rodapé do Perfil —
     // diagnóstico, nunca persistido, mesma classe de delegação pura do
     // mcpStatus/optionsProposta acima.
@@ -1403,6 +1408,12 @@ function deviceStore() {
       ensure();
       return api.mcpPossibilidades(body);
     },
+    // Fase 48: dado de mercado não se duplica no aparelho; mesma razão de
+    // optionsProposta. Espelho do serverStore, mesmo contrato.
+    async mcpEscadaMatriz(body) {
+      ensure();
+      return api.mcpEscadaMatriz(body);
+    },
     // aba-opcoes F5 (plano 24-04): espelho das três rotas de ESCRITA de
     // setup do serverStore, com o mesmo contrato. Escrita que mexe em
     // armazém compartilhado NÃO entra em fila offline (ver o comentário no
@@ -1442,6 +1453,16 @@ function deviceStore() {
     async opcoesTecnico(t, q) {
       ensure();
       return api.opcoesTecnico(t, q);
+    },
+    // Fase 48: dado de mercado não se duplica no aparelho; mesma razão de
+    // optionsProposta. Espelho do serverStore, mesmo contrato.
+    async opcoesEscada(t, q) {
+      ensure();
+      return api.opcoesEscada(t, q);
+    },
+    async opcoesEscadaLeitura(body) {
+      ensure();
+      return api.opcoesEscadaLeitura(body);
     },
     // Fase 14 (Plano 05): logado, delega e adota o estado confirmado pelo
     // servidor (mesmo padrão de optionsBuy). Sem sessão, ramo local é

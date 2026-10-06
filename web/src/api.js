@@ -374,6 +374,9 @@ export const api = {
   // o servidor já ter consumido o cap — a pessoa pagaria a cota e não veria
   // o resultado.
   mcpPossibilidades: (body) => req("POST", "/api/options/mcp/possibilidades", body, 60000),
+  // Fase 48: matriz vencimento x degrau. 60 s pela mesma razão do possibilidades
+  // (até 2N+1 chamadas ao serviço numa requisição só).
+  mcpEscadaMatriz: (body) => req("POST", "/api/options/mcp/escada-matriz", body, 60000),
   // aba-opcoes F5 (planos 24-03/24-04) — as três rotas de ESCRITA de setup.
   // `compilar` é a ÚNICA da aba que chama LLM (descrição em português →
   // setup declarativo), e por isso é a única com `TIMEOUT_LLM`: com os 30 s
@@ -406,6 +409,11 @@ export const api = {
   // existe (ADR-027 §3.3: a aba abre sem gastar). A resposta declara
   // `custoMcp: 0`, e é dele que o rótulo "grátis" do controle sai.
   opcoesTecnico: (t, q) => req("GET", "/api/options/tecnico/" + encodeURIComponent(t) + qs(q), undefined, 30000),
+  // Fase 48 (2026-10-05) — caminho B (escada por objetivo). Escada e leitura de
+  // célula custam 0 (sem prefixo `mcp`, mesma convenção do opcoesTecnico);
+  // a matriz é a ÚNICA paga (2N+1 declarado pelo backend) e só sai de clique.
+  opcoesEscada: (t, q) => req("GET", "/api/options/escada/" + encodeURIComponent(t) + qs(q), undefined, 30000),
+  opcoesEscadaLeitura: (body) => req("POST", "/api/options/escada/leitura", body || {}, 15000),
   // FASE 8B (260911-k9g): carimbo de build do SERVIDOR JÁ CONFIGURADO
   // (runtimeBase) — diferente de testServer(url) acima, que valida um
   // ENDEREÇO DIGITADO antes de aplicá-lo. Usado só para exibir no rodapé do
