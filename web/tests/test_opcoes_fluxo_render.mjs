@@ -163,5 +163,26 @@ const srcTela = readFileSync(new URL("../src/opcoes/OpcoesScreen.jsx", import.me
 ok("G-02: <PernasAbertas aparece 2x (objetivo e Montar), a do Montar depois de LastroDoAtivo",
    (srcTela.match(/<PernasAbertas/g) || []).length === 2 && /<LastroDoAtivo pos=\{posicaoSelecionada\} cp=\{cp\} \/>\s*\{\/\*[^]*?\*\/\}\s*<PernasAbertas/.test(srcTela));
 
+// ---- Fase 49 (2026-10-06) — ordem da tela (posição → pernas → objetivos)
+{
+  const tA = COPY.estudo.opcoesEscada.anat_titulo_posicao.replace("{ticker}", "ITUB4");
+  const tO = COPY.estudo.opcoesEscada.anat_objetivos_titulo;
+  const com = html(h(ObjetivoAtivo, { cp, mode: "estudo", ticker: "ITUB4", escada: escadaObj, pernasAbertas: h("div", null, "SLOT-PERNAS") }));
+  const iT = com.indexOf(tA), iS = com.indexOf("SLOT-PERNAS"), iO = com.indexOf(tO), iC = com.indexOf("Proteger de queda");
+  ok("Fase 49: com pernas, ordem posição < pernas < objetivos < 1º card", iT >= 0 && iT < iS && iS < iO && iO < iC);
+  ok("Fase 49: com pernas, a pergunta do 48 não aparece", !com.includes(COPY.estudo.opcoesEscada.pergunta_objetivo.replace("{qtd}", "300")));
+  const sem = html(h(ObjetivoAtivo, { cp, mode: "estudo", ticker: "ITUB4", escada: escadaObj }));
+  ok("Fase 49: sem pernas, tela do 48 intacta", sem.includes(COPY.estudo.opcoesEscada.pergunta_objetivo.replace("{qtd}", "300")) && !sem.includes(tA) && !sem.includes(tO));
+}
+
+// ---- Fase 49 (2026-10-06) — fiação das montagens de PernasAbertas
+{
+  const mont = srcTela.match(/<PernasAbertas[^]*?\/>/g) || [];
+  ok("Fase 49: 2 montagens com store={store} e onAbrirVerbete={abrirVerbeteLocal}",
+    mont.length === 2 && mont.every((m) => m.includes("store={store}") && m.includes("onAbrirVerbete={abrirVerbeteLocal}")));
+  ok("Fase 49: estrutura lida de proposta.estrutura (nunca opcoesPorTicker[x].estrutura direto)",
+    mont.every((m) => m.includes(".proposta.estrutura") && !/\]\.estrutura\)/.test(m)));
+}
+
 if (fails) { console.log("\n" + fails + " falha(s)"); process.exit(1); }
 console.log("\nOK");

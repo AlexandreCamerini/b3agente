@@ -865,7 +865,12 @@ export default function OpcoesScreen({ ctx }) {
               mode={mode}
               ticker={nav.ticker}
               optionPositions={optionPositionsAll}
-              estrutura={(opcoesPorTicker[nav.ticker] && opcoesPorTicker[nav.ticker].estrutura) || null}
+              // Fase 49 (2026-10-06): a estrutura mora em proposta.estrutura (useOpcoesPropostas guarda {gate, proposta}); o caminho anterior era sempre null. A anatomia (useAnatomia) é a fonte principal; isto é só o fallback.
+              estrutura={(opcoesPorTicker[nav.ticker] && opcoesPorTicker[nav.ticker].proposta && opcoesPorTicker[nav.ticker].proposta.estrutura) || null}
+              store={store}
+              didatica={ctx && ctx.didatica}
+              kbCatalogo={ctx && ctx.kbCatalogo}
+              onAbrirVerbete={abrirVerbeteLocal}
               carregandoEstrutura={!!opcoesPorTickerCarregando && !opcoesPorTicker[nav.ticker]}
               A={ctx && ctx.A}
             />
@@ -987,7 +992,12 @@ export default function OpcoesScreen({ ctx }) {
                 mode={mode}
                 ticker={ticker}
                 optionPositions={optionPositionsAll}
-                estrutura={(opcoesPorTicker[ticker] && opcoesPorTicker[ticker].estrutura) || null}
+                // Fase 49 (2026-10-06): a estrutura mora em proposta.estrutura (useOpcoesPropostas guarda {gate, proposta}); o caminho anterior era sempre null. A anatomia (useAnatomia) é a fonte principal; isto é só o fallback.
+                estrutura={(opcoesPorTicker[ticker] && opcoesPorTicker[ticker].proposta && opcoesPorTicker[ticker].proposta.estrutura) || null}
+                store={store}
+                didatica={ctx && ctx.didatica}
+                kbCatalogo={ctx && ctx.kbCatalogo}
+                onAbrirVerbete={abrirVerbeteLocal}
                 carregandoEstrutura={!!opcoesPorTickerCarregando && !opcoesPorTicker[ticker]}
                 A={ctx && ctx.A}
               />
