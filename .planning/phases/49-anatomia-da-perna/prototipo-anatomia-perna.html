@@ -1,0 +1,331 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Protótipo — Anatomia da perna</title>
+<style>
+  :root {
+    --bg:#12141c; --card:#171b27; --card2:#1d2231; --line:#3a4262; --text:#e8eaf2; --muted:#a9afc6;
+    --accent:#d9bf45; --lav:#9aa3d6; --gain:#4cc38a; --loss:#f0716f; --warn:#e0a63a;
+    --c1:#7aa2ff; --c2:#c58bff; --c3:#ffb36b; --focus:#ffffff;
+    --font: ui-rounded, "Nunito", system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme="dark"]) {
+      --bg:#f5f6fa; --card:#ffffff; --card2:#eef0f7; --line:#7d86a8; --text:#1a1d2b; --muted:#4a5070;
+      --accent:#7a6200; --lav:#3f4a94; --gain:#12714a; --loss:#b3261e; --warn:#8a5a00;
+      --c1:#1f4fd1; --c2:#7a2fd0; --c3:#a85200; --focus:#000;
+    }
+  }
+  :root[data-theme="light"] {
+    --bg:#f5f6fa; --card:#ffffff; --card2:#eef0f7; --line:#7d86a8; --text:#1a1d2b; --muted:#4a5070;
+    --accent:#7a6200; --lav:#3f4a94; --gain:#12714a; --loss:#b3261e; --warn:#8a5a00;
+    --c1:#1f4fd1; --c2:#7a2fd0; --c3:#a85200; --focus:#000;
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font-family:var(--font); font-size:17px; line-height:1.5; }
+  .wrap { max-width:1080px; margin:0 auto; padding:16px 16px 64px; }
+  a, button, input, summary { font:inherit; color:inherit; }
+  :focus-visible { outline:3px solid var(--focus); outline-offset:2px; }
+  .top { display:flex; justify-content:space-between; align-items:center; gap:12px; }
+  .back { color:var(--accent); background:none; border:0; padding:12px 0; min-height:44px; font-weight:700; cursor:pointer; }
+  .theme { background:var(--card2); border:1px solid var(--line); border-radius:999px; padding:0 14px; min-height:44px; cursor:pointer; }
+  .virtual { color:var(--muted); margin:4px 0 20px; }
+  h1 { font-size:1.55rem; line-height:1.2; margin:0 0 4px; }
+  h1 .tk { color:var(--lav); }
+  h2 { font-size:1.2rem; margin:32px 0 12px; }
+  .sub { color:var(--muted); margin:0 0 16px; }
+  .panel { background:var(--card); border:1px solid var(--line); border-radius:18px; padding:16px; }
+  .chips { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:12px; }
+  .chip { display:inline-flex; align-items:center; gap:8px; min-height:44px; padding:0 14px; border-radius:999px;
+          border:2px solid var(--line); background:var(--card2); cursor:pointer; }
+  .chip[aria-pressed="true"] { border-color:var(--sw); }
+  .chip .sw { width:14px; height:14px; border-radius:4px; background:var(--sw); }
+  .chip[aria-pressed="false"] { opacity:.6; }
+  .chip[aria-pressed="false"] .sw { background:transparent; border:2px solid var(--sw); }
+  svg { display:block; width:100%; height:auto; }
+  .ax { fill:var(--muted); font-size:11px; }
+  .grid { stroke:var(--line); stroke-width:1; opacity:.45; }
+  .zero { stroke:var(--text); stroke-width:1.2; opacity:.7; }
+  .lab { font-size:11px; font-weight:700; }
+  .slider { display:grid; gap:6px; margin-top:12px; }
+  .slider label { color:var(--muted); }
+  input[type=range] { width:100%; accent-color:var(--accent); min-height:44px; }
+  .readout { margin-top:8px; padding:12px 14px; border-radius:12px; background:var(--card2); border:1px solid var(--line); }
+  .readout b.g { color:var(--gain); } .readout b.l { color:var(--loss); }
+  .row { display:flex; flex-wrap:wrap; gap:12px; align-items:center; margin-top:12px; }
+  .row input[type=number] { min-height:44px; width:130px; background:var(--card2); border:1px solid var(--line); border-radius:10px; padding:0 10px; }
+  .legs { display:grid; gap:16px; }
+  .leg { background:var(--card); border:2px solid var(--line); border-radius:18px; padding:16px; }
+  .leg[data-sel="true"] { border-color:var(--sw); }
+  .leg-head { display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; align-items:baseline; }
+  .leg-id { font-weight:800; letter-spacing:.02em; }
+  .tag { font-size:.85rem; padding:2px 10px; border-radius:999px; border:1px solid var(--line); background:var(--card2); }
+  .prazo { font-weight:700; color:var(--warn); }
+  .leg-body { display:grid; gap:16px; margin-top:12px; }
+  @media (min-width:760px) { .leg-body { grid-template-columns: 1fr 340px; align-items:start; } }
+  .frase { font-size:1.08rem; margin:0 0 12px; }
+  .frase em { font-style:normal; font-weight:800; }
+  .stats { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; }
+  @media (max-width:520px){ .stats { grid-template-columns:1fr; } }
+  .stat { background:var(--card2); border:1px solid var(--line); border-radius:12px; padding:10px 12px; }
+  .stat .k { color:var(--muted); font-size:.85rem; display:block; }
+  .stat .v { font-weight:800; font-size:1.08rem; }
+  .stat .v.l { color:var(--loss); }
+  .nd { display:inline-block; font-size:.85rem; font-weight:700; padding:2px 8px; border-radius:8px; border:1px dashed var(--warn); color:var(--warn); }
+  .termo { text-decoration:underline dotted; text-underline-offset:3px; cursor:help; background:none; border:0; padding:0; }
+  .actions { display:flex; gap:8px; flex-wrap:wrap; margin-top:12px; }
+  .btn { min-height:44px; padding:0 18px; border-radius:12px; border:1.5px solid var(--line); background:var(--card2); cursor:pointer; font-weight:700; }
+  .btn.pri { border-color:var(--accent); color:var(--accent); }
+  .btn.sec { font-weight:500; }
+  .confirm { margin-top:12px; padding:12px 14px; border-radius:12px; border:1.5px solid var(--warn); background:var(--card2); }
+  .confirm p { margin:0 0 8px; }
+  .confirm[hidden] { display:none; }
+  details { margin-top:10px; color:var(--muted); }
+  summary { cursor:pointer; min-height:32px; }
+  table { border-collapse:collapse; width:100%; margin-top:6px; font-size:.9rem; }
+  th, td { text-align:right; padding:4px 8px; border-bottom:1px solid var(--line); }
+  th:first-child, td:first-child { text-align:left; }
+  .stub { opacity:.7; border-style:dashed; }
+  .proto { margin-top:32px; padding:12px 14px; border:1px dashed var(--line); border-radius:12px; color:var(--muted); font-size:.92rem; }
+  .sr { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }
+  @media (prefers-reduced-motion: no-preference) {
+    .curve { transition: opacity .15s linear, stroke-width .15s linear; }
+    .leg { transition: border-color .15s linear; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <button class="back" type="button">‹ voltar</button>
+    <button class="theme" type="button" id="theme" aria-label="Alternar tema claro e escuro">Tema</button>
+  </div>
+  <p class="virtual">Dinheiro virtual: nenhuma ordem sai para corretora, bolsa ou banco.</p>
+
+  <h1>Sua posição em <span class="tk">ITUB4</span></h1>
+  <p class="sub">Veja o que cada perna faz antes de decidir. Mexa no preço para testar hipóteses: não é previsão.</p>
+
+  <section class="panel" aria-labelledby="h-total">
+    <h2 id="h-total" style="margin-top:0">Resultado no vencimento (09/10)</h2>
+    <div class="chips" id="chips" role="group" aria-label="Pernas incluídas no gráfico"></div>
+    <svg id="main" viewBox="0 0 720 300" role="img" aria-labelledby="main-t main-d"><title id="main-t">Resultado no vencimento por preço da ITUB4</title><desc id="main-d"></desc></svg>
+    <div class="slider">
+      <label for="preco">Se ITUB4 estiver a <b id="precoTxt"></b> no vencimento (hipótese sua)</label>
+      <input id="preco" type="range" min="40" max="56" step="0.05" value="48">
+    </div>
+    <div class="row">
+      <label for="pm">Preço médio das suas 100 ações (opcional):</label>
+      <input id="pm" type="number" inputmode="decimal" min="0" step="0.01" placeholder="R$ — ">
+    </div>
+    <div class="readout" id="readout" aria-live="polite"></div>
+  </section>
+
+  <h2>Suas pernas</h2>
+  <div class="legs" id="legs"></div>
+
+  <h2>O que você quer fazer com a posição?</h2>
+  <div class="panel stub">Os objetivos entram aqui, depois do entendimento (inalterado em relação à tela atual).</div>
+
+  <div class="proto">
+    <b>Notas do protótipo.</b> Dados são os do screenshot (3 pernas de ITUB4, venc. 09/10). As frases e números de produção vêm do motor determinístico; aqui o cálculo é refeito só para a demonstração. “Hoje” aparece no estado sem cotação, com a causa vinda do motor. O preço médio das ações não estava na tela: fica de fora até você informar.
+  </div>
+</div>
+
+<script>
+(function(){
+  var SMIN = 40, SMAX = 56, QTY = 100;
+  var LEGS = [
+    { id:'ITUBJ493W2', tipo:'CALL', K:49.26, prem:0.21, sw:'var(--c1)', on:true },
+    { id:'ITUBJ498W2', tipo:'CALL', K:49.76, prem:0.16, sw:'var(--c2)', on:true },
+    { id:'ITUBV465W2', tipo:'PUT',  K:46.51, prem:2.40, sw:'var(--c3)', on:true }
+  ];
+  var VENC = new Date(2026,9,9);
+  var S = 48, sel = null, pm = null;
+  var NS = 'http://www.w3.org/2000/svg';
+
+  function brl(v, sign){ var s = Math.abs(v).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+    return (v<0?'−':(sign&&v>0?'+':''))+'R$ '+s; }
+  function px(v){ return v.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+  function pay(l,s){ var i = l.tipo==='CALL' ? Math.max(s-l.K,0) : Math.max(l.K-s,0); return QTY*(i-l.prem); }
+  function be(l){ return l.tipo==='CALL' ? l.K+l.prem : l.K-l.prem; }
+  function worst(l){ return -QTY*l.prem; }
+  function stock(s){ return pm==null ? 0 : QTY*(s-pm); }
+  function total(s, skipId){
+    var t = stock(s);
+    LEGS.forEach(function(l){ if(l.on && l.id!==skipId) t += pay(l,s); });
+    return t;
+  }
+  function dias(){ var h = new Date(); h.setHours(0,0,0,0); return Math.round((VENC-h)/86400000); }
+  function prazoTxt(){ var d = dias(); return d>1?'vence em '+d+' dias':d===1?'vence amanhã':d===0?'vence hoje':'vencida'; }
+
+  function el(n,a,p){ var e=document.createElementNS(NS,n); for(var k in a) e.setAttribute(k,a[k]); if(p)p.appendChild(e); return e; }
+
+  /* ---------- gráfico genérico ---------- */
+  function drawChart(svg, o){
+    // o: W,H, curves[{f,stroke,w,op,id}], area f|null, marks[{x,label,color,dy}], ticks[], cursor
+    var W=o.W,H=o.H, L=44,R=12,T=14,B=26;
+    var xs=[],i; for(i=0;i<=160;i++) xs.push(SMIN+(SMAX-SMIN)*i/160);
+    var ys=[0]; o.curves.concat(o.area?[{f:o.area}]:[]).forEach(function(c){ xs.forEach(function(x){ ys.push(c.f(x)); }); });
+    var lo=Math.min.apply(null,ys), hi=Math.max.apply(null,ys);
+    var pad=(hi-lo)*0.08||10; lo-=pad; hi+=pad;
+    function X(v){ return L+(v-SMIN)/(SMAX-SMIN)*(W-L-R); }
+    function Y(v){ return T+(hi-v)/(hi-lo)*(H-T-B); }
+    var keep=svg.querySelector('title'), keepD=svg.querySelector('desc');
+    while(svg.lastChild) svg.removeChild(svg.lastChild);
+    if(keep) svg.appendChild(keep); if(keepD) svg.appendChild(keepD);
+    var defs=el('defs',{},svg);
+    var pid='h'+Math.random().toString(36).slice(2,7);
+    var pat=el('pattern',{id:pid,width:6,height:6,patternUnits:'userSpaceOnUse',patternTransform:'rotate(45)'},defs);
+    el('rect',{width:6,height:6,fill:'var(--loss)',opacity:.12},pat); el('line',{x1:0,y1:0,x2:0,y2:6,stroke:'var(--loss)','stroke-width':2,opacity:.55},pat);
+    var y0=Y(0);
+    var cu=el('clipPath',{id:pid+'u'},defs); el('rect',{x:L,y:0,width:W-L-R,height:y0},cu);
+    var cd=el('clipPath',{id:pid+'d'},defs); el('rect',{x:L,y:y0,width:W-L-R,height:H},cd);
+    // grade e eixo x
+    o.ticks.forEach(function(t){ el('line',{x1:X(t),x2:X(t),y1:T,y2:H-B,class:'grid'},svg);
+      var tx=el('text',{x:X(t),y:H-8,'text-anchor':'middle',class:'ax'},svg); tx.textContent=t; });
+    [lo,hi].forEach(function(v){});
+    // eixo y: 3 rótulos (min, 0, max)
+    [Math.round(lo/10)*10, 0, Math.round(hi/10)*10].forEach(function(v,idx){
+      if(v<lo||v>hi) return; var t=el('text',{x:L-6,y:Y(v)+4,'text-anchor':'end',class:'ax'},svg); t.textContent=(v<0?'−':'')+Math.abs(v); });
+    el('line',{x1:L,x2:W-R,y1:y0,y2:y0,class:'zero'},svg);
+    // área
+    if(o.area){
+      var d='M'+X(SMIN)+' '+y0; xs.forEach(function(x){ d+=' L'+X(x)+' '+Y(o.area(x)); }); d+=' L'+X(SMAX)+' '+y0+' Z';
+      el('path',{d:d,fill:'var(--gain)',opacity:.16,'clip-path':'url(#'+pid+'u)'},svg);
+      el('path',{d:d,fill:'url(#'+pid+')','clip-path':'url(#'+pid+'d)'},svg);
+    }
+    // marcas verticais
+    o.marks.forEach(function(m){
+      el('line',{x1:X(m.x),x2:X(m.x),y1:T,y2:H-B,stroke:m.color,'stroke-width':1.2,'stroke-dasharray':'4 3',opacity:.85},svg);
+      var t=el('text',{x:X(m.x)+3,y:T+10+(m.dy||0),class:'lab',fill:m.color},svg); t.textContent=m.label; });
+    // curvas
+    o.curves.forEach(function(c){
+      var d=''; xs.forEach(function(x,k){ d+=(k?' L':'M')+X(x)+' '+Y(c.f(x)); });
+      el('path',{d:d,fill:'none',stroke:c.stroke,'stroke-width':c.w,opacity:c.op,'stroke-linejoin':'round',class:'curve'},svg);
+    });
+    // cursor
+    if(o.cursor!=null){
+      el('line',{x1:X(o.cursor),x2:X(o.cursor),y1:T,y2:H-B,stroke:'var(--accent)','stroke-width':2},svg);
+      var yv=o.cursorF(o.cursor);
+      el('circle',{cx:X(o.cursor),cy:Y(yv),r:5,fill:'var(--accent)',stroke:'var(--bg)','stroke-width':2},svg);
+    }
+  }
+
+  /* ---------- tela ---------- */
+  function renderChips(){
+    var box=document.getElementById('chips'); box.innerHTML='';
+    LEGS.forEach(function(l){
+      var b=document.createElement('button'); b.type='button'; b.className='chip'; b.style.setProperty('--sw',l.sw);
+      b.setAttribute('aria-pressed',String(l.on));
+      b.innerHTML='<span class="sw" aria-hidden="true"></span>'+l.tipo+' '+px(l.K);
+      b.addEventListener('click',function(){ l.on=!l.on; update(); });
+      box.appendChild(b);
+    });
+  }
+
+  function renderMain(){
+    var svg=document.getElementById('main');
+    var curves=LEGS.map(function(l){
+      var hl = sel===l.id;
+      return { f:function(s){return pay(l,s);}, stroke:l.sw, w:hl?3.5:1.6, op:!l.on?0:(sel&&!hl?.25:.9) };
+    });
+    curves.push({ f:function(s){return total(s);}, stroke:'var(--text)', w:sel?2:3.2, op:sel?.55:1 });
+    var marks=LEGS.filter(function(l){return l.on;}).map(function(l,i){ return {x:l.K,label:'K '+px(l.K),color:l.sw,dy:i*12}; });
+    drawChart(svg,{W:720,H:300,curves:curves,area:function(s){return total(s);},marks:marks,ticks:[40,44,48,52,56],
+      cursor:S,cursorF:function(s){return total(s);}});
+    var on=LEGS.filter(function(l){return l.on;}).length;
+    document.getElementById('main-d').textContent='Curva do resultado total no vencimento, somando '+on+' perna(s)'+(pm!=null?' e as 100 ações':'')+'. Veja a tabela em cada perna para os valores.';
+  }
+
+  function renderReadout(){
+    var r=document.getElementById('readout'); var t=total(S);
+    var cls=t>0?'g':(t<0?'l':''); var h='';
+    if(sel){
+      var l=LEGS.filter(function(x){return x.id===sel;})[0];
+      var sem=total(S,sel), com=l.on?t:t+pay(l,S), contrib=pay(l,S);
+      h='<b>Em R$ '+px(S)+' no vencimento:</b> com a perna <b>'+l.id+'</b> o resultado é <b>'+brl(l.on?t:t+contrib)+'</b>; sem ela, <b>'+brl(sem)+'</b>. '+
+        'Ela contribui com <b class="'+(contrib>=0?'g':'l')+'">'+brl(contrib,true)+'</b>.';
+    } else {
+      h='<b>Em R$ '+px(S)+' no vencimento</b>, as pernas marcadas somam <b class="'+cls+'">'+brl(t,true)+'</b>'+(pm==null?' (sem as ações).':'.');
+    }
+    r.innerHTML=h;
+  }
+
+  function fraseLeg(l){
+    var total=QTY*l.prem;
+    var dir=l.tipo==='CALL'
+      ? 'o direito de <em>comprar</em> '+QTY+' ITUB4 a <em>R$ '+px(l.K)+'</em> cada'
+      : 'o direito de <em>vender</em> '+QTY+' ITUB4 a <em>R$ '+px(l.K)+'</em> cada';
+    return 'Você pagou <em>'+brl(total)+'</em> (R$ '+px(l.prem)+' × '+QTY+') por '+dir+', até '+
+      '09/10. Se não valer a pena exercer, o máximo que você perde é o que pagou.';
+  }
+  function condLeg(l){
+    return l.tipo==='CALL'
+      ? 'Ganha se ITUB4 passar de <b>R$ '+px(be(l))+'</b> no vencimento.'
+      : 'Ganha se ITUB4 cair abaixo de <b>R$ '+px(be(l))+'</b> no vencimento.';
+  }
+
+  function renderLegs(){
+    var box=document.getElementById('legs'); box.innerHTML='';
+    LEGS.forEach(function(l){
+      var a=document.createElement('article'); a.className='leg'; a.style.setProperty('--sw',l.sw); a.dataset.sel=String(sel===l.id);
+      var tbl=[42,46,l.K,50,54].sort(function(x,y){return x-y;}).filter(function(v,i,arr){return arr.indexOf(v)===i;});
+      a.innerHTML=
+        '<div class="leg-head"><div><span class="leg-id">'+l.id+'</span> <span class="tag">'+l.tipo+' comprada</span></div>'+
+        '<span class="prazo">'+prazoTxt()+' (09/10)</span></div>'+
+        '<div class="leg-body"><div>'+
+          '<p class="frase">'+fraseLeg(l)+'</p><p style="margin:0 0 12px">'+condLeg(l)+'</p>'+
+          '<div class="stats">'+
+            '<div class="stat"><span class="k">Pior caso</span><span class="v l">'+brl(worst(l))+'</span></div>'+
+            '<div class="stat"><span class="k"><button class="termo" type="button" data-termo>Equilíbrio</button></span><span class="v">R$ '+px(be(l))+'</span></div>'+
+            '<div class="stat"><span class="k">Hoje</span><span class="v"><span class="nd">Sem cotação</span></span></div>'+
+          '</div>'+
+          '<p style="color:var(--muted);margin:8px 0 0;font-size:.92rem">Valor de hoje e resultado agora indisponíveis. Motivo: <i>texto do motor</i>. O quadro de vencimento ao lado não depende de cotação.</p>'+
+          '<div class="actions">'+
+            '<button class="btn pri" type="button" data-focus aria-pressed="'+(sel===l.id)+'">Ver o que muda sem esta perna</button>'+
+            '<button class="btn sec" type="button" data-enc aria-label="Encerrar a perna '+l.id+'">Encerrar…</button>'+
+          '</div>'+
+          '<div class="confirm" hidden><p><b>Encerrar '+l.id+'?</b> Você vende o direito de volta. Sem cotação agora, não dá para calcular quanto entra no caixa. Nenhuma ordem real é enviada.</p>'+
+            '<div class="actions" style="margin:0"><button class="btn sec" type="button" data-cancel>Cancelar</button><button class="btn" type="button" data-ok>Confirmar encerramento</button></div></div>'+
+        '</div>'+
+        '<div><svg viewBox="0 0 340 150" role="img" aria-label="Resultado da perna '+l.id+' no vencimento: perda máxima '+brl(worst(l))+', equilíbrio em R$ '+px(be(l))+'"></svg>'+
+          '<details><summary>Ver em tabela</summary><table><thead><tr><th scope="col">ITUB4 no vencimento</th><th scope="col">Resultado da perna</th></tr></thead><tbody>'+
+          tbl.map(function(v){return '<tr><td>R$ '+px(v)+'</td><td>'+brl(pay(l,v),true)+'</td></tr>';}).join('')+'</tbody></table></details>'+
+        '</div></div>';
+      box.appendChild(a);
+      var svg=a.querySelector('svg');
+      drawChart(svg,{W:340,H:150,curves:[{f:function(s){return pay(l,s);},stroke:l.sw,w:3,op:1}],area:function(s){return pay(l,s);},
+        marks:[{x:l.K,label:'K',color:'var(--muted)'},{x:be(l),label:'eq.',color:l.sw,dy:12}],ticks:[40,48,56],cursor:S,cursorF:function(s){return pay(l,s);}});
+      a.querySelector('[data-focus]').addEventListener('click',function(){ sel = (sel===l.id)?null:l.id; if(sel&&!l.on) l.on=true; update(); document.getElementById('main').scrollIntoView({block:'center',behavior:window.matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'}); });
+      var cf=a.querySelector('.confirm');
+      a.querySelector('[data-enc]').addEventListener('click',function(){ cf.hidden=false; cf.querySelector('[data-cancel]').focus(); });
+      a.querySelector('[data-cancel]').addEventListener('click',function(){ cf.hidden=true; a.querySelector('[data-enc]').focus(); });
+      a.querySelector('[data-ok]').addEventListener('click',function(){ cf.querySelector('p').innerHTML='<b>Protótipo:</b> aqui a ordem simulada seria enviada (A.sellOption). Nada foi feito.'; });
+      a.querySelector('[data-termo]').addEventListener('click',function(e){ alert('Equilíbrio: o preço de ITUB4 no vencimento em que a perna nem ganha nem perde — já descontado o que você pagou. (Abre o verbete KB opc-equilibrio.)'); });
+    });
+  }
+
+  function update(){
+    document.getElementById('precoTxt').textContent='R$ '+px(S);
+    renderChips(); renderMain(); renderReadout(); renderLegs();
+  }
+
+  document.getElementById('preco').addEventListener('input',function(e){
+    S=parseFloat(e.target.value); document.getElementById('precoTxt').textContent='R$ '+px(S);
+    renderMain(); renderReadout(); renderLegs();
+  });
+  document.getElementById('pm').addEventListener('input',function(e){
+    var v=parseFloat(e.target.value); pm=(isFinite(v)&&v>0)?v:null; renderMain(); renderReadout();
+  });
+  document.getElementById('theme').addEventListener('click',function(){
+    var r=document.documentElement, cur=r.getAttribute('data-theme');
+    var sysLight=window.matchMedia('(prefers-color-scheme: light)').matches;
+    var now=cur||(sysLight?'light':'dark'); r.setAttribute('data-theme',now==='dark'?'light':'dark');
+  });
+  update();
+})();
+</script>
+</body>
+</html>

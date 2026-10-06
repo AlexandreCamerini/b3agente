@@ -325,6 +325,7 @@ Requirements: `.planning/REQUIREMENTS.md`. Mock: https://claude.ai/artifact/JEpy
 - [ ] Phase 46.1: Fechamento das ressalvas da 46 (G-07, G-08, AL-01, AL-02)
 - [ ] Phase 47: Didática — expectativa matemática × taxa de acerto (DIDA-01..02)
 - [ ] Phase 48: Opções, caminho B — redesenho da aba Opções (hub → ativo + escada por objetivo) — numerada 48 por ordem de abertura; execução recomendada ANTES da 47
+- [ ] Phase 49: Anatomia da perna — card que explica cada perna (frase, pior caso, equilíbrio, prazo, curva de payoff) e gráfico total com "sem esta perna" antes de decidir/encerrar; depende da aprovação do checkpoint 48-17
 
 ### Phase 44: Motor — estrutura por ativo
 
@@ -478,3 +479,28 @@ Plans:
 **Wave 10** *(blocked on Wave 9 completion)*
 
 - [ ] 48-17-PLAN.md — checkpoint humano de reverificação ITUB4/PETR4 venc 09/10 (MyData, B3_DEV_MERCADO_ABERTO=1) (onda 10)
+
+### Phase 49: Anatomia da perna
+
+**Goal:** o usuário entende o que cada perna aberta faz — o direito comprado, o pior caso, o equilíbrio, o prazo — e o que muda no conjunto se ela sair, ANTES de decidir ou encerrar. Tudo calculado pelo motor determinístico; a tela só mostra.
+**Depends on:** Phase 48 (checkpoint 48-17 aprovado; hoje `PernasAbertas.jsx` lista as pernas e encerra, mas sem anatomia)
+**Requirements:** ANAT-01..ANAT-08 (a registrar em REQUIREMENTS.md no `/gsd-plan-phase 49`)
+**Insumos:** protótipo `.planning/phases/49-anatomia-da-perna/prototipo-anatomia-perna.html`; crítica do screenshot do 48-17 (2026-10-06).
+**Decisões propostas (a confirmar pelo Alex no plan-phase):** (1) ordem da tela: posição/gráfico total → pernas → objetivos; (2) "Encerrar" permanece no card, com confirmação que declara o que se sabe e o que não se sabe; (3) ações entram no gráfico total só com preço médio vindo do motor (nunca estimado).
+**Success criteria:**
+
+1. Cada perna mostra, por frase de template determinístico (`skill_ref` ↔ `copy.js`), o que foi pago, o direito (comprar/vender, quantidade, strike) e o prazo em dias; sem número no motor, travessão + motivo, nunca 0.
+2. Pior caso, equilíbrio e resultado no vencimento por perna vêm do motor e batem com a conta por strike/prêmio em teste unitário; independem de cotação (só "Hoje" depende).
+3. Curva de payoff por perna e total por ativo calculadas no backend (pontos), com paridade deviceStore ↔ serverStore; a tela não refaz a conta.
+4. "Ver o que muda sem esta perna": resultado com e sem, e contribuição, no preço escolhido pelo usuário (hipótese, nunca previsão).
+5. Encerrar com confirmação informada; nunca desabilitado por frescor/liquidez (invariante do 48-16); sem cotação, diz que não dá para calcular o que entra no caixa.
+6. A11y: curva com alternativa textual + tabela, perda por hachura (não só cor), alvos 44 pt, contraste AA nos 4 temas, `prefers-reduced-motion`.
+7. Estudo e Operador com vocabulário próprio; nenhuma promessa de ganho; "Não há dados suficientes para concluir." quando faltar dado.
+
+**A confirmar no código antes de planejar:** se `opcoes_payoff`/`cenarios_da_estrutura` (`cartao_posicao.py:326`) já expõem pontos por perna ou só por estrutura; shape de `estrutura.pernas[]` em `PernasAbertas.jsx`; onde mora o preço médio das ações; como o termo "equilíbrio" (`opc-equilibrio`) já abre o `ConceitoSheet`.
+**Guardiões a tocar:** `test_opcoes_fluxo_render.mjs`, `test_opcoes_escada_espelho.mjs`, `test_opcoes_custo_declarado.mjs` (curva grátis, sem MCP), paridade de prompts não afetada.
+**Modelo:** Sonnet executa/verifica; Opus só orquestra e planeja.
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd-plan-phase 49 to break down)
