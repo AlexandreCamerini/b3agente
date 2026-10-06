@@ -425,6 +425,38 @@ ENTRADA_AUTO = {
 }
 
 
+# Retorno acumulado (quick 261006-dvf, 2026-10-06): texto por ORIGEM da base
+# (`store.resolver_base_serie`). Espelho byte a byte em `web/src/copy.js`
+# (`COPY[modo].retornoAcumulado`), travado por test_vocabulario_espelho.mjs.
+# `carimbada_reinicio` = a janela recomeçou num aporte/retirada (inicio > 0):
+# a frase NÃO pode dizer "desde o capital inicial". Estados sem base dizem
+# "Não há dados suficientes para concluir." — nunca um número inventado.
+RETORNO_ACUMULADO = {
+    "operador": {
+        "carimbada": "Retorno acumulado desde o capital inicial: {pct}.",
+        "carimbada_reinicio": "Retorno acumulado desde {desde} (capital alterado): {pct}. Aporte ou retirada não conta como retorno.",
+        "primeiro_registro": "Retorno acumulado desde {desde} (1º dia registrado): {pct}. Capital inicial da série não registrado.",
+        "sem_serie": "Não há dados suficientes para concluir. Sem dia de patrimônio registrado.",
+        "inconsistente": "Não há dados suficientes para concluir. Bases da série inconsistentes, sem ajuste de capital registrado.",
+    },
+    "educacional": {
+        "carimbada": "Desde o capital inicial desta simulação, o retorno acumulado é de {pct}.",
+        "carimbada_reinicio": "Desde {desde}, quando o capital da simulação foi alterado, o retorno acumulado é de {pct}. Aporte ou retirada não conta como retorno.",
+        "primeiro_registro": "Desde {desde}, o primeiro dia registrado, o retorno acumulado é de {pct}. O capital inicial desta série não foi registrado, por isso a conta parte desse dia.",
+        "sem_serie": "Não há dados suficientes para concluir. Ainda não há nenhum dia de patrimônio registrado nesta simulação.",
+        "inconsistente": "Não há dados suficientes para concluir. A série de patrimônio registra bases diferentes sem um ajuste de capital que as explique.",
+    },
+}
+
+
+def retorno_acumulado_txt(modo: str, estado: str, pct: str = "", desde: str = "") -> str:
+    """Frase canônica do retorno acumulado por origem da base; estado
+    desconhecido cai em `sem_serie` (nunca afirma número)."""
+    r = RETORNO_ACUMULADO.get(modo if modo in RETORNO_ACUMULADO else "educacional", RETORNO_ACUMULADO["educacional"])
+    frase = r.get(estado) or r["sem_serie"]
+    return frase.replace("{pct}", pct or "—").replace("{desde}", desde or "?")
+
+
 def historico_txt(modo: str, estado: str, janela: str = "", medido_ate: str = "") -> str:
     """Frase canônica de um estado do histórico medido, no vocabulário do modo."""
     h = HISTORICO.get(modo if modo in HISTORICO else "educacional", HISTORICO["educacional"])

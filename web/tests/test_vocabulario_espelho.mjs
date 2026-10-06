@@ -118,18 +118,21 @@ function paresDoModo(modoSrc) {
 }
 
 // Fase 43 (HIER-03): dict novo entra no mesmo guardião cruzado.
-const DICTS = ["HISTORICO", "HISTORICO_ROTULO", "ENTRADA_AUTO", "RECONCILIACAO_ELEGIBILIDADE"];
+// 2026-10-06 (quick 261006-dvf): RETORNO_ACUMULADO entra no mesmo guardião.
+const DICTS = ["HISTORICO", "HISTORICO_ROTULO", "ENTRADA_AUTO", "RECONCILIACAO_ELEGIBILIDADE", "RETORNO_ACUMULADO"];
 // Python "educacional" ↔ JS "estudo"; "operador" ↔ "operador".
 const MODO_JS = { educacional: "estudo", operador: "operador" };
 const CHAVE_JS = {
   HISTORICO: "historico", HISTORICO_ROTULO: "historicoRotulo", ENTRADA_AUTO: "entradaAuto",
   RECONCILIACAO_ELEGIBILIDADE: "reconciliacaoElegibilidade",
+  RETORNO_ACUMULADO: "retornoAcumulado",
 };
 const CHAVES_ESPERADAS = {
   HISTORICO: ["elegivel", "inelegivel", "insuficiente", "nunca_medido", "aposentado", "desatualizado"],
   HISTORICO_ROTULO: ["elegivel", "inelegivel", "insuficiente", "nunca_medido", "aposentado"],
   ENTRADA_AUTO: ["regra", "contraste", "por_setup_disponivel", "por_setup_bloqueado"],
   RECONCILIACAO_ELEGIBILIDADE: ["elegivel", "inelegivel", "insuficiente", "nunca_medido", "aposentado"],
+  RETORNO_ACUMULADO: ["carimbada", "carimbada_reinicio", "primeiro_registro", "sem_serie", "inconsistente"],
 };
 
 const paresPorDictModo = {}; // paresPorDictModo[NOME][modoPy] = {chave: valor}

@@ -4808,13 +4808,17 @@ def _pet_resumo_evolucao(scope: Optional[str], intra_stored: Optional[dict], ope
     rota ignorava TODAS as opções (lastreadas ou não) e divergia da tela; a
     perna avulsa (`buy_option`) debitava o caixa e sumia do patrimônio. Sem
     cotação de contrato nesta rota custo-zero: marca pelo prêmio de abertura
-    e diz isso na fala."""
+    e diz isso na fala.
+
+    2026-10-06 (quick 261006-dvf): o retorno acumulado deixou de usar
+    `config.initialBudget` (campo de formulário; divergia de `finance.js` e
+    gerou +10.193 % para ~+2,9 % real). Base = `store.resolver_base_serie`
+    sobre `equitySnapshots`; sem base determinável, `retornoAcumuladoPct` é
+    None e a fala diz "Não há dados suficientes para concluir." Rota só-leitura."""
     from . import intraday as intraday_mod
     positions = [p for p in (store.get(_conn, "positions", user_id=scope) or []) if isinstance(p, dict)]
     cash = float(store.get(_conn, "cash", user_id=scope) or 0)
     reservado = store.caixa_reservado(_conn, user_id=scope)
-    cfg = store.get(_conn, "config", user_id=scope) or {}
-    budget = cfg.get("initialBudget")
     snaps = [s for s in (store.get(_conn, "equitySnapshots", user_id=scope) or [])
              if isinstance(s, dict) and isinstance(s.get("patrimonio"), (int, float))]
     pos_val = 0.0
@@ -4826,9 +4830,18 @@ def _pet_resumo_evolucao(scope: Optional[str], intra_stored: Optional[dict], ope
     opts = [o for o in (store.get(_conn, "optionPositions", user_id=scope) or []) if isinstance(o, dict)]
     opcoes_val = store.valor_opcoes(opts, None)["valor"] if opts else 0.0
     patrimonio = cash + reservado + pos_val + opcoes_val
-    base = float(budget) if isinstance(budget, (int, float)) and budget > 0 else (
-        snaps[0]["patrimonio"] if snaps else patrimonio)
-    ret_acum = ((patrimonio - base) / base * 100) if base > 0 else 0.0
+    # 2026-10-06 (quick 261006-dvf): base resolvida pela SÉRIE (gêmeo de
+    # finance.js `resolverBaseSerie`); `initialBudget` nunca é divisor.
+    res = store.resolver_base_serie(snaps)
+    base = res["base"]
+    ret_acum = ((patrimonio - base) / base * 100) if base else None
+    origem = res["origem"]
+    if origem == "carimbada" and (res["inicio"] or 0) > 0:
+        origem = "carimbada_reinicio"
+    desde_br = ""
+    if res["desde"]:
+        a, m, d = res["desde"].split("-")
+        desde_br = f"{d}/{m}/{a}"
     if opts:
         detalhe = f"caixa R$ {cash:.2f} + posições R$ {pos_val:.2f} + opções R$ {opcoes_val:.2f}"
     else:
@@ -4840,15 +4853,16 @@ def _pet_resumo_evolucao(scope: Optional[str], intra_stored: Optional[dict], ope
     if reservado > 0:
         fala.append(f"Desse total, R$ {reservado:.2f} está reservado para ordem(ns) pendente(s) — "
                      "volta ao caixa se você cancelar antes da execução.")
-    if snaps or (isinstance(budget, (int, float)) and budget > 0):
-        fala.append(f"Desde o orçamento inicial, o retorno acumulado é de {ret_acum:+.1f}%.")
-    else:
-        fala.append("Ainda não há orçamento inicial nem snapshots suficientes para traçar a curva de patrimônio.")
+    pct_txt = f"{ret_acum:+.1f}%".replace(".", ",") if ret_acum is not None else ""
+    fala.append(skill_ref.retorno_acumulado_txt(
+        "operador" if operador else "educacional", origem, pct=pct_txt, desde=desde_br))
     fala.append("O valor das posições usa o fechamento da barra de 15 minutos — nunca é o agora.")
     perguntas = (["O que está puxando o resultado desde o início?", "Como leio esse drawdown?"]
                  if operador else
                  ["O que é retorno acumulado?", "Por que meu patrimônio pode cair sem eu operar?"])
-    return {"fala": fala, "patrimonio": patrimonio, "retornoAcumuladoPct": ret_acum, "perguntas": perguntas}
+    return {"fala": fala, "patrimonio": patrimonio, "retornoAcumuladoPct": ret_acum,
+            "retornoAcumuladoOrigem": origem, "retornoAcumuladoDesde": res["desde"],
+            "perguntas": perguntas}
 
 
 def _pet_resumo_radar(p: str, operador: bool) -> dict:

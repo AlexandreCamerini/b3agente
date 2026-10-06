@@ -597,6 +597,14 @@ export const COPY = {
       nunca_medido: "SEM HISTÓRICO MEDIDO",
       aposentado: "APOSENTADO (ADR-016)",
     },
+    // Quick 261006-dvf (2026-10-06): espelho byte a byte de skill_ref.RETORNO_ACUMULADO.
+    retornoAcumulado: {
+      carimbada: "Desde o capital inicial desta simulação, o retorno acumulado é de {pct}.",
+      carimbada_reinicio: "Desde {desde}, quando o capital da simulação foi alterado, o retorno acumulado é de {pct}. Aporte ou retirada não conta como retorno.",
+      primeiro_registro: "Desde {desde}, o primeiro dia registrado, o retorno acumulado é de {pct}. O capital inicial desta série não foi registrado, por isso a conta parte desse dia.",
+      sem_serie: "Não há dados suficientes para concluir. Ainda não há nenhum dia de patrimônio registrado nesta simulação.",
+      inconsistente: "Não há dados suficientes para concluir. A série de patrimônio registra bases diferentes sem um ajuste de capital que as explique.",
+    },
     // Fase 43 (HIER-03): espelho byte a byte de
     // skill_ref.RECONCILIACAO_ELEGIBILIDADE (modo "educacional") — placeholders
     // literais, interpolação é do helper reconciliacaoTxt.
@@ -1905,6 +1913,14 @@ export const COPY = {
       nunca_medido: "SEM HISTÓRICO MEDIDO",
       aposentado: "APOSENTADO (ADR-016)",
     },
+    // Quick 261006-dvf (2026-10-06): espelho byte a byte de skill_ref.RETORNO_ACUMULADO.
+    retornoAcumulado: {
+      carimbada: "Retorno acumulado desde o capital inicial: {pct}.",
+      carimbada_reinicio: "Retorno acumulado desde {desde} (capital alterado): {pct}. Aporte ou retirada não conta como retorno.",
+      primeiro_registro: "Retorno acumulado desde {desde} (1º dia registrado): {pct}. Capital inicial da série não registrado.",
+      sem_serie: "Não há dados suficientes para concluir. Sem dia de patrimônio registrado.",
+      inconsistente: "Não há dados suficientes para concluir. Bases da série inconsistentes, sem ajuste de capital registrado.",
+    },
     // Fase 43 (HIER-03): espelho byte a byte de
     // skill_ref.RECONCILIACAO_ELEGIBILIDADE (modo "operador") — placeholders
     // literais, interpolação é do helper reconciliacaoTxt.
@@ -2670,6 +2686,17 @@ export function historicoTxt(mode, estado, vals) {
   return frase
     .replace("{janela}", (vals && vals.janela) || "?")
     .replace("{medidoAte}", (vals && vals.medidoAte) || "?");
+}
+
+// Espelho de `skill_ref.retorno_acumulado_txt` (quick 261006-dvf): frase do
+// retorno acumulado por origem da base; estado desconhecido cai em sem_serie.
+// vals: { pct, desde } — `desde` já formatado DD/MM/AAAA pelo chamador.
+export function retornoAcumuladoTxt(mode, estado, vals) {
+  const r = copyFor(mode).retornoAcumulado;
+  const frase = r[estado] || r.sem_serie;
+  return frase
+    .replace("{pct}", (vals && vals.pct) || "—")
+    .replace("{desde}", (vals && vals.desde) || "?");
 }
 
 // Espelho de skill_ref.reconciliacao_elegibilidade_txt (Fase 43, HIER-03) —

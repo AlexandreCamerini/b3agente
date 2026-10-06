@@ -112,3 +112,42 @@ def test_sem_operacao_considera_opcoes_e_pendentes():
     assert store._sem_operacao(c, None) is True
     db.kv_set(c, "pendingOrders", [{"id": "p1"}], user_id=None)
     assert store._sem_operacao(c, None) is False
+
+
+# ---------------- rota pet:evolucao ----------------
+sys.path.insert(0, os.path.dirname(__file__))
+from test_ordens_pendentes_rotas import _client, _registrar, _app_main_isolado  # noqa: E402,F401
+
+
+def _fala(body):
+    return " ".join(body["fala"])
+
+
+def test_pet_evolucao_caso_real_mede_desde_o_primeiro_registro(monkeypatch):
+    client, main = _client(monkeypatch)
+    token, uid = _registrar(client, "dvf-real@boris.dev")
+    headers = {"authorization": f"Bearer {token}"}
+    store.set_config(main._conn, {"initialBudget": 10000}, user_id=uid)
+    db.kv_set(main._conn, "cash", 1029000.0, user_id=uid)  # patrimônio de hoje
+    db.kv_set(main._conn, "equitySnapshots", CASOS[0]["snapshots"], user_id=uid)
+    antes = json.dumps(store.get(main._conn, "equitySnapshots", user_id=uid), sort_keys=True)
+    r = client.get("/api/pet/resumo", params={"tela": "evolucao"}, headers=headers)
+    assert r.status_code == 200
+    b = r.json()
+    assert b["retornoAcumuladoPct"] < 100
+    assert math.isclose(b["retornoAcumuladoPct"], 2.9, abs_tol=0.01)
+    assert b["retornoAcumuladoOrigem"] == "primeiro_registro"
+    assert "primeiro dia registrado" in _fala(b) or "1º dia registrado" in _fala(b)
+    assert "01/07/2026" in _fala(b)
+    assert antes == json.dumps(store.get(main._conn, "equitySnapshots", user_id=uid), sort_keys=True)
+
+
+def test_pet_evolucao_serie_vazia_nao_inventa_numero(monkeypatch):
+    client, main = _client(monkeypatch)
+    token, uid = _registrar(client, "dvf-vazia@boris.dev")
+    headers = {"authorization": f"Bearer {token}"}
+    r = client.get("/api/pet/resumo", params={"tela": "evolucao"}, headers=headers)
+    assert r.status_code == 200
+    b = r.json()
+    assert b["retornoAcumuladoPct"] is None
+    assert "Não há dados suficientes para concluir." in _fala(b)
