@@ -2701,9 +2701,10 @@ function ajudaSecoes(cp, operador) {
     // de fim de pregão. Mantido no mesmo formato título/parágrafos das outras,
     // e ESPELHADO em `docs/AJUDA.md` (a regra do topo daquele arquivo).
     opcoes: [tOpc, [
-      "Estuda **opções** sobre um ativo por vez, escolhido na sua " + tWl + ": como o ativo vem se comportando, quais estruturas do catálogo fazem sentido, os vencimentos disponíveis e os setups já armados.",
+      // Fase 48 (2026-10-05): universo é a Carteira; texto antigo citava Watchlist (achado do ROADMAP).
+      cp.opcoesAjudaEstuda,
       "O dado vem de um serviço externo de opções e é uma **leitura de fim de pregão** — não é o preço de agora. O app não recalcula nada aqui: campo que o serviço não mandou aparece como travessão, nunca como zero.",
-      "Abrir a cadeia de um vencimento custa consultas ao serviço, e a tela diz **antes** quantas vão ser. Nenhuma ordem sai desta aba: é estudo da estrutura, do risco e do retorno possível.",
+      "Abrir um ativo e ver a escada não gasta consultas. \"Comparar vencimentos\" diz **antes** quantas consultas vai custar. Nenhuma ordem sai desta aba: é estudo da estrutura, do risco e do retorno possível.",
     ]],
     // 2026-09-10 (aba-opcoes F2): "Operador IA" saiu da barra inferior; a
     // linha "Onde fica" existe porque, sem ela, o guia descreveria uma tela
@@ -2766,7 +2767,7 @@ function tourPassos(cp) {
     radar: ["1 · Descubra no " + cp.tituloRadar, "O " + cp.tituloRadar + " varre o mercado e mostra os ativos com setup, com confluência e leitura rápida."],
     mercado: ["2 · Acompanhe na " + cp.tituloWatchlist, "Leve os melhores para a " + cp.tituloWatchlist + " e acompanhe de perto antes de agir."],
     carteira: ["3 · Simule no " + cp.tituloPortfolio, "Simule compras e vendas no " + cp.tituloPortfolio + " — com stop, alvo e risco em R, sem dinheiro real."],
-    opcoes: ["4 · Estude estruturas em " + (cp.tituloOpcoes || "Opções"), "A aba " + (cp.tituloOpcoes || "Opções") + " lê o comportamento de um ativo da sua lista e mostra as estruturas de opções que cabem nele — leitura de fim de pregão, sem ordem nenhuma."],
+    opcoes: ["4 · Estude estruturas em " + (cp.tituloOpcoes || "Opções"), cp.opcoesTourPasso],
   };
   return [
     ["Bem-vindo · você está em Acompanhar", "Esta é a tela em que o app abre: o resumo do seu dia — as melhores oportunidades da sua " + cp.tituloWatchlist + ", a curva do patrimônio simulado e o próximo passo."],
@@ -9580,8 +9581,8 @@ export default function App() {
       // Quick 260923-ndy: `origem: "analisar"` (ExecutarProposta.jsx) usa o
       // mesmo despacho da curadoria — só o rótulo do track diferencia as
       // duas superfícies, nada mais muda.
-      track("trade_simulated", { side: "abrir", ticker: cand.ticker, instrument: (opts && opts.origem === "analisar" ? "analisar_" : "curadoria_") + cand.tipo });
-      flash(cp.curadoriaExecutada);
+      track("trade_simulated", { side: "abrir", ticker: cand.ticker, instrument: (opts && opts.origem === "analisar" ? "analisar_" : opts && opts.origem === "escada" ? "escada_" : "curadoria_") + cand.tipo });
+      flash(opts && opts.origem === "escada" ? ((cp.opcoesEscada && cp.opcoesEscada.toast_executada) || cp.curadoriaExecutada) : cp.curadoriaExecutada);
       return s;
     },
     fecharLastreada: async (body) => {

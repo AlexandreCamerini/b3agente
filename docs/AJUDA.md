@@ -52,16 +52,17 @@ define stop e alvo, e acompanha o resultado em R — sem risco de dinheiro real.
 
 ## Opções
 
-Estuda **opções** sobre um ativo por vez, escolhido na sua Watchlist /
-Monitoramento: como o ativo vem se comportando, quais estruturas do catálogo
-fazem sentido, os vencimentos disponíveis e os setups já armados.
+Estuda **opções** sobre as ações que você tem na Carteira: você escolhe um
+ativo, diz o objetivo (proteger de queda, gerar renda ou proteger com custo
+baixo), compara a escada de estruturas por vencimento e vê, no gráfico, o
+resultado no vencimento com o pior caso e o melhor caso antes de decidir.
 
 O dado vem de um serviço externo de opções e é uma **leitura de fim de
 pregão** — não é o preço de agora. O app não recalcula nada aqui: campo que o
 serviço não mandou aparece como travessão, nunca como zero.
 
-Abrir a cadeia de um vencimento custa consultas ao serviço, e a tela diz
-**antes** quantas vão ser. Nenhuma ordem sai desta aba: é estudo da estrutura,
+Abrir um ativo e ver a escada não gasta consultas. "Comparar vencimentos"
+diz **antes** quantas consultas vai custar. Nenhuma ordem sai desta aba: é estudo da estrutura,
 do risco e do retorno possível.
 
 ## Operador IA
