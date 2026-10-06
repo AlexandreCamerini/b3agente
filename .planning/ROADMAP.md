@@ -322,7 +322,7 @@ Requirements: `.planning/REQUIREMENTS.md`. Mock: https://claude.ai/artifact/JEpy
 - [x] Phase 44: Motor — estrutura por ativo (ESTR-01..06)
 - [x] Phase 45: Card de posição estruturada (CARD-01..06) — concluída em código 2026-09-30; validação em aparelho pendente (backend da Fase 44 ainda não em produção)
 - [x] Phase 46: Carteira v6 — card de posição com modos Estudo e Operador (CART6-01..07) (completed 2026-10-02)
-- [ ] Phase 46.1: Fechamento das ressalvas da 46 (G-07, G-08, AL-01, AL-02)
+- [x] Phase 46.1: Fechamento das ressalvas da 46 (G-07, G-08, AL-01, AL-02) (completed 2026-10-06)
 - [ ] Phase 47: Didática — expectativa matemática × taxa de acerto (DIDA-01..02)
 - [x] Phase 48: Opções, caminho B — redesenho da aba Opções (hub → ativo + escada por objetivo) — numerada 48 por ordem de abertura; execução recomendada ANTES da 47 (completed 2026-10-06)
 - [x] Phase 49: Anatomia da perna — card que explica cada perna (frase, pior caso, equilíbrio, prazo, curva de payoff) e gráfico total com "sem esta perna" antes de decidir/encerrar; depende da aprovação do checkpoint 48-17 (completed 2026-10-06)
@@ -401,13 +401,13 @@ Plans:
 5. Triagem de MD-01..06 (estado "Sem stop e alvo" com put; "sem teto" com cobertura parcial; preço sem fonte/horário; cabeçalho só com ações; idx do simulador) — incluir só o que o planner justificar.
 
 **Fora de escopo:** aba Opções não executa a estrutura (não reproduzida); BX-01..07 (backlog).
-**Plans:** 5 plans
+**Plans:** 5/5 plans complete
 
-- [ ] 46.1-01-PLAN.md — vocabulário 46.1 (skill_ref ↔ copy) + AL-01 equilíbrio do collar + MD-02 aria teto parcial + MD-03a nota de PM (onda 1)
-- [ ] 46.1-02-PLAN.md — G-08 backend: causa da falta de prêmio por perna (`motivoSemCotacao`) + MD-03b corte das compras recentes (onda 1)
-- [ ] 46.1-03-PLAN.md — helpers puros: G-07 nome com fallback, AL-02 situação da leitura, G-08 notas, MD-01, MD-05 (onda 1)
-- [ ] 46.1-04-PLAN.md — fiação no App.jsx (hook com retry, CarteiraScreen, CartaoPosicao, LinhasResultadoV6) + guardiões (onda 2)
-- [ ] 46.1-05-PLAN.md — checkpoint do Alex no iPhone (servidor local mydata): G-07, G-08, AL-02 (onda 3)
+- [x] 46.1-01-PLAN.md — vocabulário 46.1 (skill_ref ↔ copy) + AL-01 equilíbrio do collar + MD-02 aria teto parcial + MD-03a nota de PM (onda 1)
+- [x] 46.1-02-PLAN.md — G-08 backend: causa da falta de prêmio por perna (`motivoSemCotacao`) + MD-03b corte das compras recentes (onda 1)
+- [x] 46.1-03-PLAN.md — helpers puros: G-07 nome com fallback, AL-02 situação da leitura, G-08 notas, MD-01, MD-05 (onda 1)
+- [x] 46.1-04-PLAN.md — fiação no App.jsx (hook com retry, CarteiraScreen, CartaoPosicao, LinhasResultadoV6) + guardiões (onda 2)
+- [x] 46.1-05-PLAN.md — checkpoint do Alex no iPhone (servidor local mydata): G-07, G-08, AL-02 (onda 3)
 
 ### Phase 47: Didática — expectativa matemática × taxa de acerto
 
