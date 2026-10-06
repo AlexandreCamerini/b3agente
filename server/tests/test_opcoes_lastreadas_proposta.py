@@ -10,6 +10,8 @@ rede, sem banco, sem LLM; cadeia sintética montada no próprio teste.
 """
 import datetime as dt
 
+import pytest
+
 from app import skill_ref, opcoes_lastreadas
 
 
@@ -162,11 +164,23 @@ def test_propor_contratos_iliquidos_devolvem_sem_contrato_liquido():
     assert r == {"proposta": None, "motivo": "sem_contrato_liquido"}
 
 
-def test_propor_vencimento_a_5_dias_devolve_sem_vencimento_elegivel():
-    exp = (_HOJE + dt.timedelta(days=5)).isoformat()
+# NOTA 2026-10-06 (quick 261006-b1z, decisão do Alex: tirar a restrição de 15 a 60 dias): o piso de 15 e o teto de 60 dias
+# deixaram de existir; a recusa por prazo agora é só vencimento vencido/hoje
+# (dias <= 0). O teste antigo (5 dias recusado) virou o par abaixo.
+@pytest.mark.parametrize("dias", [0, -3])
+def test_propor_vencimento_hoje_ou_vencido_devolve_sem_vencimento_elegivel(dias):
+    exp = (_HOJE + dt.timedelta(days=dias)).isoformat()
     r = opcoes_lastreadas.propor("PETR4", _cadeia(expiration=exp, calls=_CALLS_PADRAO), _SPOT,
                                   _PLANO_NAO_OPERAR, _posicao(), 100000, "operador", _HOJE)
     assert r == {"proposta": None, "motivo": "sem_vencimento_elegivel"}
+
+
+@pytest.mark.parametrize("dias", [3, 5, 100, 200])
+def test_propor_vencimento_curto_ou_longo_agora_e_elegivel(dias):
+    exp = (_HOJE + dt.timedelta(days=dias)).isoformat()
+    r = opcoes_lastreadas.propor("PETR4", _cadeia(expiration=exp, calls=_CALLS_PADRAO), _SPOT,
+                                  _PLANO_NAO_OPERAR, _posicao(), 100000, "operador", _HOJE)
+    assert r["motivo"] != "sem_vencimento_elegivel" and r["proposta"] is not None
 
 
 def test_propor_put_com_caixa_de_10_reais_devolve_caixa_insuficiente():

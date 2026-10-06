@@ -134,14 +134,21 @@ def test_spot_invalido_nunca_typeerror_devolve_vazio(spot_ruim):
         "PETR4", chain, spot_ruim, _posicao(), "operador", _HOJE) == []
 
 
-@pytest.mark.parametrize("dias,expiration", [
-    (10, "2026-09-23"),  # 10 dias de _HOJE — abaixo de 15
-    (90, "2026-12-12"),  # 90 dias de _HOJE — acima de 60
-])
-def test_vencimento_fora_da_janela_devolve_vazio(dias, expiration):
+# NOTA 2026-10-06 (quick 261006-b1z, decisão do Alex: tirar a restrição de 15 a 60 dias): sem janela; só
+# vencimento hoje/vencido (dias <= 0) devolve vazio. 10 e 90 dias (antes
+# recusados) agora geram candidatos.
+@pytest.mark.parametrize("expiration", ["2026-09-13", "2026-09-01"])  # hoje e vencido
+def test_vencimento_hoje_ou_vencido_devolve_vazio(expiration):
     chain = _cadeia(calls=[_contrato("C30", "call", 30, expiration=expiration)], expiration=expiration)
     assert opcoes_curadoria.candidatos_da_posicao(
         "PETR4", chain, _SPOT, _posicao(), "operador", _HOJE) == []
+
+
+@pytest.mark.parametrize("expiration", ["2026-09-23", "2026-12-12"])  # 10 e 90 dias
+def test_vencimento_curto_ou_longo_gera_candidatos(expiration):
+    chain = _cadeia(calls=[_contrato("C30", "call", 30, expiration=expiration)], expiration=expiration)
+    assert opcoes_curadoria.candidatos_da_posicao(
+        "PETR4", chain, _SPOT, _posicao(), "operador", _HOJE) != []
 
 
 def test_piso_liquidez_explicito_nao_cai_para_dificil():

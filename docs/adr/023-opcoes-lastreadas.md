@@ -252,3 +252,22 @@ todos/pending/medir-rate-limit-mydata.md` permanece aberto, com nota
 atualizada, para acompanhar isso caso o volume de uso cresça. `.planning/
 todos/pending/decidir-wr01-mydata-budget.md` foi resolvido e movido para
 `resolved/`.
+
+---
+
+## Nota de 2026-10-06 — janela de 15 a 60 dias removida (quick 261006-b1z)
+
+Decisão do Alex: "tirar a restrição de 15 a 60 dias". O texto acima fica como
+foi escrito; esta nota o supera no ponto do prazo.
+
+- `_PRAZO_MAX_DIAS` deixou de existir e `_PRAZO_MIN_DIAS` passou de 15 para 1.
+  A elegibilidade por prazo é `opcoes_lastreadas.prazo_elegivel(dias)`: só vale
+  vencimento futuro (dias >= 1). Vencimento hoje, vencido ou data malformada
+  continua fora (opção expirada não é negociável; `None` nunca vira 0).
+- Seleção dos vencimentos varridos, inalterada: a cadeia sem `expiration` traz o
+  vencimento futuro mais próximo e `proximos_vencimentos` acrescenta o seguinte;
+  `VENCIMENTOS_POR_POSICAO = 2`. Não há prazo-alvo, então são os 2 vencimentos
+  futuros mais próximos. Nenhuma chamada MyData a mais.
+- `sem_vencimento_elegivel` passa a significar "nenhum vencimento futuro lido".
+- Risco aceito: opção a poucos dias do vencimento tem decaimento temporal alto
+  e pouco tempo para a tese; a tela já mostra o prazo em dias (Fase 49).

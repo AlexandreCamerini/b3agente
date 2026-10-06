@@ -35,7 +35,7 @@ from typing import Any
 
 from . import cartao_posicao, opcoes_payoff, skill_ref, store
 from .opcoes_curadoria import STRIKES_POR_POSICAO, id_candidato
-from .opcoes_lastreadas import _PRAZO_MAX_DIAS, _PRAZO_MIN_DIAS
+from .opcoes_lastreadas import prazo_elegivel
 
 OBJETIVOS = ("proteger", "renda", "collar")
 TIPO_DO_OBJETIVO = {"proteger": "put_protecao", "renda": "call_coberta", "collar": "collar"}
@@ -136,10 +136,10 @@ def objetivos(posicao: Any, modo: str) -> list[dict]:
 def motivo_sem_candidato(vencimentos: Any, hoje: dt.date, modo: str, ticker: str) -> dict:
     """Fase 48 gap G-01 (2026-10-05): por que a varredura não devolveu candidato.
 
-    `sem_vencimento_elegivel` = nenhum vencimento lido cai na janela da varredura
-    (`_PRAZO_MIN_DIAS`..`_PRAZO_MAX_DIAS`, importada de opcoes_lastreadas — sem
-    segundo corte; o piso de 15 dias NÃO muda aqui). `sem_estrutura` = há
-    vencimento na janela mas nenhuma estrutura montável. Pura: `hoje` por argumento;
+    `sem_vencimento_elegivel` = nenhum vencimento FUTURO lido (dias >= 1,
+    `prazo_elegivel` de opcoes_lastreadas). Desde 2026-10-06 (quick
+    261006-b1z) não há janela de 15 a 60 dias. `sem_estrutura` = há
+    vencimento futuro mas nenhuma estrutura montável. Pura: `hoje` por argumento;
     item malformado é ignorado (nunca levanta)."""
     datas: list[dt.date] = []
     try:
@@ -151,7 +151,7 @@ def motivo_sem_candidato(vencimentos: Any, hoje: dt.date, modo: str, ticker: str
             datas.append(dt.date.fromisoformat(v))
         except (TypeError, ValueError):
             continue
-    if any(_PRAZO_MIN_DIAS <= (d - hoje).days <= _PRAZO_MAX_DIAS for d in datas):
+    if any(prazo_elegivel((d - hoje).days) for d in datas):
         return {
             "chave": "sem_estrutura",
             "texto": _t(modo, "sem_estrutura", ticker=ticker),
@@ -160,8 +160,7 @@ def motivo_sem_candidato(vencimentos: Any, hoje: dt.date, modo: str, ticker: str
     lidos = ", ".join(_ddmm(d.isoformat()) or "" for d in sorted(set(datas))) or "—"
     return {
         "chave": "sem_vencimento_elegivel",
-        "texto": _t(modo, "sem_vencimento_elegivel", ticker=ticker, vencimentos=lidos,
-                    min=_PRAZO_MIN_DIAS, max=_PRAZO_MAX_DIAS),
+        "texto": _t(modo, "sem_vencimento_elegivel", ticker=ticker, vencimentos=lidos),
         "dica": _t(modo, "sem_vencimento_elegivel_dica"),
     }
 

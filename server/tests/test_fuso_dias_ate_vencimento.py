@@ -265,13 +265,32 @@ def test_gate_aceita_contrato_na_borda_do_prazo_minimo_contado_em_brasilia(
     assert espia_hoje["propor"] == _HOJE_BRT
 
 
-def test_gate_recusa_contrato_um_dia_alem_do_prazo_maximo_contado_em_brasilia(
+# NOTA 2026-10-06 (quick 261006-b1z, decisão do Alex: tirar a restrição de 15 a 60 dias): o teto de 60 dias não existe mais.
+# O teste da borda dos 60 virou a borda do vencimento HOJE (dias <= 0 segue
+# recusado): o erro oposto — naive UTC contava -1 onde Brasília conta 0 — não
+# muda a decisão (ambos recusam); a asserção que importa é que 61 dias passa.
+def test_gate_aceita_contrato_alem_de_60_dias_sem_teto(
         cli, relogio_virado, vencimento_pinado, espia_hoje):
-    """Borda dos 60, onde o erro é o OPOSTO e mais grave: um contrato de 61
-    dias reais era contado como 60 e ENTRAVA como candidato — o gate aceitando
-    o que a regra exclui."""
-    vencimento = vencimento_pinado(opcoes_lastreadas._PRAZO_MAX_DIAS + 1)
-    assert _dias_pelo_relogio_naive(vencimento) == opcoes_lastreadas._PRAZO_MAX_DIAS
+    vencimento = vencimento_pinado(61)
+    assert _dias_pelo_relogio_naive(vencimento) == 60
+
+    uid, headers = _novo_escopo(cli, "max")
+    _seed_posicao(uid)
+    r = cli.get("/api/options/proposta/PETR4", headers=headers)
+
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["motivo"] != "sem_vencimento_elegivel"
+    assert body["proposta"] is not None
+    assert espia_hoje["propor"] == _HOJE_BRT
+
+
+def test_gate_recusa_contrato_que_vence_hoje_em_brasilia(
+        cli, relogio_virado, vencimento_pinado, espia_hoje):
+    """Proteção que sobrou da janela: vencimento HOJE (dias == 0 em Brasília)
+    segue fora. Com o relógio naive (UTC) o cálculo daria -1: mesma decisão."""
+    vencimento = vencimento_pinado(0)
+    assert _dias_pelo_relogio_naive(vencimento) == -1
 
     uid, headers = _novo_escopo(cli, "max")
     _seed_posicao(uid)
@@ -280,8 +299,7 @@ def test_gate_recusa_contrato_um_dia_alem_do_prazo_maximo_contado_em_brasilia(
     assert r.status_code == 200, r.text
     body = r.json()
     assert body["motivo"] == "sem_vencimento_elegivel", (
-        "contrato a 61 dias de Brasília foi ACEITO pelo gate de prazo — o "
-        "relógio naive encolheu o prazo e fez o teto de 60 dias vazar")
+        "contrato que vence hoje em Brasília foi ACEITO pelo gate de prazo")
     assert body["proposta"] is None
     assert espia_hoje["propor"] == _HOJE_BRT
 

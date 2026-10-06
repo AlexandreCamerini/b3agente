@@ -642,7 +642,7 @@ OPCOES_LASTREADAS = {
         # contrato_fora_da_cadeia e sem_mercado são os motivos distinguíveis
         # do encerramento. Fato, não oferta: texto idêntico nos dois modos.
         "sem_contrato_liquido": "Existe cadeia de opções de {ticker}, mas nenhum contrato no strike e no vencimento que a estrutura pede negocia o bastante para ter um preço confiável.",
-        "sem_vencimento_elegivel": "Nenhum vencimento de opção de {ticker} cai hoje na janela de prazo que o simulador estuda — sem vencimento elegível, nenhuma estrutura nova é montada.",
+        "sem_vencimento_elegivel": "Nenhum vencimento futuro de opção de {ticker} foi lido — sem vencimento futuro, nenhuma estrutura nova é montada.",
         "premio_indisponivel": "Sem prêmio cotado para a opção aberta de {ticker} agora — o encerramento não é proposto sem preço, e nada é estimado no lugar.",
         "contrato_fora_da_cadeia": "O contrato aberto de {ticker} não veio na cadeia de opções consultada agora — sem ele, o encerramento não é proposto.",
         "sem_mercado": "As opções abertas de {ticker} estão na faixa SEM MERCADO — o preço da tela não seria o preço real de uma ordem.",
@@ -682,7 +682,7 @@ OPCOES_LASTREADAS = {
         # contrato_fora_da_cadeia e sem_mercado são os motivos distinguíveis
         # do encerramento. Fato, não oferta: texto idêntico nos dois modos.
         "sem_contrato_liquido": "Existe cadeia de opções de {ticker}, mas nenhum contrato no strike e no vencimento que a estrutura pede negocia o bastante para ter um preço confiável.",
-        "sem_vencimento_elegivel": "Nenhum vencimento de opção de {ticker} cai hoje na janela de prazo que o simulador estuda — sem vencimento elegível, nenhuma estrutura nova é montada.",
+        "sem_vencimento_elegivel": "Nenhum vencimento futuro de opção de {ticker} foi lido — sem vencimento futuro, nenhuma estrutura nova é montada.",
         "premio_indisponivel": "Sem prêmio cotado para a opção aberta de {ticker} agora — o encerramento não é proposto sem preço, e nada é estimado no lugar.",
         "contrato_fora_da_cadeia": "O contrato aberto de {ticker} não veio na cadeia de opções consultada agora — sem ele, o encerramento não é proposto.",
         "sem_mercado": "As opções abertas de {ticker} estão na faixa SEM MERCADO — o preço da tela não seria o preço real de uma ordem.",
@@ -1308,8 +1308,8 @@ OPCOES_ESCADA = {
         "sem_estrutura": "Sem estrutura disponível para {ticker} neste vencimento",
         "sem_estrutura_dica": "Tente outro vencimento ou monte do zero.",
         # Fase 48 gap G-01/G-02 (2026-10-05): namespace OPCOES_ESCADA; não colide com sem_vencimento_elegivel da Fase 44 em OPCOES_LASTREADAS.
-        "sem_vencimento_elegivel": "Os vencimentos lidos de {ticker} ({vencimentos}) estão fora da janela que o simulador estuda, de {min} a {max} dias até o vencimento. Sem vencimento nessa janela, nenhuma estrutura guiada é montada.",
-        "sem_vencimento_elegivel_dica": "Quando um vencimento entrar na janela, os objetivos voltam. Para estudar outro vencimento agora, use Montar do zero.",
+        "sem_vencimento_elegivel": "Nenhum vencimento futuro lido para {ticker} ({vencimentos}): o que vence hoje ou já venceu não é negociável. Sem vencimento futuro, nenhuma estrutura guiada é montada.",
+        "sem_vencimento_elegivel_dica": "Quando houver um vencimento futuro, os objetivos voltam. Para estudar outro vencimento agora, use Montar do zero.",
         "objetivo_indisponivel_ver_motivo": "{objetivo} indisponível pelo motivo acima.",
         "pernas_titulo": "Suas pernas abertas",
         "pernas_linha": "{tipo} {lado} · strike R$ {strike} · vence {vencimento} · {qtd} opções",
@@ -1520,8 +1520,8 @@ OPCOES_ESCADA = {
         "sem_estrutura": "Sem estrutura disponível para {ticker} neste vencimento",
         "sem_estrutura_dica": "Tente outro vencimento ou monte do zero.",
         # Fase 48 gap G-01/G-02 (2026-10-05): namespace OPCOES_ESCADA; não colide com sem_vencimento_elegivel da Fase 44 em OPCOES_LASTREADAS.
-        "sem_vencimento_elegivel": "{ticker}: vencimentos lidos ({vencimentos}) fora da janela de {min} a {max} dias. Sem estrutura guiada.",
-        "sem_vencimento_elegivel_dica": "Objetivos voltam quando um vencimento entrar na janela. Outro vencimento agora: Montar do zero.",
+        "sem_vencimento_elegivel": "{ticker}: nenhum vencimento futuro lido ({vencimentos}). Sem estrutura guiada.",
+        "sem_vencimento_elegivel_dica": "Objetivos voltam quando houver vencimento futuro. Outro vencimento agora: Montar do zero.",
         "objetivo_indisponivel_ver_motivo": "{objetivo} indisponível pelo motivo acima.",
         "pernas_titulo": "Pernas abertas",
         "pernas_linha": "{tipo} {lado} · K R$ {strike} · venc {vencimento} · {qtd}",

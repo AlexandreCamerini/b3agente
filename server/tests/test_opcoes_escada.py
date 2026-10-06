@@ -410,12 +410,22 @@ def _iso(dias):
     return (_HOJE + _dt.timedelta(days=dias)).isoformat()
 
 
-def test_motivo_vencimentos_curtos_sem_vencimento_elegivel():
-    r = opcoes_escada.motivo_sem_candidato([_iso(4), _iso(11)], _HOJE, "educacional", "ITUB4")
+# NOTA 2026-10-06 (quick 261006-b1z, decisão do Alex: tirar a restrição de 15 a 60 dias): sem janela. Vencimentos de 4 e 11
+# dias (o caso B3SA3: 09/10 e 16/10 vistos em 06/10) são elegíveis; só
+# vencido/hoje cai em sem_vencimento_elegivel, e o texto não cita mais 15/60.
+def test_motivo_vencimentos_vencidos_ou_hoje_sem_vencimento_elegivel():
+    r = opcoes_escada.motivo_sem_candidato([_iso(-2), _iso(0)], _HOJE, "educacional", "ITUB4")
     assert r["chave"] == "sem_vencimento_elegivel"
-    assert "ITUB4" in r["texto"] and "09/10, 16/10" in r["texto"]
-    assert "15" in r["texto"] and "60" in r["texto"]
+    assert "ITUB4" in r["texto"] and "03/10, 05/10" in r["texto"]
+    assert "15" not in r["texto"] and "60" not in r["texto"] and "janela" not in r["texto"]
     assert r["dica"] == skill_ref.opcoes_escada_txt("educacional", "sem_vencimento_elegivel_dica")
+
+
+def test_motivo_cenario_b3sa3_vencimentos_curtos_sao_elegiveis():
+    # B3SA3 em 06/10: vencimentos 09/10 (3 dias) e 16/10 (10 dias).
+    hoje = _dt.date(2026, 10, 6)
+    r = opcoes_escada.motivo_sem_candidato(["2026-10-09", "2026-10-16"], hoje, "educacional", "B3SA3")
+    assert r["chave"] == "sem_estrutura"
 
 
 def test_motivo_com_vencimento_elegivel_mantem_sem_estrutura():
@@ -425,12 +435,13 @@ def test_motivo_com_vencimento_elegivel_mantem_sem_estrutura():
     assert r["dica"] == skill_ref.opcoes_escada_txt("educacional", "sem_estrutura_dica")
 
 
-def test_motivo_acima_do_teto():
-    r = opcoes_escada.motivo_sem_candidato([_iso(75)], _HOJE, "educacional", "ITUB4")
-    assert r["chave"] == "sem_vencimento_elegivel"
+@pytest.mark.parametrize("dias", [75, 100, 400])
+def test_motivo_sem_teto(dias):
+    r = opcoes_escada.motivo_sem_candidato([_iso(dias)], _HOJE, "educacional", "ITUB4")
+    assert r["chave"] == "sem_estrutura"
 
 
-@pytest.mark.parametrize("dias", [15, 60])
+@pytest.mark.parametrize("dias", [1, 3, 15, 60])
 def test_motivo_limites_inclusivos(dias):
     r = opcoes_escada.motivo_sem_candidato([_iso(dias)], _HOJE, "educacional", "ITUB4")
     assert r["chave"] == "sem_estrutura"
@@ -444,8 +455,8 @@ def test_motivo_entrada_malformada_nunca_levanta(entrada):
 
 
 def test_motivo_modo_operador_e_desconhecido():
-    r = opcoes_escada.motivo_sem_candidato([_iso(4)], _HOJE, "operador", "ITUB4")
+    r = opcoes_escada.motivo_sem_candidato([_iso(0)], _HOJE, "operador", "ITUB4")
     assert r["texto"] == skill_ref.opcoes_escada_txt(
-        "operador", "sem_vencimento_elegivel", ticker="ITUB4", vencimentos="09/10", min=15, max=60)
-    r2 = opcoes_escada.motivo_sem_candidato([_iso(4)], _HOJE, "xyz", "ITUB4")
+        "operador", "sem_vencimento_elegivel", ticker="ITUB4", vencimentos="05/10")
+    r2 = opcoes_escada.motivo_sem_candidato([_iso(0)], _HOJE, "xyz", "ITUB4")
     assert r2["chave"] == "sem_vencimento_elegivel" and r2["texto"]

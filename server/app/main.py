@@ -794,9 +794,9 @@ def now_str() -> str:
 # argumento `hoje` para `opcoes_lastreadas.propor`/`proposta_fechar` — que são
 # módulos PUROS por guardião (`test_opcoes_fronteira.py`: sem rede, sem relógio
 # interno) e por isso recebem o dia de fora. Um dia a mais aqui muda DECISÃO, não
-# texto: `_PRAZO_MIN_DIAS`/`_PRAZO_MAX_DIAS` (15..60) recusam ou aceitam o
-# candidato pelo prazo, então das 21:00 às 23:59 BRT um contrato na borda dos 15
-# dias sumia da tela sem nada ter mudado no mercado. A correção é NO CHAMADOR —
+# texto: `prazo_elegivel` (dias >= 1; sem janela 15..60 desde 2026-10-06) aceita ou recusa o
+# candidato pelo prazo, então das 21:00 às 23:59 BRT um contrato com 1 dia
+# sumia da tela sem nada ter mudado no mercado. A correção é NO CHAMADOR —
 # os módulos puros continuam sem relógio.
 BRT = timezone(timedelta(hours=-3))
 
@@ -3935,9 +3935,9 @@ async def options_escada(ticker: str, objetivo: Optional[str] = None,
     # Objetivo sem NENHUM candidato varrido fica indisponível com motivo
     # (ex.: cadeia sem puts não monta proteção) — nada de tela vazia muda.
     # Fase 48 gap G-01 (2026-10-05): a causa real distingue "nenhum vencimento
-    # lido na janela de 15 a 60 dias" (sem_vencimento_elegivel) de "há vencimento
-    # elegível mas nenhuma estrutura montável" (sem_estrutura). Piso de 15 dias e
-    # VENCIMENTOS_POR_POSICAO NÃO mudam aqui; é só o motivo que deixa de mentir.
+    # futuro lido" (sem_vencimento_elegivel) de "há vencimento
+    # futuro mas nenhuma estrutura montável" (sem_estrutura). Sem janela de 15 a 60 dias
+    # desde 2026-10-06 (quick 261006-b1z); VENCIMENTOS_POR_POSICAO NÃO muda aqui; é só o motivo que deixa de mentir.
     motivo_scan = opcoes_escada.motivo_sem_candidato(vencs, hoje, modo, t)
     tipos_com_cand = {c.get("tipo") for c in candidatos if isinstance(c, dict)}
     for o in objetivos:

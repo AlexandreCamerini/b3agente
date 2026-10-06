@@ -142,8 +142,10 @@ def test_propor_collar_debito_liquido_caixa_50_devolve_caixa_insuficiente():
     assert r == {"proposta": None, "motivo": "caixa_insuficiente"}
 
 
-def test_propor_collar_janela_de_prazo_continua_valendo():
-    exp = (_HOJE + dt.timedelta(days=5)).isoformat()
+# NOTA 2026-10-06 (quick 261006-b1z, decisão do Alex: tirar a restrição de 15 a 60 dias): a janela deixou de valer; o que
+# continua valendo é a recusa de vencimento hoje/vencido.
+def test_propor_collar_vencimento_hoje_continua_recusado():
+    exp = _HOJE.isoformat()
     calls = [_contrato(32.0, "PETR4F32", "call", price=1.0)]
     puts = [_contrato(28.0, "PETR4F28", "put", price=0.9)]
     r = opcoes_lastreadas.propor("PETR4", _cadeia(expiration=exp, calls=calls, puts=puts), _SPOT,

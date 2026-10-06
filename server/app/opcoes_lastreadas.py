@@ -15,8 +15,18 @@ from .options_quant import faixa_de_liquidez, liquidity_score, FAIXA_DIFICIL
 
 # Prazo elegível: cadeia carregada traz um vencimento só — escolher outro é
 # papel da cadeia expansível, não da proposta.
-_PRAZO_MIN_DIAS = 15
-_PRAZO_MAX_DIAS = 60
+# 2026-10-06 (decisão do Alex, quick 261006-b1z): a janela de 15 a 60 dias
+# deixou de ser critério. Hoje só vale o que ainda não venceu: opção que vence
+# hoje ou já venceu (dias <= 0) não é negociável. Risco aceito e nomeado: a
+# poucos dias do vencimento o decaimento temporal é alto e há pouco tempo para
+# a tese; a tela mostra o prazo em dias.
+_PRAZO_MIN_DIAS = 1
+
+
+def prazo_elegivel(dias) -> bool:
+    """True se `dias` até o vencimento é um inteiro >= 1 (vencimento futuro).
+    `None` (data ausente/malformada) é inelegível — nunca vira 0."""
+    return isinstance(dias, int) and not isinstance(dias, bool) and dias >= _PRAZO_MIN_DIAS
 
 
 def _dias_ate(expiration, hoje):
@@ -258,7 +268,7 @@ def propor(underlying, chain, spot, plano, posicao, cash, modo, hoje, *, multipe
         return {"proposta": None, "motivo": "sem_setup"}
 
     dias = _dias_ate(chain.get("expiration"), hoje)
-    if dias is None or not (_PRAZO_MIN_DIAS <= dias <= _PRAZO_MAX_DIAS):
+    if not prazo_elegivel(dias):
         return {"proposta": None, "motivo": "sem_vencimento_elegivel"}
 
     if tipo == "call_coberta":

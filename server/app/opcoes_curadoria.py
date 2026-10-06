@@ -57,7 +57,7 @@ import datetime as dt
 from typing import Any
 
 from . import opcoes_motor, skill_ref, store
-from .opcoes_lastreadas import _PRAZO_MAX_DIAS, _PRAZO_MIN_DIAS, _bloco_liquidez, _dias_ate
+from .opcoes_lastreadas import _bloco_liquidez, _dias_ate, prazo_elegivel
 from .options_quant import (
     LIQUIDEZ_NEGOCIAVEL,
     TAXA_LIVRE_DE_RISCO_REFERENCIA,
@@ -364,8 +364,9 @@ def candidatos_da_posicao(
       insuficiente para 1 contrato).
     - `spot` não numérico, `bool` (subclasse de `int`, precisa ser excluída
       explicitamente) ou <= 0.
-    - `dias = _dias_ate(chain.get("expiration"), hoje)` é `None` ou fora de
-      `_PRAZO_MIN_DIAS..._PRAZO_MAX_DIAS`.
+    - `dias = _dias_ate(chain.get("expiration"), hoje)` é `None` ou <= 0
+      (vencimento hoje/vencido). Sem teto nem piso de 15 dias desde
+      2026-10-06 (quick 261006-b1z, decisão do Alex).
 
     Deliberadamente NÃO há porta de setup/plano técnico aqui, ao contrário de
     `propor()` (que exige `decisao`/`lado` e devolve `sem_setup` quando o
@@ -384,7 +385,7 @@ def candidatos_da_posicao(
         return []
 
     dias = _dias_ate(chain.get("expiration"), hoje)
-    if dias is None or not (_PRAZO_MIN_DIAS <= dias <= _PRAZO_MAX_DIAS):
+    if not prazo_elegivel(dias):
         return []
 
     # `liquidez_minima` EXPLÍCITO é o ponto de D5: sem ele, `rastrear` faz

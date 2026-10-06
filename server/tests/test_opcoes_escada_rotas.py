@@ -252,7 +252,10 @@ def _h(dias):
     return (dt.date.today() + dt.timedelta(days=dias)).isoformat()
 
 
-def test_escada_vencimentos_curtos_sem_vencimento_elegivel(cli, monkeypatch):
+# NOTA 2026-10-06 (quick 261006-b1z, decisão do Alex: tirar a restrição de 15 a 60 dias): vencimentos de 4 e 11 dias
+# (caso do relato) deixaram de ser "sem vencimento elegível"; o teste virou
+# "objetivos disponíveis" (a causa que sobra é sem_estrutura/disponível).
+def test_escada_vencimentos_curtos_sao_elegiveis(cli, monkeypatch):
     uid, h = _escopo(cli, qty=100)
     cfg = store.get(_conn, "config", user_id=uid) or {}
     cfg["permitirOpcaoADescoberto"] = True  # só para a fixture poder comprar perna avulsa
@@ -270,13 +273,10 @@ def test_escada_vencimentos_curtos_sem_vencimento_elegivel(cli, monkeypatch):
     r = cli.get("/api/options/escada/PETR4", headers=h)
     assert r.status_code == 200, r.text
     j = r.json()
-    assert [o["disponivel"] for o in j["objetivos"]] == [False, False, False]
-    ddmm = f"{v4[8:10]}/{v4[5:7]}"
     for o in j["objetivos"]:
-        assert o["motivoChave"] == "sem_vencimento_elegivel"
-        assert ddmm in o["motivo"] and "15" in o["motivo"] and "60" in o["motivo"]
-        assert o["dica"]
-    assert j["objetivosMotivo"]["chave"] == "sem_vencimento_elegivel"
+        assert o.get("motivoChave") != "sem_vencimento_elegivel"
+    assert any(o["disponivel"] for o in j["objetivos"]), j["objetivos"]
+    assert (j.get("objetivosMotivo") or {}).get("chave") != "sem_vencimento_elegivel"
     assert j["posicao"]["qtyLivre"] == 100  # perna comprada sem lastro não trava ação
 
 
