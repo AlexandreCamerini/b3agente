@@ -171,3 +171,18 @@ def test_termos_dos_objetivos_com_setor_existem_em_setores():
                     assert t["setor"] in conceitos.setores(), t
                 if t["kb"] and ids_kb is not None:
                     assert t["kb"] in ids_kb, t
+
+
+def test_verbetes_onda2_nos_dois_modos_mesma_fonte_e_veja_valido():
+    cat = {v["id"]: v for v in kb.catalogo()}
+    for vid in ("opc-put-protetora", "opc-collar"):
+        v = cat[vid]
+        assert v["texto"] is conceitos.TEXTO_OPC[vid] or v["texto"] == conceitos.TEXTO_OPC[vid]
+        for modo in ("educacional", "operador"):
+            f = kb.formatar(v, modo)
+            assert f["texto"] == conceitos.TEXTO_OPC[vid][modo]
+    for v in cat.values():
+        for alvo in v.get("veja") or []:
+            assert alvo in cat, (v["id"], alvo)
+    assert {"opc-put-protetora", "opc-collar"} <= set(cat["opc-premio"]["veja"])
+    assert {"opc-put-protetora", "opc-collar"} <= set(cat["opc-perda-maxima"]["veja"])

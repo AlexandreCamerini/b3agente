@@ -1396,14 +1396,31 @@ _MERCADO_B3 = [
         "titulo": _titulo("Prêmio"),
         "termos": ("prêmio", "premio"),
         "texto": conceitos.TEXTO_OPC["opc-premio"],
-        "veja": ["mkt-opcao", "opc-perda-maxima", "opc-piso", "opc-teto"],
+        "veja": ["mkt-opcao", "opc-perda-maxima", "opc-piso", "opc-teto",
+                 "opc-put-protetora", "opc-collar"],
     },
     {
         "id": "opc-perda-maxima",
         "titulo": _titulo("Perda máxima"),
         "termos": ("perda máxima", "perda maxima", "pior caso"),
         "texto": conceitos.TEXTO_OPC["opc-perda-maxima"],
-        "veja": ["opc-piso", "opc-premio", "opc-equilibrio"],
+        "veja": ["opc-piso", "opc-premio", "opc-equilibrio",
+                 "opc-put-protetora", "opc-collar"],
+    },
+    # Fase 48, onda 2 (plano 48-05): termos dos objetivos, mesma fonte do conceito.
+    {
+        "id": "opc-put-protetora",
+        "titulo": _titulo("Put protetora"),
+        "termos": ("put protetora", "put de proteção", "put de protecao"),
+        "texto": conceitos.TEXTO_OPC["opc-put-protetora"],
+        "veja": ["opc-piso", "opc-premio", "opc-perda-maxima", "mkt-opcao"],
+    },
+    {
+        "id": "opc-collar",
+        "titulo": _titulo("Collar"),
+        "termos": ("collar",),
+        "texto": conceitos.TEXTO_OPC["opc-collar"],
+        "veja": ["opc-piso", "opc-teto", "opc-lastro", "opc-call-coberta"],
     },
     {
         "id": "mkt-preco-medio",
