@@ -142,28 +142,28 @@ confirmação informada; protótipo como contrato visual (sem UI-SPEC formal);
 ações no gráfico total só com preço médio vindo do motor. Todo cálculo no
 backend (princípio 5).
 
-- [ ] **ANAT-01**: Cada perna aberta mostra uma frase de template determinístico
+- [x] **ANAT-01**: Cada perna aberta mostra uma frase de template determinístico
   (`skill_ref` ↔ `copy.js`, por modo) com o que foi pago, o direito
   (comprar/vender, quantidade, strike) e o prazo em dias; sem número no motor,
   travessão + motivo, nunca zero.
-- [ ] **ANAT-02**: Pior caso, equilíbrio e resultado no vencimento por perna vêm do
+- [x] **ANAT-02**: Pior caso, equilíbrio e resultado no vencimento por perna vêm do
   motor, batem com a conta por strike/prêmio em teste unitário e independem de
   cotação; só "Hoje" depende dela e mostra "Sem cotação" com o motivo do motor.
-- [ ] **ANAT-03**: Curva de payoff por perna e total por ativo (pontos) calculadas no
+- [x] **ANAT-03**: Curva de payoff por perna e total por ativo (pontos) calculadas no
   backend, grátis (custo MCP 0), com paridade `deviceStore` ↔ `serverStore`; a
   tela não refaz a conta.
-- [ ] **ANAT-04**: Gráfico total no topo (posição → pernas → objetivos), com chips para
+- [x] **ANAT-04**: Gráfico total no topo (posição → pernas → objetivos), com chips para
   ligar/desligar pernas e hipótese de preço do usuário rotulada como não
   previsão; ações só entram com preço médio do motor (nunca estimado).
-- [ ] **ANAT-05**: "Ver o que muda sem esta perna": resultado com e sem a perna e a
+- [x] **ANAT-05**: "Ver o que muda sem esta perna": resultado com e sem a perna e a
   contribuição dela, no preço escolhido.
-- [ ] **ANAT-06**: Encerrar permanece no card; a confirmação informa o que se sabe e o
+- [x] **ANAT-06**: Encerrar permanece no card; a confirmação informa o que se sabe e o
   que não se sabe (ex.: sem cotação não dá para calcular o caixa) e nenhuma
   ordem real; nunca desabilitado por frescor/liquidez (invariante do 48-16).
-- [ ] **ANAT-07**: Acessibilidade: curva com alternativa textual e tabela, perda por
+- [x] **ANAT-07**: Acessibilidade: curva com alternativa textual e tabela, perda por
   hachura (não só cor), alvos ≥44, contraste AA nos 4 temas,
   `prefers-reduced-motion`, foco e leitor de tela no card e na confirmação.
-- [ ] **ANAT-08**: Estudo e Operador com vocabulário próprio; sem promessa de ganho;
+- [x] **ANAT-08**: Estudo e Operador com vocabulário próprio; sem promessa de ganho;
   "Não há dados suficientes para concluir." quando faltar dado; guardiões
   existentes reconciliados com nota datada, sem apagar teste.
 

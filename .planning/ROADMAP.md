@@ -325,7 +325,7 @@ Requirements: `.planning/REQUIREMENTS.md`. Mock: https://claude.ai/artifact/JEpy
 - [ ] Phase 46.1: Fechamento das ressalvas da 46 (G-07, G-08, AL-01, AL-02)
 - [ ] Phase 47: Didática — expectativa matemática × taxa de acerto (DIDA-01..02)
 - [x] Phase 48: Opções, caminho B — redesenho da aba Opções (hub → ativo + escada por objetivo) — numerada 48 por ordem de abertura; execução recomendada ANTES da 47 (completed 2026-10-06)
-- [ ] Phase 49: Anatomia da perna — card que explica cada perna (frase, pior caso, equilíbrio, prazo, curva de payoff) e gráfico total com "sem esta perna" antes de decidir/encerrar; depende da aprovação do checkpoint 48-17
+- [x] Phase 49: Anatomia da perna — card que explica cada perna (frase, pior caso, equilíbrio, prazo, curva de payoff) e gráfico total com "sem esta perna" antes de decidir/encerrar; depende da aprovação do checkpoint 48-17 (completed 2026-10-06)
 
 ### Phase 44: Motor — estrutura por ativo
 
@@ -500,15 +500,15 @@ Plans:
 **A confirmar no código antes de planejar:** se `opcoes_payoff`/`cenarios_da_estrutura` (`cartao_posicao.py:326`) já expõem pontos por perna ou só por estrutura; shape de `estrutura.pernas[]` em `PernasAbertas.jsx`; onde mora o preço médio das ações; como o termo "equilíbrio" (`opc-equilibrio`) já abre o `ConceitoSheet`.
 **Guardiões a tocar:** `test_opcoes_fluxo_render.mjs`, `test_opcoes_escada_espelho.mjs`, `test_opcoes_custo_declarado.mjs` (curva grátis, sem MCP), paridade de prompts não afetada.
 **Modelo:** Sonnet executa/verifica; Opus só orquestra e planeja.
-**Plans:** 8 plans (5 ondas; OpcoesScreen/ObjetivoAtivo só na onda 4)
+**Plans:** 8/8 plans complete
 
 Plans:
 
-- [ ] 49-01-PLAN.md — vocabulário anat_* (skill_ref.OPCOES_ESCADA ↔ copy.js, 64 chaves × 2 modos) + guardião de paridade (onda 1)
-- [ ] 49-02-PLAN.md — api.opcoesAnatomia + paridade deviceStore/serverStore + hook useAnatomia (onda 1)
-- [ ] 49-03-PLAN.md — motor puro anatomia_perna.py (TDD; ITUB4 −277,00 em 48,00; sem esta perna) (onda 2)
-- [ ] 49-04-PLAN.md — GraficoAnatomia (SVG, hachura) + AnatomiaPerna (card, Encerrar informado) + guardião SSR (onda 2)
-- [ ] 49-05-PLAN.md — rota grátis GET /api/options/anatomia/{ticker} + helper _estrutura_do_ativo extraído da proposta (onda 3)
-- [ ] 49-06-PLAN.md — PosicaoTotal (chips, slider, com/sem) + PernasAbertas contêiner com fallback 48-16 (onda 3)
-- [ ] 49-07-PLAN.md — fiação OpcoesScreen (store, proposta.estrutura) + ObjetivoAtivo posição → pernas → objetivos (onda 4)
-- [ ] 49-08-PLAN.md — pré-voo + checkpoint do Alex iPhone/web ITUB4/PETR4 (onda 5)
+- [x] 49-01-PLAN.md — vocabulário anat_* (skill_ref.OPCOES_ESCADA ↔ copy.js, 64 chaves × 2 modos) + guardião de paridade (onda 1)
+- [x] 49-02-PLAN.md — api.opcoesAnatomia + paridade deviceStore/serverStore + hook useAnatomia (onda 1)
+- [x] 49-03-PLAN.md — motor puro anatomia_perna.py (TDD; ITUB4 −277,00 em 48,00; sem esta perna) (onda 2)
+- [x] 49-04-PLAN.md — GraficoAnatomia (SVG, hachura) + AnatomiaPerna (card, Encerrar informado) + guardião SSR (onda 2)
+- [x] 49-05-PLAN.md — rota grátis GET /api/options/anatomia/{ticker} + helper _estrutura_do_ativo extraído da proposta (onda 3)
+- [x] 49-06-PLAN.md — PosicaoTotal (chips, slider, com/sem) + PernasAbertas contêiner com fallback 48-16 (onda 3)
+- [x] 49-07-PLAN.md — fiação OpcoesScreen (store, proposta.estrutura) + ObjetivoAtivo posição → pernas → objetivos (onda 4)
+- [x] 49-08-PLAN.md — pré-voo + checkpoint do Alex iPhone/web ITUB4/PETR4 (onda 5)
