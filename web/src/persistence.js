@@ -384,9 +384,8 @@ function serverStore() {
       return (q && typeof q.monthUsed === "number") ? q.monthUsed : null;
     },
     _setDeviceScope: () => {},    // FASE 3: no-op no web (escopo é server-side por token)
-    // FASE 2: web não envia semente — o servidor adota o escopo anônimo/global
-    // (que contém a chave BYOK, nunca trafegada ao cliente).
-    _localSeed: () => null,
+    // 2026-10-06: no-op no web (o estado já vem do servidor por token).
+    _semearDoServidor: () => {},
   };
   return _store;
 }
@@ -441,12 +440,10 @@ function deviceStore() {
   function ensure() {
     if (!doc) {
       let loaded = read();
-      // 1º login NO APARELHO: namespace do usuário ainda vazio adota o doc
-      // anônimo como semente (decisão B, local-first). NÃO apaga o anônimo.
-      if (!loaded && deviceUserId) {
-        const anon = readKey(BASE_KEY);
-        loaded = anon ? JSON.parse(JSON.stringify(anon)) : null;
-      }
+      // 2026-10-06 (quick 261006-dvg): a "decisão B" (namespace novo adota o doc
+      // anônimo) foi REVOGADA — conta nova nasce limpa. O namespace novo nasce do
+      // estado que o servidor devolveu no login (_semearDoServidor) ou de
+      // defaultState(). O doc anônimo segue no aparelho, intocado.
       doc = loaded || defaultState();
       // C1: garante a forma estrutural (config/agent/skill objetos; watchlist/
       // positions/history arrays; cash número) ANTES dos backfills abaixo, que
@@ -1728,29 +1725,28 @@ function deviceStore() {
         }
       } catch { /* ignore */ }
     },
-    // FASE 2: semente do first-login no iOS — envia o doc LOCAL cru (inclui a
-    // chave BYOK) para o servidor adotar como base da conta nova. Não trafega
-    // pela rede a não ser num login/registro explícito do usuário.
-    _localSeed() {
-      ensure();
-      return {
-        config: { ...doc.config },
-        skill: doc.skill,
-        skillOperador: doc.skillOperador,  // FASE 8B (R2)
-        llmPrompts: doc.llmPrompts || defaultLlmPrompts(),
-        watchlist: doc.watchlist,
-        cash: doc.cash,
-        positions: doc.positions,
-        history: doc.history,
-        agent: doc.agent,
-        analyses: doc.analyses || {},
-        profile: doc.profile,
-        custom: doc.custom || [],
-        equitySnapshots: doc.equitySnapshots || [],
-        optionPositions: doc.optionPositions || [],  // v2 (ADR-003)
-        pendingOrders: doc.pendingOrders || [],  // Fase 2 (MERC-02..04)
-        caixaReservado: typeof doc.caixaReservado === "number" ? doc.caixaReservado : 0,
-      };
+    // 2026-10-06 (quick 261006-dvg): 1º uso do namespace de uma conta NO APARELHO
+    // nasce do estado que o servidor devolveu no login (nunca do doc anônimo).
+    // Não faz nada se o namespace já existe (FASE 8B N2, local-first) nem escreve
+    // em BASE_KEY.
+    _semearDoServidor(state) {
+      if (!state || typeof state !== "object" || !deviceUserId) return;
+      if (read() !== null) return;
+      const novo = {};
+      for (const k of ["skill", "skillOperador", "llmPrompts", "watchlist", "cash", "positions",
+        "optionPositions", "pendingOrders", "caixaReservado", "history", "agent", "analyses",
+        "profile", "equitySnapshots", "custom"]) {
+        if (state[k] !== undefined && state[k] !== null) novo[k] = JSON.parse(JSON.stringify(state[k]));
+      }
+      if (state.config && typeof state.config === "object") {
+        const cfg = JSON.parse(JSON.stringify(state.config));
+        delete cfg.keyStored;
+        novo.config = cfg;
+      }
+      try {
+        if (typeof localStorage !== "undefined") localStorage.setItem(storageKey(), JSON.stringify(novo));
+      } catch { /* armazenamento cheio: ensure() cai em defaultState() */ }
+      doc = null;   // próximo ensure() relê e aplica todos os backfills
     },
     // Logado: o servidor EXECUTA (preço, cash, posição, histórico) e devolve
     // o estado confirmado — é ele, não o aparelho, que o Operador no servidor
@@ -2064,18 +2060,18 @@ function deviceStore() {
 
 export const store = isNative ? deviceStore() : serverStore();
 
-// FASE 2 — superfície de autenticação (conta OPCIONAL, decisão A). App.jsx fala
-// só com `auth`; a diferença web/iOS de semente fica escondida aqui. Em web,
+// FASE 2 — superfície de autenticação. App.jsx fala só com `auth`. 2026-10-06:
+// não há mais semente do aparelho para o servidor (conta nova nasce limpa). Em web,
 // após login/registro o token passa a valer e getState() devolve o escopo do
 // usuário; em iOS o deviceStore segue local-first (a conta habilita identidade
 // e cota de IA — a sincronização ampla de seções é da Fase 3).
-function _seedBody() {
-  try { return (typeof store._localSeed === "function") ? store._localSeed() : null; }
-  catch { return null; }
-}
-
 // FASE 3 (item 1): no aparelho, alterna o namespace local para o usuário (ou
 // anônimo). No-op no web (escopo é server-side via token).
+function _deviceSeedFromServer(state) {
+  if (!isNative || typeof store._semearDoServidor !== "function") return;
+  try { store._semearDoServidor(state); } catch { /* silencioso */ }
+}
+
 function _deviceScope(id) {
   if (isNative && typeof store._setDeviceScope === "function") store._setDeviceScope(id || null);
 }
@@ -2099,18 +2095,16 @@ export const auth = {
   },
   async register({ email, password, name } = {}) {
     const body = { email, password, name };
-    const seed = _seedBody(); if (seed) body.seed = seed; // iOS: adota o local
     const r = await api.authRegister(body);
     sync.saveToken(r.token); if (r.state) sync.cacheSet(r.state);
-    if (r && r.user) _deviceScope(r.user.id);
+    if (r && r.user) { _deviceScope(r.user.id); _deviceSeedFromServer(r.state); }
     return r;
   },
   async login({ email, password } = {}) {
     const body = { email, password };
-    const seed = _seedBody(); if (seed) body.seed = seed;
     const r = await api.authLogin(body);
     sync.saveToken(r.token); if (r.state) sync.cacheSet(r.state);
-    if (r && r.user) _deviceScope(r.user.id);
+    if (r && r.user) { _deviceScope(r.user.id); _deviceSeedFromServer(r.state); }
     return r;
   },
   // qa/audit-2026-08-08: `name` e `authorizationCode` chegavam de App.jsx mas
@@ -2122,10 +2116,9 @@ export const auth = {
     const body = { provider, idToken };
     if (name) body.name = name;
     if (authorizationCode) body.authorizationCode = authorizationCode;
-    const seed = _seedBody(); if (seed) body.seed = seed;
     const r = await api.authOAuth(body);
     sync.saveToken(r.token); if (r.state) sync.cacheSet(r.state);
-    if (r && r.user) _deviceScope(r.user.id);
+    if (r && r.user) { _deviceScope(r.user.id); _deviceSeedFromServer(r.state); }
     return r;
   },
   async logout() {

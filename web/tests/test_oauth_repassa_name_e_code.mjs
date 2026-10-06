@@ -8,6 +8,8 @@
 //    `getState()` no aparelho só lia local, nunca puxava o servidor de volta
 //    — já corrigido antes nesta mesma sessão (ver
 //    test_carteira_nativa_sincroniza.mjs) para cash/positions/history.
+//    [Nota 2026-10-06 (quick 261006-dvg): o seed do 1º login deixou de existir
+//    — o servidor o ignora e o cliente não o envia; conta nova nasce limpa.]
 //
 // 2. ESTE guardião prova um bug real e separado, achado na mesma auditoria:
 //    `auth.oauth()` em persistence.js recebia `name` e `authorizationCode`
