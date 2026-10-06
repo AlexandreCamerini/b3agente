@@ -51,6 +51,40 @@ ROTULOS = {
 }
 
 
+# --- Texto genérico dos termos de opções (onda 1) ---------------------------
+# Fase 48 (2026-10-05): fonte única do texto genérico de `prêmio` e `perda
+# máxima`; `kb.py` reusa estas mesmas strings — mesmo texto no conceito (folha
+# com os números do caso) e no verbete do glossário, nos dois modos. Sem
+# placeholder: números do caso entram em parágrafos próprios do conceito.
+TEXTO_OPC = {
+    "opc-premio": {
+        "educacional": (
+            "Prêmio é o valor negociado por uma opção, cotado por ação. Quem compra a opção "
+            "paga o prêmio; quem vende recebe. O valor total é o prêmio por ação multiplicado "
+            "pelo tamanho do lote. Não é previsão de preço nem garantia de resultado: é o "
+            "preço do direito que a opção dá."
+        ),
+        "operador": (
+            "Prêmio: preço da opção por ação. Quem compra paga, quem vende recebe. "
+            "Total = prêmio × lote."
+        ),
+    },
+    "opc-perda-maxima": {
+        "educacional": (
+            "Perda máxima é o pior resultado que a estrutura pode ter no vencimento. Com piso "
+            "(uma put comprada), a perda fica travada num valor conhecido desde o início. Sem "
+            "piso, a perda acompanha a queda da ação até zero, amortecida apenas pelo prêmio "
+            "recebido. Não inclui custos, e uma perda máxima baixa não torna a estrutura "
+            "mais provável de dar certo."
+        ),
+        "operador": (
+            "Perda máxima: pior resultado no vencimento, sem custos. Com piso, travada; "
+            "sem piso, segue a ação até zero, amortecida pelo prêmio."
+        ),
+    },
+}
+
+
 # --- Catálogo ---------------------------------------------------------------
 # `campos` é ALLOWLIST, não documentação: só estas chaves de `dados` entram na
 # interpolação, e os rótulos do modo são aplicados DEPOIS delas. Sem isso, um
@@ -370,6 +404,52 @@ CONCEITOS = {
         # na cara do usuário (regra do módulo).
         "veja": [],
     },
+
+    # ------------------------------------------------------ opções (Fase 48, onda 1)
+    # Parágrafo escrito como dict {"educacional","operador"} é resolvido pelo
+    # modo em `montar` (aditivo — str e tupla seguem como antes). Valores
+    # monetários já saem de `_num` com "R$"; por isso o texto não prefixa.
+    "opc-premio": {
+        "titulo": {"educacional": "O prêmio da opção", "operador": "Prêmio"},
+        "campos": ("ticker", "strike", "premio", "premioTotal", "qtd", "venc", "estado"),
+        "naoAcontece": [
+            "O app não envia ordem nenhuma: o dinheiro é virtual e a estrutura é uma simulação.",
+            "O prêmio não é previsão de preço nem promessa de ganho — é só o preço da opção "
+            "no momento em que o dado foi lido.",
+        ],
+        "oQueE": [
+            TEXTO_OPC["opc-premio"],
+            "Nesta estrutura de {ticker}, o prêmio é {premio} por ação: {premioTotal} nas {qtd} ações.",
+        ],
+        "oQueAcontece": [
+            (("pago",), "Você paga o prêmio na abertura. No vencimento ({venc}), a put dá o direito "
+                        "de vender pelo strike de {strike}, o que só vale a pena se a ação "
+                        "terminar abaixo dele."),
+            (("recebido",), "Você recebe o prêmio na abertura. Em troca, o ganho acima do strike de "
+                            "{strike} fica limitado até o vencimento ({venc})."),
+        ],
+        "veja": [],
+    },
+    "opc-perda-maxima": {
+        "titulo": {"educacional": "A perda máxima", "operador": "Perda máxima"},
+        "campos": ("ticker", "piso", "perdaTotal", "perdaAcao", "premio", "qtd", "venc", "estado"),
+        "naoAcontece": [
+            "O app não envia ordem nenhuma: o dinheiro é virtual e a estrutura é uma simulação.",
+            "Perda máxima não é previsão: é o limite da própria estrutura no vencimento, "
+            "sem contar custos.",
+        ],
+        "oQueE": [
+            TEXTO_OPC["opc-perda-maxima"],
+            "Nesta estrutura de {ticker}, a perda máxima é {perdaTotal} nas {qtd} ações ({perdaAcao} por ação).",
+        ],
+        "oQueAcontece": [
+            (("com_piso",), "Abaixo do piso de {piso}, a perda para em {perdaTotal} ({perdaAcao} por "
+                            "ação), mesmo que a ação continue caindo até o vencimento ({venc})."),
+            (("sem_piso",), "Sem piso: se a ação for a zero, a perda chega a {perdaTotal}, amortecida "
+                            "só pelo prêmio de {premio} por ação."),
+        ],
+        "veja": [],
+    },
 }
 
 
@@ -433,7 +513,10 @@ _FORMATADORES = {"entrada": _num, "stop": _num, "distancia": _num, "alvo": _num,
                  "precoAtual": _num, "riscoPorAcao": _num_positivo,
                  "distanciaEmR": _emr, "excedenteEmR": _emr,
                  "confluencia": _pct, "rr": _rr, "pct": _pct,
-                 "spreadPct": _pct, "score": _score_inteiro, "volume": _volume_milhar}
+                 "spreadPct": _pct, "score": _score_inteiro, "volume": _volume_milhar,
+                 # Fase 48 (onda 1): termos de opções — preço em R$, lote inteiro pt-BR.
+                 "strike": _num, "premio": _num, "premioTotal": _num, "piso": _num,
+                 "perdaTotal": _num, "perdaAcao": _num, "qtd": _volume_milhar}
 
 
 def _constantes() -> dict:
@@ -486,6 +569,13 @@ def _render(paragrafos, valores: dict, estado: Optional[str] = None) -> list:
     return out
 
 
+def _por_modo(paragrafos, voc: str) -> list:
+    """Parágrafo `{"educacional":..., "operador":...}` vira o texto do modo
+    (Fase 48). str e tupla passam intactos — aditivo, não muda os conceitos
+    antigos."""
+    return [p[voc] if isinstance(p, dict) else p for p in paragrafos]
+
+
 def montar(cid: str, modo: str = "educacional", dados: Optional[dict] = None,
            resumido: bool = False) -> Optional[dict]:
     """Conceito pronto para exibição, no vocabulário do modo e com os números
@@ -498,6 +588,8 @@ def montar(cid: str, modo: str = "educacional", dados: Optional[dict] = None,
     voc = modo if modo in ROTULOS else "educacional"
     valores = _valores(voc, dados, c.get("campos"))
     estado = (dados or {}).get("estado")
+
+    c = {**c, **{b: _por_modo(c[b], voc) for b in ("naoAcontece", "oQueE", "oQueAcontece")}}
 
     o_que_e = _render(c["oQueE"], valores, estado)
     if resumido and len(o_que_e) > 1:
@@ -537,6 +629,9 @@ SETORES = {
     "risco": "stop",            # a régua de posição exibindo stop
     "alvo": "alvo",             # a régua de posição exibindo só alvo
     "r": "r",                   # a linha do R:R
+    # 2026-10-05 (Fase 48, onda 1): termos clicáveis da aba Opções.
+    "opc_premio": "opc-premio",
+    "opc_perda_maxima": "opc-perda-maxima",
 }
 
 

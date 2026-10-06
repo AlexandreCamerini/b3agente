@@ -42,11 +42,15 @@ FONTES = {
     # LLM aberta a pergunta livre — é o que mais precisa da varredura.
     "assistente.system_prefixo(estudo)": assistente.system_prefixo("educacional"),
     "assistente.system_prefixo(operador)": assistente.system_prefixo("operador"),
+    # Fase 48: parágrafo-dict por modo ({"educacional","operador"}) — achata os
+    # dois textos para a varredura não deixar um modo escapar.
     "conceitos.CONCEITOS": "\n".join(
-        (p[1] if isinstance(p, tuple) else p)
+        t
         for c in conceitos.CONCEITOS.values()
         for p in (list(c["naoAcontece"]) + list(c["oQueE"]) + list(c["oQueAcontece"])
-                  + list(c["titulo"].values()))),
+                  + list(c["titulo"].values()))
+        for t in (list(p.values()) if isinstance(p, dict)
+                  else [p[1] if isinstance(p, tuple) else p])),
     # 2026-09-10 (aba-opcoes F2, quick 260910-biz): os avisos de frescor da
     # aba Opções também chegam ao usuário SEM passar por LLM nenhuma. A F1
     # criou o literal inline dentro de `_frescor` e ele ficou sem cobertura;

@@ -185,8 +185,9 @@ def test_todo_placeholder_do_catalogo_tem_de_onde_vir():
         permitidos = disponiveis | set(c.get("campos") or ())
         for bloco in ("naoAcontece", "oQueE", "oQueAcontece"):
             for p in c[bloco]:
-                texto = p[1] if isinstance(p, tuple) else p
-                for campo in re.findall(r"\{(\w+)\}", texto):
+                # Fase 48: parágrafo-dict por modo — varre os dois textos.
+                textos = list(p.values()) if isinstance(p, dict) else [p[1] if isinstance(p, tuple) else p]
+                for campo in (c for t in textos for c in re.findall(r"\{(\w+)\}", t)):
                     assert campo in permitidos, (
                         f"{cid}.{bloco}: '{{{campo}}}' não está em `campos` nem "
                         "nos rótulos/constantes — o parágrafo nunca vai renderizar")
