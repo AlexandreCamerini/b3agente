@@ -10,7 +10,7 @@
 import { useId } from "react";
 import { T, MONO } from "./fluxoEstilo.js";
 
-const TRACOS = ["", "6 4", "2 3", "10 3 2 3"];
+export const TRACOS = ["", "6 4", "2 3", "10 3 2 3"];
 const OPACIDADE_AREA = 0.16;
 const ML = 44;
 const MR = 12;

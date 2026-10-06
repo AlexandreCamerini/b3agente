@@ -117,5 +117,53 @@ ok("10. fonte sem /executavel|frescor|liquida/ (inclusive comentários)", !/exec
 ok("10. fonte sem chamada direta a sellOption nem dangerouslySetInnerHTML", !/sellOption|dangerouslySetInnerHTML/.test(src));
 ok("10. verbete opc-equilibrio ligado ao termo", /opc-equilibrio/.test(src));
 
+// ---- Fase 49 (2026-10-06) — PosicaoTotal
+const PosicaoTotal = (await import("../src/opcoes/PosicaoTotal.jsx")).default;
+const precosT = [44, 46, 48, 50, 52];
+const gradeT = { precos: precosT, passo: 2, indiceInicial: 2, hoje: 48 };
+const mkPerna = (id, tipo, strike, pts) => ({ id, tipo, lado: "compra", strike, pontos: pts, incluida: true, tabela: [], marcadores: [] });
+const pCall = mkPerna("ITUBJ493W2", "CALL", 49.2, [-21, -21, -21, 9, 29]);
+const pPut = mkPerna("ITUBV465W2", "PUT", 46.5, [200, 100, -240, -300, -300]);
+const pCall2 = mkPerna("ITUBJ500W2", "CALL", 50, [-10, -10, -10, -10, 30]);
+const totalPts = [169, 69, -277, -301, -241];
+const anatT = (extra) => ({
+  vencimentoTexto: "09/10", grade: gradeT, excluidas: [],
+  acoes: { quantidade: 100, precoMedio: null, incluidas: false, pontos: null, texto: "ACOES-FORA" },
+  pernas: [pCall, pPut, pCall2],
+  total: {
+    pontos: totalPts, incluidas: ["ITUBJ493W2", "ITUBV465W2", "ITUBJ500W2"],
+    semEsta: { ITUBJ493W2: [1, 2, -256, 3, 4], ITUBV465W2: [1, 2, -37, 3, 4], ITUBJ500W2: [1, 2, 3, 4, 5] },
+    motivoTexto: null, aria: "ARIA-TOTAL", tabela: precosT.map((p, i) => ({ preco: p, resultado: totalPts[i] })),
+    marcadores: [{ chave: "strike", preco: 49.2, id: "ITUBJ493W2" }, { chave: "hoje", preco: 48, id: null }],
+  },
+  ...extra,
+});
+const tot = (a, extra) => html(h(PosicaoTotal, { mode: "estudo", ticker: "ITUB4", anatomia: a, excluidas: [], onAlternar: () => {}, idx: 2, onIdx: () => {}, selecionada: null, recalculando: false, ...extra }));
+const t1 = tot(anatT());
+ok("T1. título, 3 chips ligados, slider com 48,00 e não previsão",
+  tem(t1, tx("estudo", "anat_total_titulo", { vencimento: "09/10" })) && (t1.match(/aria-pressed="true"/g) || []).length === 3 && t1.includes("48,00") && t1.includes("não previsão"));
+ok("T1. leitura do total, ações fora, img, details, aria-live",
+  tem(t1, tx("estudo", "anat_leitura_total", { preco: "48,00", valor: "−R$ 277,00" })) && t1.includes("ACOES-FORA") && t1.includes('role="img"') && t1.includes("<details") && t1.includes('aria-live="polite"'));
+ok("T1. sem chip de ações quando precoMedio é null", !t1.includes(tx("estudo", "anat_chip_acoes", { qtd: "100" })));
+const t2 = tot(anatT(), { selecionada: "ITUBV465W2" });
+ok("T2. com/sem e contribuição lidos do motor", t2.includes("−R$ 277,00") && t2.includes("−R$ 37,00") && t2.includes("−R$ 240,00"));
+const a3 = anatT(); a3.total.semEsta.ITUBV465W2 = null;
+ok("T3. semEsta null usa anat_sem_esta_vazio", tem(tot(a3, { selecionada: "ITUBV465W2" }), tx("estudo", "anat_sem_esta_vazio", { id: "ITUBV465W2" })));
+const t4 = tot(anatT(), { excluidas: ["ITUBJ493W2"] });
+ok("T4. perna excluída fica aria-pressed=false", (t4.match(/aria-pressed="false"/g) || []).length === 1 && (t4.match(/aria-pressed="true"/g) || []).length === 2);
+const a5 = anatT({ acoes: { quantidade: 100, precoMedio: 40, incluidas: true, pontos: null, texto: "ACOES-DENTRO" } });
+const t5 = tot(a5);
+ok("T5. chip de ações com pm do motor ligado", tem(t5, tx("estudo", "anat_chip_acoes", { qtd: "100" })) && (t5.match(/aria-pressed="true"/g) || []).length === 4);
+const a6 = anatT(); a6.total = { pontos: null, incluidas: [], semEsta: {}, motivoTexto: "NAO-HA-DADOS", aria: null, tabela: [], marcadores: [] };
+const t6 = tot(a6);
+ok("T6. total null mostra motivo em status, sem img nem slider", t6.includes("NAO-HA-DADOS") && t6.includes('role="status"') && !t6.includes('role="img"') && !t6.includes('type="range"'));
+const a7 = anatT({ acoes: null }); a7.total = { pontos: null, incluidas: ["A", "B"], semEsta: {}, motivoTexto: "Não há dados suficientes para concluir. VENCIMENTOS-DIFERENTES", aria: null, tabela: [], marcadores: [] };
+const t7 = tot(a7, { selecionada: "ITUBV465W2" });
+ok("T7. vencimentos diferentes com perna selecionada mostra só o motivo, sem R$",
+  t7.includes("Não há dados suficientes para concluir.") && !t7.includes("R$") && !t7.includes("Ela contribui") && !t7.includes("R$ 0,00"));
+ok("T8. recalculando mostra anat_recalculando em status", tem(tot(anatT(), { recalculando: true }), tx("estudo", "anat_recalculando")));
+const srcT = readFileSync(new URL("../src/opcoes/PosicaoTotal.jsx", import.meta.url), "utf8");
+ok("T9. fonte sem palavras proibidas, reduce nem zero substituto", !/executavel|frescor|liquida|reduce\(|\?\? 0|\|\| 0/.test(srcT));
+
 if (fails) { console.log(`\n${fails} falha(s)`); process.exit(1); }
 console.log("\nOK");
