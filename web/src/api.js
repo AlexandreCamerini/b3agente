@@ -2,6 +2,7 @@
 // pelo backend em produção). No app nativo (iPhone), o endereço do servidor
 // (Mac) é configurável na aba Config e aplicado em runtime via setApiBase().
 const RAW_BUILD_BASE = (import.meta.env && import.meta.env.VITE_API_BASE) || "";
+import { criarGateCacheado } from "./filaGate.js";
 let runtimeBase = "";
 let nativeMode = false; // no iPhone, caminho relativo resolve para o PRÓPRIO app — exigir base absoluta
 const TIMEOUT_MS = 15000;
@@ -230,6 +231,11 @@ function qs(params) {
   return partes.length ? "?" + partes.join("&") : "";
 }
 
+// quick 261006-oav (2026-10-06): fila (<=2 em voo) + dedupe + TTL 120 s do gate — ver filaGate.js.
+const gateCacheado = criarGateCacheado({
+  buscar: (t) => req("GET", "/api/options/gate/" + encodeURIComponent(t), undefined, 30000),
+});
+
 export const api = {
   getState: () => req("GET", "/api/state"),
   putConfig: (b) => req("PUT", "/api/config", b),
@@ -314,7 +320,7 @@ export const api = {
   optionsChain: (t, expiration) => req("GET", "/api/options/chain/" + encodeURIComponent(t) + (expiration ? "?expiration=" + encodeURIComponent(expiration) : ""), undefined, 30000),
   analyzeOption: (body) => req("POST", "/api/options/analyze", body, TIMEOUT_LLM),
   // v2 (ADR-003/004/005): gate de descobribilidade + carteira simulada de opções.
-  optionsGate: (t) => req("GET", "/api/options/gate/" + encodeURIComponent(t), undefined, 30000),
+  optionsGate: (t) => gateCacheado(t),
   optionsBuy: (body) => req("POST", "/api/options/buy", body),
   optionsSell: (body) => req("POST", "/api/options/sell", body),
   putOptionPosition: (contractId, b) => req("PUT", "/api/options/position/" + encodeURIComponent(contractId), b),
