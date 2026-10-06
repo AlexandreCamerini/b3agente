@@ -4025,7 +4025,7 @@ async def options_escada(ticker: str, objetivo: Optional[str] = None,
 @app.get("/api/options/anatomia/{ticker}")
 async def options_anatomia(ticker: str, excluir: Optional[str] = None,
                            scope: Optional[str] = Depends(current_scope)):
-    """Fase 49 (2026-10-06), ANAT-03/04/06. Custo MCP ZERO (sem _cap_check); não
+    """Fase 49 (2026-10-06), ANAT-03/04/06. Custo MCP ZERO (sem cap de cota); não
     depende do gate de liquidez (invariante 48-16). Posições só do escopo do
     token; `excluir` é allowlist de ids do ativo + ACOES. Ações entram só com o
     preço médio do store (nunca do cliente)."""
