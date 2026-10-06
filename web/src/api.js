@@ -414,6 +414,8 @@ export const api = {
   // a matriz é a ÚNICA paga (2N+1 declarado pelo backend) e só sai de clique.
   opcoesEscada: (t, q) => req("GET", "/api/options/escada/" + encodeURIComponent(t) + qs(q), undefined, 30000),
   opcoesEscadaLeitura: (body) => req("POST", "/api/options/escada/leitura", body || {}, 15000),
+  // Fase 49 (2026-10-06): anatomia da perna — custo MCP 0, cálculo só no backend (ANAT-03).
+  opcoesAnatomia: (t, q) => req("GET", "/api/options/anatomia/" + encodeURIComponent(t) + qs(q), undefined, 30000),
   // FASE 8B (260911-k9g): carimbo de build do SERVIDOR JÁ CONFIGURADO
   // (runtimeBase) — diferente de testServer(url) acima, que valida um
   // ENDEREÇO DIGITADO antes de aplicá-lo. Usado só para exibir no rodapé do

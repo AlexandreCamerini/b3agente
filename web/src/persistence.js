@@ -324,6 +324,8 @@ function serverStore() {
     // Fase 48 (caminho B): escada e leitura de célula, custo MCP 0.
     opcoesEscada: (t, q) => api.opcoesEscada(t, q),
     opcoesEscadaLeitura: (body) => api.opcoesEscadaLeitura(body),
+    // Fase 49: anatomia da perna (custo MCP 0, cálculo no backend).
+    opcoesAnatomia: (t, q) => api.opcoesAnatomia(t, q),
     // 260911-k9g: carimbo do SERVIDOR ATUAL para o rodapé do Perfil —
     // diagnóstico, nunca persistido, mesma classe de delegação pura do
     // mcpStatus/optionsProposta acima.
@@ -1463,6 +1465,12 @@ function deviceStore() {
     async opcoesEscadaLeitura(body) {
       ensure();
       return api.opcoesEscadaLeitura(body);
+    },
+    // Fase 49: cálculo do backend; o aparelho não duplica (mesma razão de
+    // opcoesEscada). Espelho do serverStore.
+    async opcoesAnatomia(t, q) {
+      ensure();
+      return api.opcoesAnatomia(t, q);
     },
     // Fase 14 (Plano 05): logado, delega e adota o estado confirmado pelo
     // servidor (mesmo padrão de optionsBuy). Sem sessão, ramo local é
