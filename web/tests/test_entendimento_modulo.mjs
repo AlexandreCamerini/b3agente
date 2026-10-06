@@ -86,5 +86,13 @@ ok("App.jsx importa de ./entendimento.jsx",
 ok("opcoes/OpcoesScreen.jsx continua sem importar App.jsx",
    !/from ["'][^"']*App\.jsx["']/.test(opcoesScreen));
 
+// Fase 48 (2026-10-05, 48-13): ConceitoSheet acessível — asserções ACRESCENTADAS.
+ok("ConceitoSheet: raiz role=dialog com aria-modal=true",
+   /role="dialog" aria-modal="true"/.test(ent));
+ok("ConceitoSheet: Esc fecha (keydown Escape + removeEventListener no cleanup)",
+   /e\.key === "Escape"/.test(ent) && /removeEventListener\("keydown"/.test(ent));
+ok("ConceitoSheet: guarda activeElement, foca o painel e devolve o foco",
+   /document\.activeElement/.test(ent) && /tabIndex=\{-1\}/.test(ent) && /anterior\.focus\(\)/.test(ent));
+
 if (fails) { console.error(`\n${fails} falha(s)`); process.exit(1); }
 console.log("\ntodos os testes passaram");

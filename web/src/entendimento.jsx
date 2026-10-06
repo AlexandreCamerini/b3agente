@@ -19,7 +19,7 @@
  * MESMAS variáveis CSS que `App.jsx` injeta em `:root`, nenhum uso de um
  * token muda de valor.
  */
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { store } from "./persistence.js";
 import { Markdown } from "./markdown.jsx";
 // Fase 38 (38-03): ponte kb×conceito — helper puro que resolve um verbete do
@@ -197,15 +197,29 @@ export function ConceitoSheet({ cid, dados, setor, onClose, onTrocar, didatica, 
       .catch(() => { if (alive) setErro(true); });
     return () => { alive = false; };
   }, [cid, dados, fonte, fonte === "kb" ? kbCatalogo : null]);
+  // Fase 48 (2026-10-05): UI-SPEC Acessibilidade — aria-modal, Esc, foco devolvido.
+  // Guarda quem abriu, foca o painel da folha (o título carrega async) e devolve o foco ao fechar; Esc
+  // fecha (listener removido no cleanup — T-48-47, foco nunca fica preso).
+  const tituloRef = useRef(null);
+  useEffect(() => {
+    const anterior = typeof document !== "undefined" ? document.activeElement : null;
+    if (tituloRef.current) tituloRef.current.focus();
+    const onKey = (e) => { if (e.key === "Escape") onClose(); };
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      if (anterior && typeof anterior.focus === "function" && document.contains(anterior)) anterior.focus();
+    };
+  }, []);
   return (
     // zIndex 86: acima de TODOS os outros overlays (tour 75, sobre 80, auth 82,
     // ajuda 84, portão de abertura 85). Esta é a única folha que abre SOZINHA,
     // e a via proativa é one-shot por conceito, para sempre — ficar por baixo
     // significaria queimar a estreia sem ninguém ler nada.
-    <div onClick={onClose} role="dialog" aria-label="Explicação"
+    <div onClick={onClose} role="dialog" aria-modal="true" aria-label="Explicação"
       style={{ position: "fixed", inset: 0, zIndex: 86, background: T.scrim, display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
-      <div onClick={(e) => e.stopPropagation()}
-        style={{ width: "100%", maxWidth: "520px", background: T.bgPanel, borderTop: `1px solid ${T.borderSubtle}`, borderRadius: "18px 18px 0 0", padding: "16px 18px calc(18px + env(safe-area-inset-bottom))", maxHeight: "82vh", overflowY: "auto" }}>
+      <div onClick={(e) => e.stopPropagation()} ref={tituloRef} tabIndex={-1}
+        style={{ outline: "none", width: "100%", maxWidth: "520px", background: T.bgPanel, borderTop: `1px solid ${T.borderSubtle}`, borderRadius: "18px 18px 0 0", padding: "16px 18px calc(18px + env(safe-area-inset-bottom))", maxHeight: "82vh", overflowY: "auto" }}>
         <div style={{ width: "38px", height: "4px", borderRadius: "999px", background: T.borderSubtle, margin: "0 auto 12px" }} aria-hidden />
         {/* A cadeia precisa de volta: quem segue stop → R → gatilho não pode
             ter como única saída fechar tudo e recomeçar. */}
