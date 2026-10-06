@@ -133,6 +133,40 @@ termos novos em duas ondas. Todo cálculo no backend (princípio 5).
   alternativa textual, aria-live, reduced-motion, folha com Esc e foco) travados
   por guardião.
 
+### Anatomia da perna (Fase 49)
+
+Fonte: crítica do screenshot do checkpoint 48-17 (2026-10-06) + protótipo
+`49-anatomia-da-perna/prototipo-anatomia-perna.html` + decisões do Alex
+(2026-10-06): ordem posição → pernas → objetivos; Encerrar no card com
+confirmação informada; protótipo como contrato visual (sem UI-SPEC formal);
+ações no gráfico total só com preço médio vindo do motor. Todo cálculo no
+backend (princípio 5).
+
+- [ ] **ANAT-01**: Cada perna aberta mostra uma frase de template determinístico
+  (`skill_ref` ↔ `copy.js`, por modo) com o que foi pago, o direito
+  (comprar/vender, quantidade, strike) e o prazo em dias; sem número no motor,
+  travessão + motivo, nunca zero.
+- [ ] **ANAT-02**: Pior caso, equilíbrio e resultado no vencimento por perna vêm do
+  motor, batem com a conta por strike/prêmio em teste unitário e independem de
+  cotação; só "Hoje" depende dela e mostra "Sem cotação" com o motivo do motor.
+- [ ] **ANAT-03**: Curva de payoff por perna e total por ativo (pontos) calculadas no
+  backend, grátis (custo MCP 0), com paridade `deviceStore` ↔ `serverStore`; a
+  tela não refaz a conta.
+- [ ] **ANAT-04**: Gráfico total no topo (posição → pernas → objetivos), com chips para
+  ligar/desligar pernas e hipótese de preço do usuário rotulada como não
+  previsão; ações só entram com preço médio do motor (nunca estimado).
+- [ ] **ANAT-05**: "Ver o que muda sem esta perna": resultado com e sem a perna e a
+  contribuição dela, no preço escolhido.
+- [ ] **ANAT-06**: Encerrar permanece no card; a confirmação informa o que se sabe e o
+  que não se sabe (ex.: sem cotação não dá para calcular o caixa) e nenhuma
+  ordem real; nunca desabilitado por frescor/liquidez (invariante do 48-16).
+- [ ] **ANAT-07**: Acessibilidade: curva com alternativa textual e tabela, perda por
+  hachura (não só cor), alvos ≥44, contraste AA nos 4 temas,
+  `prefers-reduced-motion`, foco e leitor de tela no card e na confirmação.
+- [ ] **ANAT-08**: Estudo e Operador com vocabulário próprio; sem promessa de ganho;
+  "Não há dados suficientes para concluir." quando faltar dado; guardiões
+  existentes reconciliados com nota datada, sem apagar teste.
+
 ## Future Requirements
 
 - Quick task avulsa (fora da milestone): remover
@@ -157,3 +191,4 @@ termos novos em duas ondas. Todo cálculo no backend (princípio 5).
 | CART6-01..07 | 46 | Pending |
 | DIDA-01..02 | 47 | Pending |
 | OPC-01..13 | 48 | Pending |
+| ANAT-01..08 | 49 | Pending |

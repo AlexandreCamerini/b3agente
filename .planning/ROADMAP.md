@@ -484,9 +484,9 @@ Plans:
 
 **Goal:** o usuário entende o que cada perna aberta faz — o direito comprado, o pior caso, o equilíbrio, o prazo — e o que muda no conjunto se ela sair, ANTES de decidir ou encerrar. Tudo calculado pelo motor determinístico; a tela só mostra.
 **Depends on:** Phase 48 (checkpoint 48-17 aprovado; hoje `PernasAbertas.jsx` lista as pernas e encerra, mas sem anatomia)
-**Requirements:** ANAT-01..ANAT-08 (a registrar em REQUIREMENTS.md no `/gsd-plan-phase 49`)
+**Requirements:** ANAT-01, ANAT-02, ANAT-03, ANAT-04, ANAT-05, ANAT-06, ANAT-07, ANAT-08
 **Insumos:** protótipo `.planning/phases/49-anatomia-da-perna/prototipo-anatomia-perna.html`; crítica do screenshot do 48-17 (2026-10-06).
-**Decisões propostas (a confirmar pelo Alex no plan-phase):** (1) ordem da tela: posição/gráfico total → pernas → objetivos; (2) "Encerrar" permanece no card, com confirmação que declara o que se sabe e o que não se sabe; (3) ações entram no gráfico total só com preço médio vindo do motor (nunca estimado).
+**Decisões fechadas (Alex, 2026-10-06):** (1) ordem da tela: posição/gráfico total → pernas → objetivos; (2) "Encerrar" permanece no card, com confirmação que declara o que se sabe e o que não se sabe; (3) ações entram no gráfico total só com preço médio vindo do motor (nunca estimado).
 **Success criteria:**
 
 1. Cada perna mostra, por frase de template determinístico (`skill_ref` ↔ `copy.js`), o que foi pago, o direito (comprar/vender, quantidade, strike) e o prazo em dias; sem número no motor, travessão + motivo, nunca 0.
