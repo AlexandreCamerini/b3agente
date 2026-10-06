@@ -40,6 +40,24 @@ ok("hub: estrutura aberta aparece no rodapé do card", hub.includes("PETR4X1"));
 ok("hub: aviso de dinheiro virtual presente", hub.toLowerCase().includes("virtual"));
 ok("hub: sem vigias, a seção Atenção não aparece", !hub.includes(COPY.estudo.opcoesEscada.hub_atencao));
 
+// quick 261006-axi (2026-10-06): ativo só com perna (PUT VALEV731W2 sem VALE3) vira card "sem ações", sem número de lastro inventado
+{
+  const semAcoes = { t: "VALE3", qty: 0, qtyTravada: 0, avg: null, stop: null, alvo: null, semAcoes: true };
+  const hubAv = html(h(HubOpcoes, {
+    cp, mode: "estudo",
+    carteira: [{ t: "PETR4", qty: 300, qtyTravada: 0 }, semAcoes].map((p) => ({ ...p, ticker: p.t })),
+    opcoesPorTicker: { VALE3: { estrutura: { nome: "VALEV731W2" } } },
+    tecnicoPorTicker: {}, vigiasLista: [], vigiasComEstado: false,
+    frescor: { fonte: "mcp", pregao: "2026-10-02", situacao: "fim_pregao", mercadoAberto: false, atrasado: false },
+  }));
+  ok("hub avulso: card VALE3 presente", hubAv.includes("VALE3"));
+  // o termo "lastro" é um span tocável: o texto não é contíguo no HTML, então confere antes e depois dele
+  ok("hub avulso: subtítulo 'sem ações'", hubAv.includes("sem ações deste ativo") && hubAv.includes("opção sem") && COPY.estudo.opcoesEscada.card_subtitulo_sem_acoes === "sem ações deste ativo · opção sem lastro");
+  ok("hub avulso: sem '0 ações' nem '0 livres'", !/(^|[^0-9])0 ações|(^|[^0-9])0 livres/.test(hubAv));
+  ok("hub avulso: estrutura aberta VALEV731W2 no rodapé", hubAv.includes("VALEV731W2"));
+  ok("hub avulso: nenhum 'undefined'", !hubAv.includes("undefined"));
+}
+
 // ---- Objetivo: backend entrega `objetivos` (+ `termos` como MAPA, não array)
 const escadaObj = { dados: { estado: "ok", posicao: { qty: 300 }, objetivos: [
   { id: "proteger", titulo: "Proteger de queda", descricao: "Compra uma put.", termos: { put: "put" }, disponivel: true },

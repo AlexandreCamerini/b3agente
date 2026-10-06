@@ -1,6 +1,7 @@
 /**
  * HubOpcoes.jsx — Fase 48 (48-08): tela 1 (hub) do UI-SPEC. Cards da CARTEIRA
- * (só ativos com posição), seção Atenção (vigias) com custo declarado antes do
+ * (só ativos com posição; quick 261006-axi, 2026-10-06: ativos com perna aberta
+ * e sem ações entram como card "sem ações", `pos.semAcoes`), seção Atenção (vigias) com custo declarado antes do
  * clique, frescor, aviso de dinheiro virtual e todos os estados.
  *
  * Zero cálculo: todo número vem pronto do backend ou da carteira; campo
@@ -83,7 +84,9 @@ function CardAtivo({ cp, mode, pos, tecnico, estrutura, nVigias, onAbrir, didati
   const dados = tecnico && tecnico.dados;
   const vol = dados && dados.volatilidade;
   const niveis = dados && dados.niveis;
-  const sub = opcoesEscadaTxt(mode, "card_subtitulo", { qtd: vz(pos.qty), livres: vz(qtyLivre(pos)) }) || "";
+  const sub = pos.semAcoes === true
+    ? opcoesEscadaTxt(mode, "card_subtitulo_sem_acoes") || ""
+    : opcoesEscadaTxt(mode, "card_subtitulo", { qtd: vz(pos.qty), livres: vz(qtyLivre(pos)) }) || "";
   const nomeEstr = estrutura && estrutura.nome;
   const rodape = nomeEstr
     ? opcoesEscadaTxt(mode, "card_estrutura_aberta", { nome: nomeEstr })

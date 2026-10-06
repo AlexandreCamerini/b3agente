@@ -74,6 +74,7 @@ import PayoffChart from "./PayoffChart.jsx";
 // `PropostaDaPosicao` tinha em App.jsx.
 import PropostaLastreada, { FonteDoDadoProposta, useAceiteLastreado } from "./PropostaLastreada.jsx";
 import { useOpcoesPropostas } from "./useOpcoesPropostas.js";
+import { universoOpcoes } from "../estruturaCard.js";
 // Fase 32 (32-04): `CandidatoOpcao` (o cartão de UM candidato) é reusado
 // verbatim — o ramo multi-candidato de `PropostaDaPosicao` (App.jsx) é
 // portado para dentro do painel inline de Oportunidades (ver 32-04-PLAN.md,
@@ -323,6 +324,13 @@ export default function OpcoesScreen({ ctx }) {
   // segue sem decisão do Alex, e o desenho abaixo não impede uma busca depois
   // nem a inventa agora.
   const carteira = ((ctx && ctx.data && ctx.data.positions) || []).filter((p) => p && p.t);
+  const optionPositionsAll = (ctx && ctx.data && ctx.data.optionPositions) || [];
+  // quick 261006-axi (2026-10-06): reconcilia a regra "universo = carteira" do
+  // 27-CONTEXT D3. O universo continua sendo POSIÇÃO (nunca watchlist); uma perna
+  // aberta é posição, e escondê-la do usuário viola o princípio 9 (estado
+  // completo). Ativo só com opção (ex.: PUT VALEV731W2 sem VALE3) entra como
+  // card "sem ações". O lastro segue vindo SÓ de `carteira` (Montar exige lastro).
+  const universo = universoOpcoes(carteira, optionPositionsAll);
   // O ticker NASCE VAZIO na primeira visita — e isto é a decisão, não a
   // omissão. Escolher um ativo dispara o efeito de troca de ticker
   // (`useOpcoesMcp.js`); TEXTO DA ÉPOCA CORRIGIDO (Fase 40, 2026-09-25): a
@@ -350,7 +358,7 @@ export default function OpcoesScreen({ ctx }) {
     abaInicial: ctx && ctx.opcoesAbaInicial,
     abrirTicker: ctx && ctx.opcoesAbrirTicker,
     memoria: ctx && ctx.opcoesMemoria,
-    carteira,
+    carteira: universo,
   }));
   const ticker = nav.ticker;
   // One-shot: o pedido do App.jsx só vale para o mount desta tela — limpa
@@ -469,7 +477,7 @@ export default function OpcoesScreen({ ctx }) {
   // universo desta aba (a carteira) — mesma fonte que alimentava a tira em
   // CarteiraScreen (ADR-027 Emenda 3, módulo compartilhado).
   const { propostas: opcoesPorTicker, carregando: opcoesPorTickerCarregando } =
-    useOpcoesPropostas(store, carteira.map((p) => p.t));
+    useOpcoesPropostas(store, universo.map((p) => p.t));
 
   const l = leitura.dados;
   const behavior = l && l.behavior;
@@ -707,7 +715,7 @@ export default function OpcoesScreen({ ctx }) {
     ? vigiasVivos.dados.vigias
     : ((vigias.dados && Array.isArray(vigias.dados.vigias)) ? vigias.dados.vigias : []);
   const temEstadoDosVigias = !!(vigiasVivos.dados && Array.isArray(vigiasVivos.dados.vigias));
-  const tickersEmCarteira = carteira.map((p) => p.t);
+  const tickersEmCarteira = universo.map((p) => p.t);
   // Fase 27 (27-02): a posição do ativo escolhido, de onde sai o lastro. Pode
   // não existir — clicar num vigia de ativo que saiu da carteira seleciona um
   // ticker sem posição, e esse é um estado real a exibir, não um erro.
@@ -737,8 +745,7 @@ export default function OpcoesScreen({ ctx }) {
   const tecnicoPorTicker = useTecnicoCarteira(store, nav.nivel === "hub" ? tickersEmCarteira : []);
 
   // HubOpcoes lê `pos.ticker`; as posições da carteira trazem `t`.
-  const carteiraHub = carteira.map((p) => ({ ...p, ticker: p.t }));
-  const optionPositionsAll = (ctx && ctx.data && ctx.data.optionPositions) || [];
+  const carteiraHub = universo.map((p) => ({ ...p, ticker: p.t }));
   const myOptionPositions = optionPositionsAll.filter((o) => o && o.underlying === nav.ticker);
   // Estrutura aberta por ativo (rodapé do card): só os símbolos das pernas
   // abertas, sem nome inventado — a estrutura em si é do motor.
@@ -946,7 +953,7 @@ export default function OpcoesScreen({ ctx }) {
           ticker={nav.ticker}
           degrau={degrauEscolhido}
           onExecutar={(cand, o) => ctx.A.executarCandidatoCurado(cand, o)}
-          onConcluido={() => setNav({ ...estadoInicialOpcoes({ abas: ABAS_OPCOES, carteira }), nivel: "hub" })}
+          onConcluido={() => setNav({ ...estadoInicialOpcoes({ abas: ABAS_OPCOES, carteira: universo }), nivel: "hub" })}
           onVoltar={() => setNav((n) => voltar(n))}
           onCriarVigia={podeCriarSetup ? () => setNav((n) => irMontar(n)) : null}
           didatica={ctx && ctx.didatica}

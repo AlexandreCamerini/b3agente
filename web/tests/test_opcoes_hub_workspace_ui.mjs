@@ -10,6 +10,10 @@
 // universo = carteira, travessão em vez de zero. Texto original abaixo
 // preservado.
 //
+// RECONCILIAÇÃO 2026-10-06 (quick 261006-axi): o hub continua recebendo POSIÇÃO
+// (nunca watchlist), agora `universoOpcoes(carteira, optionPositionsAll)`: perna
+// de opção aberta sem ações do ativo entra como card "sem ações".
+//
 // Fase 34, plano 34-01 (2026-09-20) — guardião do split hub/workspace da
 // sub-aba "Setups" da aba Opções.
 //
@@ -240,6 +244,8 @@ ok("o único disparador pago do hub (onAtualizarVigias) declara o custo (custoAt
    /onAtualizarVigias=\{atualizarVigias\}/.test(hubSlice) && /custoAtualizar=\{CUSTO_DA_ACAO\.listarVigias\}/.test(hubSlice));
 ok("o hub recebe a CARTEIRA (carteiraHub, de ctx.data.positions), não a watchlist (universo = carteira) (reancorado 2026-10-05)",
    /carteira=\{carteiraHub\}/.test(hubSlice) && !/watchlist/i.test(hubSlice));
+ok("(quick 261006-axi, 2026-10-06) carteiraHub deriva de universoOpcoes(carteira, optionPositionsAll): perna aberta sem ações entra no hub",
+   /const carteiraHub = universo\.map/.test(opcoesScreen) && /universoOpcoes\(carteira, optionPositionsAll\)/.test(opcoesScreen));
 ok("HubOpcoes: cards como role=\"button\" com minHeight 64 e teclado (Enter/Espaço) (reancorado 2026-10-05)",
    /role="button"/.test(hub) && /minHeight: 64/.test(hub) && /e\.key === "Enter" \|\| e\.key === " "/.test(hub));
 ok("HubOpcoes: a seção Atenção só aparece com vigia (`vigias.length > 0`) e 'ver todos ›' é opcional (onVerTodosVigias) (reancorado 2026-10-05)",

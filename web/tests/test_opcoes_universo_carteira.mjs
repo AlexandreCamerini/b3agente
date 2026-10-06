@@ -8,6 +8,11 @@
 //  Estendido: watchlist também proibida nos componentes novos (HubOpcoes,
 //  ObjetivoAtivo, EscadaObjetivo) e nenhum useEffect chama setNav com carteira[0].
 //  Texto original preservado abaixo.
+//
+// RECONCILIAÇÃO 2026-10-06 (quick 261006-axi): universo = POSIÇÕES de ações +
+// PERNAS de opção abertas (`universoOpcoes(carteira, optionPositionsAll)`).
+// Uma perna aberta é posição; escondê-la viola o princípio 9. Watchlist segue
+// PROIBIDA; o ticker continua nascendo vazio; o lastro/Montar seguem em `carteira`.
 // Fase 27, plano 27-02 (2026-09-13) — guardião do UNIVERSO da aba Opções.
 //
 // O defeito que originou a fase, em uma frase: a aba consultava tickers
@@ -89,8 +94,9 @@ ok("sanidade: a regex de watchlist pega o padrão quando ele existe",
 // estiver na carteira — nunca o primeiro ativo por auto-seleção (ver
 // asserção de `carteira[0]` logo abaixo).
 ok("o ticker nasce de estadoInicialOpcoes({... carteira}) no inicializador lazy do nav — nada de auto-seleção do primeiro ativo (reancorado 2026-10-05)",
-   /const \[nav, setNav\] = useState\(\(\) => estadoInicialOpcoes\(\{[\s\S]*?carteira,\s*\}\)\);/.test(tela)
+   /const \[nav, setNav\] = useState\(\(\) => estadoInicialOpcoes\(\{[\s\S]*?carteira(: universo)?,\s*\}\)\);/.test(tela)
    && /const ticker = nav\.ticker;/.test(tela));
+// (reconciliado 2026-10-06, quick 261006-axi: o argumento passa a ser `carteira: universo`; a regex aceita os dois)
 ok("navOpcoes.js: o ticker inicial só vem de tickerInicialOpcoes(memoria, carteira) ou do deep-link validado (reancorado 2026-10-05)",
    /tickerInicialOpcoes\(memoria, carteira\)/.test(semComentario(ler("src", "opcoes", "navOpcoes.js"))));
 ok("memoriaOpcoes.js (lido do disco, sem comentários) não contém carteira[0] (nunca auto-seleciona)",
@@ -102,6 +108,8 @@ ok("nenhum useEffect da tela chama setTicker (auto-seleção por efeito é o mes
    efeitosDaTela.every((corpo) => !corpo.includes("setTicker")));
 ok("nenhum useEffect da tela chama setNav com carteira[0] (auto-seleção por efeito, reancorado 2026-10-05)",
    efeitosDaTela.every((corpo) => !/setNav\([^)]*carteira\[0\]/.test(corpo) && !corpo.includes("carteira[0]")));
+ok("nenhum useEffect da tela chama setNav com universo[0] (quick 261006-axi, 2026-10-06: o universo com perna avulsa também não auto-seleciona)",
+   efeitosDaTela.every((corpo) => !/setNav\([^)]*universo\[0\]/.test(corpo) && !corpo.includes("universo[0]")));
 const totalSetNav = (tela.match(/setNav\(/g) || []).length;
 const emEfeitoNav = efeitosDaTela
   .reduce((n, corpo) => n + (corpo.match(/setNav\(/g) || []).length, 0);
