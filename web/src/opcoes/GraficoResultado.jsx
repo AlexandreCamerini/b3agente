@@ -212,7 +212,7 @@ export default function GraficoResultado({
                 </span>
                 {" "}
                 <span style={{ ...MONO, color: T.textPrimary }}>R$ {fmt(v)}</span>
-                {perde ? <span style={{ color: T.negative }}> {"(perde)"}</span> : null}
+                {perde ? <span style={{ color: T.textPrimary, fontWeight: 700 }}> {"(perde)"}</span> : null}
                 {it.frase ? <span> {it.frase}</span> : null}
               </span>
             </li>

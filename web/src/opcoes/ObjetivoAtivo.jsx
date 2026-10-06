@@ -105,7 +105,8 @@ export default function ObjetivoAtivo({
                     A={A} didatica={didatica} kbCatalogo={kbCatalogo} onAbrirVerbete={onAbrirVerbete} />
                 </div>
                 {o.perde ? <div style={{ ...TIPO.corpo, color: T.textMuted }}>{o.perde}</div> : null}
-                {motivo ? <div style={{ ...TIPO.label, color: T.warn }}>{motivo}</div> : null}
+                {/* Fase 48 (48-13): motivo em textPrimary — warn sobre bgPanel mede 4,32:1 no tema claro (< AA); o texto do motivo já carrega o aviso. */}
+                {motivo ? <div style={{ ...TIPO.label, color: T.textPrimary }}>{motivo}</div> : null}
               </div>
             );
           })}
