@@ -1,0 +1,72 @@
+{
+  "_nota": "Fonte unica de numeros da paridade front x backend (quick 261006-bwv, 2026-10-06). Lida por server/tests/test_patrimonio_opcao_avulsa.py (store.valor_opcoes) e web/tests/test_patrimonio_opcao_avulsa.mjs (finance.portfolioMetrics). positions sempre [] para isolar opcoes.",
+  "casos": [
+    {
+      "nome": "A: VALEV731W2 PUT sem side/sem lastro, sem cotacao",
+      "cash": 9908, "reservado": 0,
+      "optionPositions": [
+        {"id": "VALEV731W2", "underlying": "VALE3", "optionType": "put", "qty": 100, "avg": 0.92}
+      ],
+      "optionQuotes": {},
+      "esperado": {"opcoesVal": 92, "opcoesPnL": 0, "semMarcacao": 1, "patr": 10000}
+    },
+    {
+      "nome": "B: mesma perna com cotacao viva 1.10",
+      "cash": 9908, "reservado": 0,
+      "optionPositions": [
+        {"id": "VALEV731W2", "underlying": "VALE3", "optionType": "put", "qty": 100, "avg": 0.92}
+      ],
+      "optionQuotes": {"VALEV731W2": 1.10},
+      "esperado": {"opcoesVal": 110, "opcoesPnL": 18, "semMarcacao": 0, "patr": 10018}
+    },
+    {
+      "nome": "C: put lastreada comprada avg 2 quote 3",
+      "cash": 1000, "reservado": 0,
+      "optionPositions": [
+        {"id": "PETR4M100", "side": "comprada", "qty": 100, "avg": 2.0, "lastro": {"t": "PETR4", "qty": 100}}
+      ],
+      "optionQuotes": {"PETR4M100": 3.0},
+      "esperado": {"opcoesVal": 300, "opcoesPnL": 100, "semMarcacao": 0, "patr": 1300}
+    },
+    {
+      "nome": "D: call coberta lastreada vendida avg 2 quote 1",
+      "cash": 1000, "reservado": 0,
+      "optionPositions": [
+        {"id": "PETR4C100", "side": "vendida", "qty": 100, "avg": 2.0, "lastro": {"t": "PETR4", "qty": 100}}
+      ],
+      "optionQuotes": {"PETR4C100": 1.0},
+      "esperado": {"opcoesVal": -100, "opcoesPnL": 100, "semMarcacao": 0, "patr": 900}
+    },
+    {
+      "nome": "E: vendida SEM lastro avg 1.5 quote 2",
+      "cash": 1000, "reservado": 0,
+      "optionPositions": [
+        {"id": "XPTOV100", "side": "vendida", "qty": 100, "avg": 1.5}
+      ],
+      "optionQuotes": {"XPTOV100": 2.0},
+      "esperado": {"opcoesVal": -200, "opcoesPnL": -50, "semMarcacao": 0, "patr": 800}
+    },
+    {
+      "nome": "F: misto A + C sem cotacao nenhuma",
+      "cash": 1000, "reservado": 0,
+      "optionPositions": [
+        {"id": "VALEV731W2", "underlying": "VALE3", "optionType": "put", "qty": 100, "avg": 0.92},
+        {"id": "PETR4M100", "side": "comprada", "qty": 100, "avg": 2.0, "lastro": {"t": "PETR4", "qty": 100}}
+      ],
+      "optionQuotes": {},
+      "esperado": {"opcoesVal": 292, "opcoesPnL": 0, "semMarcacao": 2, "patr": 1292}
+    },
+    {
+      "nome": "G: cotacao invalida (0, negativa, string, true) cai no avg",
+      "cash": 1000, "reservado": 0,
+      "optionPositions": [
+        {"id": "G0", "qty": 100, "avg": 1.0},
+        {"id": "G1", "qty": 100, "avg": 1.0},
+        {"id": "G2", "qty": 100, "avg": 1.0},
+        {"id": "G3", "qty": 100, "avg": 1.0}
+      ],
+      "optionQuotes": {"G0": 0, "G1": -1, "G2": "3", "G3": true},
+      "esperado": {"opcoesVal": 400, "opcoesPnL": 0, "semMarcacao": 4, "patr": 1400}
+    }
+  ]
+}

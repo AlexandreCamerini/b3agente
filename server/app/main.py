@@ -4809,7 +4809,13 @@ def _pet_resumo_evolucao(scope: Optional[str], intra_stored: Optional[dict], ope
     usuário: volta ao caixa se a ordem for cancelada). Essa é exatamente a
     classe de defeito "a tela está certa, só o Boris erra" da auditoria de
     v1.0 — o `public_state` da tela já soma os dois (`store.py`), este
-    resumo tinha ficado para trás."""
+    resumo tinha ficado para trás.
+
+    2026-10-06 (quick 261006-bwv): soma também `store.valor_opcoes` — antes a
+    rota ignorava TODAS as opções (lastreadas ou não) e divergia da tela; a
+    perna avulsa (`buy_option`) debitava o caixa e sumia do patrimônio. Sem
+    cotação de contrato nesta rota custo-zero: marca pelo prêmio de abertura
+    e diz isso na fala."""
     from . import intraday as intraday_mod
     positions = [p for p in (store.get(_conn, "positions", user_id=scope) or []) if isinstance(p, dict)]
     cash = float(store.get(_conn, "cash", user_id=scope) or 0)
@@ -4824,12 +4830,20 @@ def _pet_resumo_evolucao(scope: Optional[str], intra_stored: Optional[dict], ope
         r = intraday_mod.resumo_do_ticker(intra_stored, t) if t else None
         close = r.get("close") if (r and isinstance(r.get("close"), (int, float))) else None
         pos_val += qty * (close if close is not None else avg)
-    patrimonio = cash + reservado + pos_val
+    opts = [o for o in (store.get(_conn, "optionPositions", user_id=scope) or []) if isinstance(o, dict)]
+    opcoes_val = store.valor_opcoes(opts, None)["valor"] if opts else 0.0
+    patrimonio = cash + reservado + pos_val + opcoes_val
     base = float(budget) if isinstance(budget, (int, float)) and budget > 0 else (
         snaps[0]["patrimonio"] if snaps else patrimonio)
     ret_acum = ((patrimonio - base) / base * 100) if base > 0 else 0.0
+    if opts:
+        detalhe = f"caixa R$ {cash:.2f} + posições R$ {pos_val:.2f} + opções R$ {opcoes_val:.2f}"
+    else:
+        detalhe = f"caixa R$ {cash:.2f} + posições R$ {pos_val:.2f}"
     fala = [_PET_NAO_FAZ,
-           f"Seu patrimônio simulado agora é R$ {patrimonio:.2f} (caixa R$ {cash:.2f} + posições R$ {pos_val:.2f})."]
+           f"Seu patrimônio simulado agora é R$ {patrimonio:.2f} ({detalhe})."]
+    if opts:
+        fala.append("O valor das opções usa o prêmio de abertura de cada contrato — sem cotação ao vivo.")
     if reservado > 0:
         fala.append(f"Desse total, R$ {reservado:.2f} está reservado para ordem(ns) pendente(s) — "
                      "volta ao caixa se você cancelar antes da execução.")

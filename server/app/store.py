@@ -1,6 +1,7 @@
 """Operacoes de estado sobre o kv store. Funcoes recebem a conexao para
 ficarem testaveis (o pytest cria a sua propria conexao em arquivo temporario).
 """
+import math
 import threading
 from datetime import datetime, timedelta, timezone
 
@@ -626,6 +627,54 @@ def caixa_reservado(conn, user_id=None) -> float:
     pendentes = get(conn, "pendingOrders", user_id=user_id) or []
     total = sum((o.get("caixaReservado") or 0) for o in pendentes if isinstance(o, dict) and o.get("tipo") == "COMPRA")
     return round(total, 2)
+
+
+def valor_opcoes(option_positions, option_quotes=None) -> dict:
+    """Valor das pernas de opcao no patrimonio — PURA, sem I/O.
+
+    Espelho de web/src/finance.js portfolioMetrics — quick 261006-bwv,
+    2026-10-06; paridade travada por
+    server/tests/fixtures/patrimonio_opcoes_paridade.json.
+
+    Regras: perna `side == "vendida"` e passivo (`-qty*preco`; o premio
+    recebido ja esta em `cash`); qualquer outro side — inclusive AUSENTE, que
+    e a perna de `buy_option` — e ativo (`+qty*preco`). Sem filtro de `lastro`.
+    Preco = cotacao viva so se for numero (nao bool), finito e > 0; senao o
+    custo de entrada (`avg`, nunca 0 nem valor inventado) e a perna conta em
+    `sem_marcacao`. Sem arredondamento interno (e de exibicao)."""
+    oq = option_quotes if isinstance(option_quotes, dict) else {}
+    valor = 0.0
+    pnl = 0.0
+    sem_marcacao = 0
+
+    def _num(x):
+        # espelho de `Number(x) || 0`: str numerica converte, o resto le 0
+        if isinstance(x, bool):
+            return 0.0
+        try:
+            v = float(x)
+        except (TypeError, ValueError):
+            return 0.0
+        return v if math.isfinite(v) else 0.0
+
+    for op in (option_positions if isinstance(option_positions, (list, tuple)) else []):
+        if not isinstance(op, dict):
+            continue
+        qty = _num(op.get("qty"))
+        avg = _num(op.get("avg"))
+        vivo = oq.get(op.get("id"))
+        if isinstance(vivo, (int, float)) and not isinstance(vivo, bool) and math.isfinite(vivo) and vivo > 0:
+            preco = float(vivo)
+        else:
+            preco = avg
+            sem_marcacao += 1
+        if op.get("side") == "vendida":
+            valor -= qty * preco
+            pnl += (avg - preco) * qty
+        else:
+            valor += qty * preco
+            pnl += (preco - avg) * qty
+    return {"valor": valor, "pnl": pnl, "sem_marcacao": sem_marcacao}
 
 
 def qty_livre(pos: dict) -> int:
