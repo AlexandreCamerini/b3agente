@@ -2125,6 +2125,14 @@ function CapitalCurve({ ctx }) {
   return (
     <div style={{ ...card, padding: "18px 18px 14px" }}>
       <div style={{ fontSize: "12px", color: T.textMuted, letterSpacing: "0.04em" }}>PATRIMÔNIO SIMULADO</div>
+      {/* quick 261006-bwv (2026-10-06): mesma ressalva da Carteira — perna de
+          opção marcada pelo prêmio de abertura nunca entra calada. */}
+      {m.opcoesSemMarcacao > 0 && (
+        <div style={{ marginTop: "4px", fontSize: "11px", color: T.textMuted, display: "flex", alignItems: "center", gap: "6px" }}>
+          <span>{cp.linhaPatrimonioOpcoes}</span>
+          <b style={{ fontFamily: MONO, color: T.textSecondary }}>{moneySigned(m.opcoesVal)}</b>
+        </div>
+      )}
       {temIbov && (
         <div style={{ display: "flex", alignItems: "center", gap: "12px", marginTop: "5px", fontSize: "10px", color: T.textMuted, letterSpacing: "0.04em" }}>
           <span style={{ display: "inline-flex", alignItems: "center", gap: "5px" }}>
@@ -5646,8 +5654,11 @@ function CarteiraScreen({ ctx }) {
       {/* Fase 14 (Plano 07, T-14-28): perna lastreada dentro do patrimônio —
           marcação pelo prêmio de abertura é DITA, nunca apresentada como se
           fosse cotação ao vivo (CLAUDE.md princípio 3). Só aparece quando
-          existe ao menos uma posição de opção lastreada. */}
-      {(data.optionPositions || []).some((p) => p && p.lastro) && (
+          existe ao menos uma perna marcada pelo prêmio de abertura.
+          2026-10-06 (quick 261006-bwv): a condição deixou de ser `lastro` — a
+          perna avulsa (buy_option) também entra no patrimônio e também é
+          marcada pelo prêmio de abertura, então o aviso vale para as duas. */}
+      {m.opcoesSemMarcacao > 0 && (
         <div style={{ margin: "-6px 0 18px", fontSize: "11px", color: T.textMuted, display: "flex", alignItems: "center", gap: "6px" }}>
           <span>{cp.linhaPatrimonioOpcoes}</span>
           <b style={{ fontFamily: MONO, color: T.textSecondary }}>{moneySigned(m.opcoesVal)}</b>

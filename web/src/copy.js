@@ -784,7 +784,9 @@ export const COPY = {
     avisoLiquidacaoForcada: (ticker, valor) => valor === 0
       ? `Esta call de ${ticker} venceu fora do dinheiro — expirou sem valor, o prêmio integral ficou com quem estava do outro lado da operação, e o lastro foi liberado.`
       : `Esta call de ${ticker} venceu dentro do dinheiro e não foi fechada a tempo — liquidada em dinheiro pelo valor intrínseco (R$ ${valor}). Sua posição em ações não foi alterada.`,
-    linhaPatrimonioOpcoes: "opções lastreadas (marcadas pelo prêmio de abertura — sem cotação ao vivo)",
+    // 2026-10-06 (quick 261006-bwv): "lastreadas" -> "em aberto" — a linha agora
+    // cobre também a perna avulsa (buy_option). Chave só do front.
+    linhaPatrimonioOpcoes: "opções em aberto (marcadas pelo prêmio de abertura — sem cotação ao vivo)",
 
     // Fase 18 (Plano 01, NAV-01/NAV-03): tira "Oportunidades de opções" em
     // Posições (agregado, todas as posições) e afordância de detalhe dentro
