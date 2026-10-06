@@ -30,7 +30,10 @@ const _SO_ESTUDO = new Set(["cartaoDidatica"]);
 const e = Object.keys(COPY.estudo).filter((k) => !_SO_ESTUDO.has(k)).sort(), o = Object.keys(COPY.operador).sort();
 ok("chaves espelhadas nos dois modos (" + e.length + ")", JSON.stringify(e) === JSON.stringify(o));
 const estTxt = JSON.stringify(Object.values(COPY.estudo).map((v) => (typeof v === "function" ? v("X", "Y", "Z") + v(null, 0, 0) : v)));
-ok("ramo ESTUDO sem vocabulário de ordem", !/registrar entrada|registrar saída|execute a saída|COMPRAR|VENDER/i.test(estTxt.replace(/Simular compra|Simular venda|venda simulada|compra simulada/gi, "")));
+// 2026-10-06 (49-01, reconciliação deliberada): a anatomia da perna EXPLICA o contrato ("o direito de comprar/vender",
+// "a obrigação de comprar/vender") — descrição didática, não ordem. Só essas duas locuções saem da checagem; qualquer outro
+// COMPRAR/VENDER, "registrar entrada/saída" e "execute a saída" no Estudo continuam reprovando.
+ok("ramo ESTUDO sem vocabulário de ordem", !/registrar entrada|registrar saída|execute a saída|COMPRAR|VENDER/i.test(estTxt.replace(/Simular compra|Simular venda|venda simulada|compra simulada/gi, "").replace(/(direito|obrigação) de (comprar|vender)/gi, "")));
 ok("fallback para modo desconhecido = estudo", copyFor("banana") === COPY.estudo);
 
 // ---- 2) B1: telas leem cp.* (sem texto sensível hardcodado) -----------------
