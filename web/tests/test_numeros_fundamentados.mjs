@@ -15,10 +15,13 @@ const ent = readFileSync(join(here, "..", "src", "entendimento.jsx"), "utf8");
 let fails = 0;
 const ok = (n, c) => { console.log((c ? "ok " : "FALHOU ") + n); if (!c) fails++; };
 
-ok("a base do retorno vem do carimbo da série, não do campo de orçamento",
-  /snaps\.find\(\(s\) => typeof s\.base === "number" && s\.base > 0\)/.test(fin));
-ok("o orçamento corrente só entra quando ainda não há série carimbada",
-  /const b = carimbada \? carimbada\.base : \(Number\(budget\) \|\| 0\)/.test(fin));
+// 2026-10-06 (quick 261006-dvf): regex do código antigo (`snaps.find(...)`,
+// `const b = carimbada ? ...`) trocada — a base agora sai de resolverBaseSerie e
+// o orçamento deixou de existir como divisor em finance.js.
+ok("a base do retorno vem de resolverBaseSerie (série), não do campo de orçamento",
+  /export function equityCurve[\s\S]*?resolverBaseSerie\(/.test(fin));
+ok("o orçamento (`Number(budget)`) não é mais divisor em finance.js",
+  !/Number\(budget\)/.test(fin));
 
 // --- comportamento, não só forma: roda o cálculo de verdade -----------------
 const { equityCurve } = await import(join(here, "..", "src", "finance.js"));
@@ -32,8 +35,11 @@ ok("editar o orçamento não infla o retorno acumulado",
 ok("a base usada é a carimbada", comOrcamentoAdulterado.base === 10000);
 
 const semSerie = equityCurve([], 10000, 12000, "2026-08-02");
-ok("sem série, o orçamento ainda serve de base (1ª abertura)",
-  Math.round(semSerie.retAcum) === 20);
+// 2026-10-06 (quick 261006-dvf): REVERSÃO DELIBERADA. Antes: "sem série, o orçamento
+// ainda serve de base" (+20 %). O orçamento é campo de formulário — usá-lo como
+// divisor gerou +10.193 %. Sem série, o retorno é indeterminado (null), nunca 0.
+ok("sem série, o retorno acumulado é null e a origem é sem_serie (orçamento não é base)",
+  semSerie.retAcum === null && semSerie.baseOrigem === "sem_serie");
 
 // --- login obrigatório -------------------------------------------------------
 // o texto sobrevive no COMENTÁRIO que registra a remoção — o que não pode

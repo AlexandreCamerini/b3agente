@@ -79,12 +79,26 @@ function sanitizeTradeMeta(meta) {
   return Object.keys(out).length ? out : null;
 }
 
-function upsertSnapshot(list, snap) {
+// Espelho de store.upsert_snapshot (server/app/store.py) — MESMA regra de carimbo
+// da `base` (2026-10-06, quick 261006-dvf): sem operação = caixa; com operação
+// herda do registro mais recente com data <= nova; sem registro com base = null
+// (desconhecida, nunca 0 nem initialBudget). `ctx = { semOperacao, caixa }` é
+// montado por deviceStore.putSnapshot; a função segue privada.
+function upsertSnapshot(list, snap, ctx) {
   const data = String((snap || {}).data || "").trim();
   const arr = Array.isArray(list) ? list : [];
   if (!data) return arr;
   const num = (v) => { const n = Math.round((Number(v) || 0) * 100) / 100; return Number.isFinite(n) ? n : 0; };
-  const rec = { data, patrimonio: num((snap || {}).patrimonio), caixa: num((snap || {}).caixa), posicoesValor: num((snap || {}).posicoesValor) };
+  let base = null;
+  if (ctx && ctx.semOperacao) {
+    base = num(ctx.caixa);
+  } else {
+    const ant = arr.filter((s) => s && typeof s.data === "string" && s.data <= data)
+      .sort((a, b) => (a.data < b.data ? -1 : a.data > b.data ? 1 : 0));
+    const b = ant.length ? ant[ant.length - 1].base : null;
+    if (typeof b === "number" && isFinite(b) && b > 0) base = b;
+  }
+  const rec = { data, patrimonio: num((snap || {}).patrimonio), caixa: num((snap || {}).caixa), posicoesValor: num((snap || {}).posicoesValor), base };
   const out = arr.filter((s) => s && s.data !== data);
   out.push(rec);
   out.sort((a, b) => (a.data || "").localeCompare(b.data || ""));
@@ -1021,7 +1035,10 @@ function deviceStore() {
     },
     async putSnapshot(snap) {
       ensure();
-      doc.equitySnapshots = upsertSnapshot(doc.equitySnapshots || [], snap);
+      const vazio = (v) => !Array.isArray(v) || v.length === 0;
+      const semOperacao = vazio(doc.positions) && vazio(doc.optionPositions)
+        && vazio(doc.pendingOrders) && vazio(doc.history);
+      doc.equitySnapshots = upsertSnapshot(doc.equitySnapshots || [], snap, { semOperacao, caixa: doc.cash });
       write();
       return pub();
     },
@@ -1099,6 +1116,9 @@ function deviceStore() {
         // servidor (e o Operador que lê de lá) nunca soube da carteira zerada.
         const r = await api.resetPortfolio();
         _adotarCarteiraDoServidor(r);
+        // 2026-10-06 (quick 261006-dvf): paridade com store.reset_portfolio — a série
+        // da simulação anterior não pode sobreviver (misturava duas simulações).
+        doc.equitySnapshots = [];
         doc.analyses = {};
         doc.agent.events = [{ time: "Inicio", kind: "info", text: "Carteira reiniciada com o orçamento simulado de R$ " + doc.cash.toFixed(2) + "." }];
         write();
@@ -1110,6 +1130,7 @@ function deviceStore() {
       doc.pendingOrders = [];  // Fase 2 (MERC-02..04)
       doc.caixaReservado = 0;
       doc.history = [];
+      doc.equitySnapshots = [];  // paridade com store.reset_portfolio (quick 261006-dvf)
       doc.analyses = {};
       doc.agent.events = [{ time: "Inicio", kind: "info", text: "Carteira reiniciada com o orçamento simulado de R$ " + budget.toFixed(2) + "." }];
       write();

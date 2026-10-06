@@ -216,8 +216,12 @@ ok("dayReturnPct base <= 0 → 0", dayReturnPct(0, 0) === 0);
 {
   // estados vazios não produzem NaN/Infinity
   const ec = equityCurve([], 10000, 10000, "d");
-  ok("vazio+orçamento: curva [orçamento, ao vivo]", ec.curve.length === 2 && ec.curve[0] === 10000);
-  ok("vazio: retAcum finito", isFinite(ec.retAcum) && ec.retAcum === 0);
+  // 2026-10-06 (quick 261006-dvf): REVERSÃO DELIBERADA. Antes: curva [orçamento, ao vivo]
+  // e retAcum 0 — o orçamento (campo de formulário) virava ponto-base e, sem base, o
+  // retorno saía 0 (viola "null nunca zero"). Agora: só o ponto ao vivo, retAcum null,
+  // sem NaN/Infinity (drawdown segue finito).
+  ok("vazio+orçamento: curva só com o ponto ao vivo", ec.curve.length === 1 && ec.curve[0] === 10000);
+  ok("vazio: retAcum null (nunca 0) e drawdown finito", ec.retAcum === null && isFinite(ec.drawdown));
   const ec2 = equityCurve(null, 0, null, null);
   ok("tudo nulo: sem NaN", isFinite(ec2.retAcum) && isFinite(ec2.drawdown));
 }
@@ -262,7 +266,10 @@ ok("data malformada (número no lugar de string): não degrada, sem exceção",
   ];
   const ec = equityCurve(snaps, 10000, 10600, "d3");
   ok("datas.length === curve.length (com base, live substitui)", ec.datas.length === ec.curve.length);
-  ok("datas: base null seguido das 3 datas reais", JSON.stringify(ec.datas) === JSON.stringify([null, "d1", "d2", "d3"]));
+  // 2026-10-06 (quick 261006-dvf): série sem carimbo = `primeiro_registro` — a base é o
+  // 1º dia registrado, sem ponto-base antecipado (antes: [null, "d1", ...] porque o
+  // `budget` virava um ponto-base). `datas.length === curve.length` segue travado acima.
+  ok("datas: as 3 datas reais, sem ponto-base (primeiro_registro)", JSON.stringify(ec.datas) === JSON.stringify(["d1", "d2", "d3"]));
 }
 {
   // combinação 2: SEM base (budget 0), ponto ao vivo ANEXADO (data diferente)
@@ -275,12 +282,15 @@ ok("data malformada (número no lugar de string): não degrada, sem exceção",
   const snaps = [{ data: "d1", patrimonio: 10000 }, { data: "d2", patrimonio: 10500 }];
   const ec = equityCurve(snaps, 10000, 10700, "d3");
   ok("datas.length === curve.length (com base, live anexado)", ec.datas.length === ec.curve.length);
-  ok("datas: base null + 2 snapshots + data anexada", JSON.stringify(ec.datas) === JSON.stringify([null, "d1", "d2", "d3"]));
+  // 2026-10-06 (quick 261006-dvf): idem combinação 1 — sem ponto-base em primeiro_registro.
+  ok("datas: 2 snapshots + data anexada, sem ponto-base", JSON.stringify(ec.datas) === JSON.stringify(["d1", "d2", "d3"]));
 }
 {
   // vazio/nulo: datas continua paralelo, sem quebrar
   const ec = equityCurve([], 10000, 10000, "d");
-  ok("vazio+orçamento: datas = [null, 'd']", JSON.stringify(ec.datas) === JSON.stringify([null, "d"]));
+  // 2026-10-06 (quick 261006-dvf): sem série o orçamento não vira ponto-base nem divisor
+  // (era [null, 'd']); só o ponto ao vivo, retAcum null.
+  ok("vazio+orçamento: datas = ['d'] e retAcum null", JSON.stringify(ec.datas) === JSON.stringify(["d"]) && ec.retAcum === null);
   const ec2 = equityCurve(null, 0, null, null);
   ok("tudo nulo: datas array vazio, sem quebrar", Array.isArray(ec2.datas) && ec2.datas.length === ec2.curve.length);
 }

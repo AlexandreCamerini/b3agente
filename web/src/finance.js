@@ -15,9 +15,12 @@
 //  • Resultado aberto (P&L) = Σ (preço − avg) × qty ; % sobre o CUSTO.
 //  • Retorno do dia (R$) = Σ qty × preço × (variação%_do_ativo / 100), contando
 //    apenas posições com cotação real (com `change`).
-//  • Retorno acumulado: base = ORÇAMENTO INICIAL (`initialBudget`). A curva começa
-//    no orçamento e termina no patrimônio AO VIVO — assim o número exibido e a
-//    curva são o MESMO valor. (Se não houver orçamento, cai para o 1º snapshot.)
+//  • Retorno acumulado: base resolvida pela própria SÉRIE de snapshots
+//    (`resolverBaseSerie`): base carimbada provada, ou o 1º dia registrado, ou
+//    nenhuma (retAcum null). A curva termina no patrimônio AO VIVO — assim o
+//    número exibido e a curva são o MESMO valor. Histórico: já foi o ORÇAMENTO
+//    INICIAL (`initialBudget`); 2026-10-06 (quick 261006-dvf) saiu de vez — era
+//    um campo de formulário e gerou +10.193 % para um retorno real de ~+2,9 %.
 //  • Drawdown = maior queda percentual desde o pico, sobre a MESMA curva exibida.
 //  • Quantidade livre (Fase 14, opções lastreadas) = quantidade total de uma
 //    posição menos a travada como lastro de uma CALL coberta aberta
@@ -238,55 +241,87 @@ export function dayReturnPct(patr, dayVal) {
   return base > 0 ? (dayVal / base) * 100 : 0;
 }
 
-// Curva de capital + retorno acumulado + drawdown, todos consistentes entre si.
-// snapshots: [{ data:"YYYY-MM-DD", patrimonio:number }, ...]
-export function equityCurve(snapshots, budget, livePatr, todayYmd) {
-  const snaps = (Array.isArray(snapshots) ? snapshots : []).filter(
-    (s) => s && typeof s.patrimonio === "number" && isFinite(s.patrimonio)
-  );
-  const series = snaps.map((s) => s.patrimonio);
-  // BASE = o capital com que ESTA série começou, carimbado no 1º snapshot
-  // (`base`). O `initialBudget` corrente só entra quando ainda não há série.
-  //
-  // Antes a base era sempre o `initialBudget`, que a pessoa edita livremente na
-  // Config sem que caixa ou posições mudem — e o "retorno acumulado" de meses
-  // era reescrito por uma digitação. Era daí que saía o +9990% sem operação
-  // nenhuma por trás. Retorno é (patrimônio de hoje ÷ capital que entrou); o
-  // divisor não pode ser um campo de formulário.
-  const carimbada = snaps.find((s) => typeof s.base === "number" && s.base > 0);
-  const b = carimbada ? carimbada.base : (Number(budget) || 0);
-  const base = b > 0 ? b : (series.length ? series[0] : (Number(livePatr) || 0));
+// Base do retorno acumulado, resolvida na LEITURA pela própria série.
+// Gêmeo de store.resolver_base_serie (server/app/store.py) — paridade travada por
+// test_retorno_acumulado_base.mjs/.py sobre server/tests/fixtures/retorno_acumulado_casos.json.
+// Pura: não muta a entrada. `initialBudget` nunca entra (quick 261006-dvf, 2026-10-06).
+// Retorna { origem, base, inicio, desde, serie } — `inicio` indexa `serie`
+// (já filtrada e ordenada). origem: carimbada | primeiro_registro | sem_serie | inconsistente.
+const TOL_BASE = 0.01;
+export function resolverBaseSerie(snapshots) {
+  const num = (v) => typeof v === "number" && isFinite(v);
+  const conhecida = (s) => num(s.base) && s.base > 0;
+  const serie = (Array.isArray(snapshots) ? snapshots : [])
+    .filter((s) => s && num(s.patrimonio) && typeof s.data === "string")
+    .sort((a, b) => (a.data < b.data ? -1 : a.data > b.data ? 1 : 0));
+  const vazio = { origem: "sem_serie", base: null, inicio: null, desde: null, serie };
+  if (!serie.length) return vazio;
+  let vigente = null, inicio = null;
+  if (conhecida(serie[0])) { vigente = serie[0].base; inicio = 0; }
+  for (let i = 1; i < serie.length; i++) {
+    const si = serie[i];
+    if (!conhecida(si)) continue; // cliente antigo: herda a vigente
+    const ancora = Math.abs(si.base - si.patrimonio) <= TOL_BASE;
+    if (vigente === null) {
+      // carimbo isolado sobre série sem base = o caso do bug (initialBudget legado);
+      // só vale como âncora o ponto sem operação (base == patrimônio).
+      if (ancora) { vigente = si.base; inicio = i; }
+    } else if (si.base !== vigente) {
+      if (ancora) { vigente = si.base; inicio = i; } // aporte/retirada reinicia a janela
+      else return { ...vazio, origem: "inconsistente" };
+    }
+  }
+  if (vigente !== null) return { origem: "carimbada", base: vigente, inicio, desde: serie[inicio].data, serie };
+  if (serie[0].patrimonio > 0) return { origem: "primeiro_registro", base: serie[0].patrimonio, inicio: 0, desde: serie[0].data, serie };
+  return vazio;
+}
 
-  // série de exibição: baseline (orçamento) → snapshots, com o ÚLTIMO ponto
-  // refletindo o patrimônio AO VIVO (substitui o snapshot de hoje; senão anexa).
-  // `datas` é construída em PARALELO a `plot`, mesma decisão de
-  // substituir/anexar — Plano 04-06 (FIX-C03): é o que permite ao
-  // `benchmarkSerie` alinhar o Ibovespa por data real em vez de por índice.
+// Curva de capital + retorno acumulado + drawdown, todos consistentes entre si.
+// snapshots: [{ data:"YYYY-MM-DD", patrimonio:number, base?:number }, ...]
+// `budget` permanece na assinatura por compatibilidade de chamada e NÃO é usado
+// como divisor (2026-10-06, quick 261006-dvf: era campo de formulário; ver
+// resolverBaseSerie). Sem base determinável, retAcum é null — nunca 0.
+export function equityCurve(snapshots, budget, livePatr, todayYmd) { // eslint-disable-line no-unused-vars
+  const r = resolverBaseSerie(snapshots);
+  const base = r.base;
+  // Janela: só de `inicio` em diante (antes de um aporte/retirada não há operação,
+  // logo o retorno ali é exatamente 0 — descartar não perde informação).
+  const snaps = r.serie.slice(r.inicio || 0);
+  const series = snaps.map((s) => s.patrimonio);
+
+  // série de exibição: snapshots, com o ÚLTIMO ponto refletindo o patrimônio AO
+  // VIVO (substitui o snapshot de hoje; senão anexa). `datas` é construída em
+  // PARALELO a `plot` — Plano 04-06 (FIX-C03): permite ao `benchmarkSerie`
+  // alinhar o Ibovespa por data real em vez de por índice.
   let plot = series.slice();
   let datasPlot = snaps.map((s) => s.data);
   if (livePatr != null && isFinite(livePatr)) {
     const last = snaps[snaps.length - 1];
     if (last && todayYmd && last.data === todayYmd && plot.length) {
       plot[plot.length - 1] = livePatr;
-      // datasPlot: a data do último ponto não muda (já é a de hoje).
     } else {
       plot.push(livePatr);
       datasPlot.push(todayYmd != null ? todayYmd : null);
     }
   }
-  const curve = b > 0 ? [base, ...plot] : plot;
-  // ponto-base não carrega data própria (o baseline do orçamento não é um
-  // pregão) — `null` na posição, tratado por `benchmarkSerie` como "sem data".
-  const datas = b > 0 ? [null, ...datasPlot] : datasPlot;
-  const end = curve.length ? curve[curve.length - 1] : base;
-  const retAcum = base > 0 ? ((end - base) / base) * 100 : 0;
+  // ponto-base só em `carimbada` (capital aportado, não é um pregão: sem data,
+  // tratado por `benchmarkSerie` como "sem data"). `primeiro_registro` já tem a
+  // base como 1º ponto.
+  const comPontoBase = r.origem === "carimbada";
+  const curve = comPontoBase ? [base, ...plot] : plot;
+  const datas = comPontoBase ? [null, ...datasPlot] : datasPlot;
+  const end = curve.length ? curve[curve.length - 1] : (Number(livePatr) || 0);
+  const retAcum = base > 0 ? ((end - base) / base) * 100 : null;
 
   let peak = curve.length ? curve[0] : 0, dd = 0;
   for (const v of curve) {
     if (v > peak) peak = v;
     if (peak > 0) { const d = ((peak - v) / peak) * 100; if (d > dd) dd = d; }
   }
-  return { curve, series, days: series.length, retAcum, drawdown: dd, base, end, datas };
+  return {
+    curve, series, days: series.length, retAcum, drawdown: dd, base, end, datas,
+    baseOrigem: r.origem, baseDesde: r.desde,
+  };
 }
 
 // Alinha a série do Ibovespa (candles do provedor) às DATAS REAIS da curva da
