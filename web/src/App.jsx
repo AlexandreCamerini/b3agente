@@ -7,7 +7,7 @@ import { createChart, ColorType, CrosshairMode, LineStyle } from "lightweight-ch
 import { sampleTechnicals } from "./demo.js";
 import { DISCLAIMERS, TERMO_OPERADOR_VERSAO, TERMO_DESCOBERTO_VERSAO } from "./disclaimers.js";
 import { copyFor, historicoTxt, entradaAutoTxt, reconciliacaoTxt, reconciliacaoPorQueImporta, estruturaCardTxt, cartaoPosicaoTxt, cartaoDidaticaTxt } from "./copy.js";
-import { tickersComPernas, assinaturaEstrutura, estadoLeitura, mostraAvisoSemStop, mostraRR, valorRR, criarFilaLeituras, tipoPillTravada, chipVencimento, ddmmDeIso, tomDoEstado, dominioRegua, posRegua, sinalResultado, kickerResultadoSoAcoes, ancoraRotulo, estadoPrincipalV6, linhasResultadoV6, chipsMetaV6, rsSinalNbsp, fonteValorCabecalho, pctCapitalTexto, flipDuracaoMs, prefereMovimentoReduzido, faceInicial, pontoDoIndice, indiceNomeado, zonaVisual, rotulosSemColisao, colunasDaGrade, rsNbsp, nomeEmpresaCard, sigPosicaoLeitura, situacaoLeituraPlano } from "./estruturaCard.js";
+import { tickersComPernas, tickersSoComPernas, assinaturaEstrutura, estadoLeitura, mostraAvisoSemStop, mostraRR, valorRR, criarFilaLeituras, tipoPillTravada, chipVencimento, ddmmDeIso, tomDoEstado, dominioRegua, posRegua, sinalResultado, kickerResultadoSoAcoes, ancoraRotulo, estadoPrincipalV6, linhasResultadoV6, chipsMetaV6, rsSinalNbsp, fonteValorCabecalho, pctCapitalTexto, flipDuracaoMs, prefereMovimentoReduzido, faceInicial, pontoDoIndice, indiceNomeado, zonaVisual, rotulosSemColisao, colunasDaGrade, rsNbsp, nomeEmpresaCard, sigPosicaoLeitura, situacaoLeituraPlano } from "./estruturaCard.js";
 import { varsCartaoV6, ALFA_ZONA_V6, ALFA_ZONA_MEIO_V6 } from "./cartaoV6Cores.js"; // 2026-10-01: cores do design v6 ESCOPADAS ao card (CSS vars no wrapper); não toca T/PALETTE
 // Fase 41 (TELAS-01): registro único das 8 telas que o assistente conhece —
 // BottomNav/petTela leem daqui nesta plano (41-02); tourPassos/ajudaSecoes
@@ -4896,6 +4896,39 @@ function LinhasResultadoV6({ linhas, modo, notas }) {
   );
 }
 
+// quick 261006-axi (2026-10-06): card do ativo que só tem opção aberta (caso real:
+// PUT VALEV731W2 sem VALE3), que antes sumia da Carteira. Nada é fabricado: a
+// estrutura vem do motor (a leitura já é pedida por tickersComPernas), nome só de
+// fonte real (catálogo/cotação), e não há preço, plano, stop/alvo nem Bóris IA da
+// ação (sem ação não há plano de ação). O p sintético tem qty 0 (fato) e
+// avg/stop/alvo null. Achado D-6 (patrimônio ignora perna sem `lastro`) NÃO é
+// tratado aqui: decisão do Alex.
+function CartaoPernaAvulsa({ t, nomeEmpresa, leitura, cp, operador, ctx, data, onAtualizar }) {
+  const modo = operador ? "operador" : "estudo";
+  const modoLeitura = estadoLeitura(true, leitura);
+  const rotulo = { fontSize: TIPO_CARD.rotulo, fontWeight: 400, color: T.textSecondary };
+  return (
+    <div>
+      <div style={{ minWidth: 0 }}>
+        <div style={{ fontFamily: MONO, fontWeight: 700, fontSize: TIPO_CARD.titulo, lineHeight: 1.2 }}>{t}</div>
+        {nomeEmpresa && <div style={{ ...rotulo, overflowWrap: "anywhere" }}>{nomeEmpresa}</div>}
+        <div style={{ ...rotulo, marginTop: `${SP[1]}px`, overflowWrap: "anywhere" }}>{cartaoPosicaoTxt(modo, "avulsa_sem_acoes")}</div>
+      </div>
+      {(modoLeitura === "carregando" || modoLeitura === "falha") && (
+        <div role="status" aria-live="polite" style={{ marginTop: `${SP[3]}px`, display: "flex", alignItems: "center", flexWrap: "wrap", gap: `${SP[2]}px`, ...rotulo }}>
+          <span>{estruturaCardTxt(modo, modoLeitura === "carregando" ? "lendo" : "indisponivel")}</span>
+          {modoLeitura === "falha" && <BotaoAtualizarEstrutura leitura={leitura} onClick={onAtualizar} cp={cp} />}
+        </div>
+      )}
+      {modoLeitura === "estruturada" && (
+        <div style={{ marginTop: `${SP[3]}px` }}>
+          <CardPosicaoEstruturada p={{ t, qty: 0, avg: null, stop: null, alvo: null, semAcoes: true }} leitura={leitura} cp={cp} operador={operador} ctx={ctx} data={data} onAtualizar={onAtualizar} />
+        </div>
+      )}
+    </div>
+  );
+}
+
 function CartaoPosicao({ p, nomeEmpresa, modoLeitura, leituraEstrutura, leituraPlano, situacaoPlano, onTentarPlano, cp, operador, ctx, data, total, onAtualizar, histAberto, onHist, editAberto, onEditar }) {
   const [aberto, setAberto] = useState(false);
   // 46-06 (D-17): face e expansor de compras locais por posição; sobrevivem a
@@ -5561,6 +5594,8 @@ function CarteiraScreen({ ctx }) {
   // 46.1 (2026-10-02, G-07): último nome visto por ticker (cotação some, nome fica).
   const nomesRef = useRef({});
   const comPernas = new Set(tickersComPernas(data.positions, data.optionPositions));
+  // quick 261006-axi (2026-10-06): ativo só com opção (sem ações) ganha card próprio.
+  const avulsas = tickersSoComPernas(data.positions, data.optionPositions);
   useEffect(() => { track("portfolio_view"); }, []);   // qa/47 (Fase 2)
   // Fase 32 (32-04): o estado de "qual posição tem o detalhe de opções
   // aberto" (Fase 18, NAV-02) e a chamada do hook de fan-out gate→proposta
@@ -5648,7 +5683,8 @@ function CarteiraScreen({ ctx }) {
         <LinhaChamadaOpcoes curadoria={ctx.curadoria} cp={cp} onIr={() => ctx.goOpcoes("recomendadas")} />
       )}
 
-      {data.positions.length === 0 && (
+      {/* quick 261006-axi (2026-10-06): "Portfólio vazio" só sem ações E sem opção avulsa. */}
+      {data.positions.length === 0 && avulsas.length === 0 && (
         <div style={{ background: T.bgCard, border: `1px dashed ${T.borderDashed}`, borderRadius: "12px", padding: "34px 20px", textAlign: "center" }}>
           <div style={{ fontSize: "16px", fontWeight: 700 }}>Portfólio vazio</div>
           <p style={{ margin: "8px auto 16px", color: T.textMuted, fontSize: "13px", maxWidth: "380px", lineHeight: 1.5 }}>{cp.vazioPortfolio}</p>
@@ -5677,6 +5713,15 @@ function CarteiraScreen({ ctx }) {
               {/* Fase 46 (CART6-01/02, D-13/D-14): card v6 para TODA posição; aberto,
                   o corpo (faces Ação | Opções + Bóris IA) vive em CartaoPosicao. */}
               <CartaoPosicao p={p} nomeEmpresa={nomeEmpresa} modoLeitura={modoLeitura} leituraEstrutura={leitura} leituraPlano={vig.leitura} situacaoPlano={vig.situacao} onTentarPlano={plano.tentarDeNovo} cp={cp} operador={operador} ctx={ctx} data={data} total={total} onAtualizar={() => atualizarEstrutura(p.t)} histAberto={histFor === p.t} onHist={() => setHistFor(histFor === p.t ? null : p.t)} editAberto={editFor === p.t} onEditar={() => setEditFor(editFor === p.t ? null : p.t)} />
+            </div>
+          );
+        })}
+        {avulsas.map((t) => {
+          const q = byQ(t);
+          if (q && typeof q.name === "string" && q.name.trim()) nomesRef.current[t] = q.name.trim();
+          return (
+            <div key={"avulsa-" + t} id={"posicao-" + t} style={{ ...card, ...varsCartaoV6(themeKey, operador ? "operador" : "estudo"), padding: `${SP[4]}px` }}>
+              <CartaoPernaAvulsa t={t} nomeEmpresa={nomeEmpresaCard(t, q, data.catalog, nomesRef.current[t])} leitura={leituras[t]} cp={cp} operador={operador} ctx={ctx} data={data} onAtualizar={() => atualizarEstrutura(t)} />
             </div>
           );
         })}
