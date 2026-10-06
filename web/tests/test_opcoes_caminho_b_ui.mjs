@@ -29,7 +29,9 @@ let fails = 0;
 const ok = (name, cond) => { console.log((cond ? "ok " : "FALHOU ") + name); if (!cond) fails++; };
 const semComentarios = (s) => s.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:"'`\\])\/\/[^\n]*/g, "$1");
 
-const NOMES = ["HubOpcoes", "ObjetivoAtivo", "EscadaObjetivo", "GraficoResultado", "MatrizVencimentos", "ConfirmarEstrutura", "TermoOpcoes"];
+const NOMES = ["HubOpcoes", "ObjetivoAtivo", "EscadaObjetivo", "GraficoResultado", "MatrizVencimentos", "ConfirmarEstrutura", "TermoOpcoes",
+  // Fase 49 (2026-10-06): componentes da anatomia entram nas mesmas regras (reduced-motion, alvo 44, sem cor de texto positive/negative/warn, sem 0 substituto).
+  "GraficoAnatomia", "AnatomiaPerna"];
 const raw = {}; const F = {};
 for (const n of NOMES) { raw[n] = src("opcoes", n + ".jsx"); F[n] = semComentarios(raw[n]); }
 const fluxo = src("opcoes", "fluxoEstilo.js");
