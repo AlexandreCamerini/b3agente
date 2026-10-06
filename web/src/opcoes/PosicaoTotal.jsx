@@ -89,7 +89,7 @@ export default function PosicaoTotal({ mode, ticker, anatomia, excluidas, onAlte
       if (p.incluida === false || ex.includes(p.id)) return;
       series.push({ id: p.id, valores: p.pontos, traco: k % 4, apagada: !!selecionada && selecionada !== p.id, destaque: selecionada === p.id });
     });
-    series.push({ id: "total", valores: pontos, destaque: !selecionada });
+    series.push({ id: "total", tipo: "total", valores: pontos, apagada: !!selecionada });
   }
   const rotMarc = (m) =>
     m.chave === "strike" ? tx("anat_marcador_strike", { strike: fmt(m.preco) })

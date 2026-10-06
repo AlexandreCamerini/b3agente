@@ -112,14 +112,23 @@ export default function GraficoAnatomia({ precos, series, area, marcadores, curs
       {sers.map((s, i) => {
         const d = caminho(s && s.valores);
         if (!d) return null;
-        const total = s.destaque && s.traco === undefined;
+        // WR-05 (49-REVIEW, 2026-10-06): o total é marcado por `tipo`, não inferido
+        // de destaque/traço (com perna selecionada ele colidia com a perna 0).
+        // Identidade por 3 sinais além da cor: cor de texto, peso 3 e halo de fundo.
+        const total = s.tipo === "total";
         const tr = ehNum(s.traco) ? TRACOS[s.traco % TRACOS.length] : "";
         return (
-          <path key={s.id || i} d={d} fill="none"
-            style={{ stroke: total ? T.textPrimary : T.accent }}
-            strokeWidth={total ? 3 : (s.destaque ? 3.5 : 2)}
-            strokeDasharray={tr || undefined}
-            strokeOpacity={s.apagada ? 0.25 : 1} />
+          <g key={s.id || i}>
+            {total ? (
+              <path d={d} fill="none" style={{ stroke: T.bgPanel }} strokeWidth={6}
+                strokeOpacity={s.apagada ? 0.45 : 1} />
+            ) : null}
+            <path d={d} fill="none"
+              style={{ stroke: total ? T.textPrimary : T.accent }}
+              strokeWidth={total ? 3 : (s.destaque ? 3.5 : 2)}
+              strokeDasharray={tr || undefined}
+              strokeOpacity={s.apagada ? (total ? 0.45 : 0.25) : 1} />
+          </g>
         );
       })}
 

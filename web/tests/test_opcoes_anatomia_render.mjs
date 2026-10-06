@@ -110,6 +110,12 @@ ok('9. gráfico: role="img", title, desc, hachura e marcador', gr.includes('role
 ok("9. gráfico: null quebra o traço (dois segmentos M)", ((gr.match(/ d="M[^"]*"/g) || []).some((x) => (x.match(/M/g) || []).length >= 2)));
 ok("9. gráfico: ids únicos por instância", html(h("div", null, h(GraficoAnatomia, { precos, series: [], area: pontos, titulo: "a", descricao: "b" }), h(GraficoAnatomia, { precos, series: [], area: pontos, titulo: "a", descricao: "b" }))).match(/<pattern id="([^"]+)"/g).length === 2);
 ok("9. gráfico: menos de 2 preços não desenha", html(h(GraficoAnatomia, { precos: [1], series: [], titulo: "a", descricao: "b" })) === "");
+// WR-05 (49-REVIEW, 2026-10-06): com perna selecionada, o total segue distinguível da perna 0
+const grT = html(h(GraficoAnatomia, { precos, series: [
+  { id: "p0", valores: [1, 2, -3, 2, 4], traco: 0, apagada: false, destaque: true },
+  { id: "total", tipo: "total", valores: [1, 2, -3, 2, 4], apagada: true }], area: [1, 2, -3, 2, 4], titulo: "a", descricao: "b" }));
+ok("9. gráfico: total com seleção ganha halo e cor de texto próprios (não colide com a perna 0)",
+  (grT.match(/<path d="M[^"]*" fill="none"/g) || []).length === 3 && grT.includes("stroke-width=\"6\""));
 
 // 10. fonte
 const src = readFileSync(new URL("../src/opcoes/AnatomiaPerna.jsx", import.meta.url), "utf8");
