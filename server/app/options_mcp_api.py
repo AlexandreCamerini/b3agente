@@ -31,7 +31,7 @@ import httpx
 from fastapi import APIRouter, Body, Depends, Header, HTTPException
 
 from . import (ai_activity, audit, db, llm, mcp_client, metering, obslog,
-               opcoes_payoff, opcoes_vigias, pregao)
+               opcoes_escada, opcoes_payoff, opcoes_vigias, pregao, store)
 
 router = APIRouter(prefix="/api/options/mcp", tags=["options-mcp"])
 
@@ -2731,6 +2731,140 @@ async def possibilidades(body: dict = Body(default={}),
 
             return {**envelope, "possibilidades": lista, "motivo": None,
                     "cap": _cap_bloco(uid)}
+
+
+@router.post("/escada-matriz")
+async def escada_matriz(body: dict = Body(default={}),
+                        user: dict = Depends(require_user)) -> dict:
+    """Matriz "Comparar vencimentos": vencimento × 3 degraus dos 3 objetivos.
+
+    Fase 48 (2026-10-05). Rota NOVA, e não campo aditivo de `/possibilidades`,
+    por causa da pré-condição 2 do UI-SPEC: aquela rota devolve UMA estrutura
+    por vencimento por tese, e 3 degraus por vencimento custariam 3× o custo
+    declarado. Aqui o desenho de custo é o MESMO (2×N+1, ADR-027): 1 chamada
+    descobre os vencimentos; por vencimento, 2 de `get_option_chain` (PUT e
+    CALL). Os degraus saem do seletor determinístico do Boris
+    (`opcoes_escada.celulas_da_cadeia`) sobre fato do serviço — uma consulta
+    serve os 3 objetivos, trocar de objetivo depois não cobra de novo.
+
+    Reserva em DUAS etapas (D-24.1), como `possibilidades()`: reserva 1,
+    descobre N, aninha `_cap_check(uid, 2 * N)`; o que não for gasto volta.
+    Erro de tool num vencimento vira linha de células "—" com o motivo do
+    serviço e os outros seguem; serviço fora do ar encerra a rota (sem 200
+    parcial). Posição e modo vêm do servidor pelo uid da sessão, nunca do
+    corpo (lastro não é input do cliente).
+    """
+    uid = user["id"]
+    corpo = body if isinstance(body, dict) else {}
+    alvo = _ticker_do_corpo(corpo)
+    rota = "/api/options/mcp/escada-matriz"
+
+    pedidos = corpo.get("expirations")
+    pedidos = ([v for v in pedidos if isinstance(v, str)]
+               if isinstance(pedidos, list) else None)
+
+    positions = store.get(_conn, "positions", user_id=uid) or []
+    posicao = next((p for p in positions
+                    if isinstance(p, dict) and p.get("t") == alvo), None)
+    cfg = store.get(_conn, "config", user_id=uid) or {}
+    modo = "operador" if cfg.get("appMode") == "operador" else "educacional"
+
+    with _cap_check(uid, 1) as cap1:
+        try:
+            base, _cache = await _chamada_com_cap(cap1, "propose_option_setups",
+                                                  {"ticker": alvo})
+        except (mcp_client.McpErro, ValueError) as e:
+            obslog.log("mcp", "escada-matriz falhou", level="warn", rota=rota,
+                       uid=uid, ticker=alvo, passo="propose_option_setups",
+                       erro=type(e).__name__, detalhe=str(e))
+            raise _erro_http(e)
+
+        disponiveis = [v for v in (base.get("expirations") or []) if isinstance(v, str)]
+        escolhidos = ([v for v in pedidos if v in disponiveis] if pedidos
+                      else list(disponiveis))[:N_MAX_VENCIMENTOS]
+
+        envelope = {
+            "ticker": alvo,
+            "pregao": base.get("trading_date") or None,
+            "precoObjeto": base.get("underlying_price"),
+            "fonte": FONTE,
+            "at": _agora_brt(),
+            "vencimentosConsiderados": escolhidos,
+            # O MESMO número que a UI mostra antes do clique.
+            "chamadasPrevistas": 2 * len(escolhidos) + 1 if escolhidos else 1,
+            "frescor": _frescor_nao_medido(AVISO_FRESCOR_SEM_ANEXO),
+        }
+        matriz = {o: [] for o in opcoes_escada.OBJETIVOS}
+
+        if not escolhidos:
+            obslog.log("mcp", "escada-matriz", rota=rota, uid=uid, ticker=alvo,
+                       vencimentos=0, celulas=0)
+            return {**envelope, "matriz": matriz, "motivo": MOTIVO_SEM_VENCIMENTO,
+                    "cap": _cap_bloco(uid)}
+
+        with _cap_check(uid, 2 * len(escolhidos)) as cap2:
+            spot = envelope["precoObjeto"]
+            frescor_ok = False
+            vencimento = None
+            passo = "get_option_chain"
+            try:
+                for vencimento in escolhidos:
+                    try:
+                        cadeias = {}
+                        for tipo in ("PUT", "CALL"):
+                            passo = f"get_option_chain:{tipo}"
+                            dados, _c = await _chamada_com_cap(
+                                cap2, "get_option_chain",
+                                {"ticker": alvo, "expiration": vencimento,
+                                 "kind": tipo, "limit": LIMITE_MAX})
+                            if not frescor_ok:
+                                fr = _frescor_do_anexo(dados)
+                                if fr is not None:
+                                    envelope["frescor"] = fr
+                                    frescor_ok = True
+                            if isinstance(dados, dict) and dados.get("underlying_price") is not None \
+                                    and not isinstance(spot, (int, float)):
+                                spot = dados.get("underlying_price")
+                            # Régua do Boris (D-24.4): sem negócio suficiente
+                            # não é operável e não entra no seletor.
+                            itens = [i for i in ((dados or {}).get("options") or [])
+                                     if isinstance(i, dict)
+                                     and isinstance(i.get("total_negocios"), (int, float))
+                                     and i["total_negocios"] >= OPERAVEIS_MIN_NEGOCIOS]
+                            cadeias[tipo] = itens
+                    except mcp_client.McpErroDeTool as e:
+                        obslog.log("mcp", "escada-matriz: vencimento recusado",
+                                   level="warn", rota=rota, uid=uid, ticker=alvo,
+                                   vencimento=vencimento, passo=passo,
+                                   detalhe=str(e))
+                        for o in opcoes_escada.OBJETIVOS:
+                            cel = opcoes_escada.celulas_da_cadeia(
+                                [], [], spot, posicao, o, vencimento, alvo, modo)
+                            for c in cel:
+                                c["motivo"] = str(e)
+                            matriz[o].append({"vencimento": vencimento,
+                                              "celulas": cel, "motivo": str(e)})
+                        continue
+
+                    for o in opcoes_escada.OBJETIVOS:
+                        cel = opcoes_escada.celulas_da_cadeia(
+                            cadeias["PUT"], cadeias["CALL"], spot, posicao, o,
+                            vencimento, alvo, modo)
+                        matriz[o].append({"vencimento": vencimento,
+                                          "celulas": cel, "motivo": None})
+            except (mcp_client.McpErro, ValueError) as e:
+                # Condição do SERVIÇO: encerra a rota, sem 200 parcial.
+                obslog.log("mcp", "escada-matriz falhou", level="warn", rota=rota,
+                           uid=uid, ticker=alvo, vencimento=vencimento,
+                           passo=passo, erro=type(e).__name__, detalhe=str(e))
+                raise _erro_http(e)
+
+            obslog.log("mcp", "escada-matriz", rota=rota, uid=uid, ticker=alvo,
+                       vencimentos=len(escolhidos),
+                       celulas=sum(1 for o in matriz.values() for l in o
+                                   for c in l["celulas"] if c.get("id")))
+            return {**envelope, "precoObjeto": spot, "matriz": matriz,
+                    "motivo": None, "cap": _cap_bloco(uid)}
 
 
 # --------------------------------------------------------------------------
