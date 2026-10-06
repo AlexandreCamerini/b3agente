@@ -1,3 +1,12 @@
+// REANCORAGEM — Fase 48 (2026-10-05), caminho B: o `<VigiasBadge` do cabeçalho deixou
+// de existir; Vigias viram a seção "Atenção" do `<HubOpcoes` (custo declarado via
+// `custoAtualizar={CUSTO_DA_ACAO.listarVigias}`), com "ver todos" abrindo o
+// `<VigiasSheet` (SecaoVigias 1x, `onIr` -> irParaVigia). Âncoras trocadas:
+//   <VigiasBadge renderizado / antes do seletor / sem ticker  -> <HubOpcoes renderizado
+//   no ramo nav.nivel === "hub", antes do seletor do Montar, sem depender de ticker;
+//   irParaMontar: guarda de toggle `t !== n.ticker` agora em setNav/abrirAtivo.
+// Invariantes mantidas: vigias nunca atrás de um ativo, custo 2 só em clique.
+// Texto original preservado abaixo.
 // Fase 27, plano 27-02 (2026-09-13) — guardião do bloco "SEUS VIGIAS".
 //
 // O defeito que originou a fase: o Alex disse que "os setups criados na aba de
@@ -80,18 +89,18 @@ ok("o marcador do seletor existe em OpcoesScreen.jsx", iRenderSeletor >= 0);
 // visibilidade. Quem garante "nunca escondido, nunca atrás da dobra" agora é
 // `<VigiasBadge`, no cabeçalho — renderizado ANTES do seletor (e de
 // qualquer aba), a mesma garantia de fundo (D4), forma nova.
-const iRenderBadge = tela.indexOf("<VigiasBadge");
-ok("<VigiasBadge é renderizado em OpcoesScreen.jsx", iRenderBadge >= 0);
-ok("o badge de vigias é RENDERIZADO antes do seletor (D4/D-07: vigias nunca escondido, agora via badge sempre visível no cabeçalho)",
-   iRenderBadge >= 0 && iRenderSeletor >= 0 && iRenderSeletor > iRenderBadge);
-// Sem `ticker` no caminho: o badge é montado incondicionalmente, fora de
-// qualquer ativo — é essa independência que corrige o defeito 2 do
-// 27-CONTEXT. O `-1` silencioso é o modo como este guardião ficaria inerte
-// se `<VigiasBadge` não existisse: por isso a checagem `>= 0` roda ANTES de
-// qualquer fatiamento, acima.
-const antesDoRenderBadge = iRenderBadge >= 0 ? tela.slice(Math.max(0, iRenderBadge - 40), iRenderBadge) : "";
-ok("o badge é renderizado sem depender de haver ticker escolhido",
-   iRenderBadge >= 0 && !/[?&]\s*$/.test(antesDoRenderBadge));
+const iRenderHub = tela.indexOf("<HubOpcoes");
+ok("<HubOpcoes (seção Atenção = vigias) é renderizado em OpcoesScreen.jsx (reancorado 2026-10-05)", iRenderHub >= 0);
+ok("o hub de vigias é RENDERIZADO antes do seletor do Montar (D4/D-07: vigias nunca escondido) (reancorado 2026-10-05)",
+   iRenderHub >= 0 && iRenderSeletor >= 0 && iRenderSeletor > iRenderHub);
+// Sem `ticker` no caminho: o hub é o ramo `nav.nivel === "hub"` — o nível
+// inicial, fora de qualquer ativo. O `>= 0` roda antes do fatiamento para o
+// guardião não ficar inerte.
+const antesDoHub = iRenderHub >= 0 ? tela.slice(Math.max(0, iRenderHub - 60), iRenderHub) : "";
+ok("o hub (vigias) é renderizado sem depender de haver ticker escolhido (reancorado 2026-10-05)",
+   iRenderHub >= 0 && /nav\.nivel === "hub" \? \(\s*$/.test(antesDoHub) && !/ticker/.test(antesDoHub));
+ok("o hub declara o custo da atualização via CUSTO_DA_ACAO.listarVigias e abre o sheet em 'ver todos' (reancorado 2026-10-05)",
+   /custoAtualizar=\{CUSTO_DA_ACAO\.listarVigias\}/.test(tela) && /onVerTodosVigias=\{\(\) => \{[^}]*setVigiasAberto\(true\)/.test(tela));
 
 // ---- 2) custo zero ao abrir; custo 2 só no clique --------------------------
 const efeitos = hook.split("useEffect(").slice(1).map((t) => t.split("}, [")[0]);
@@ -275,7 +284,7 @@ ok("o cartão navega para o ticker do vigia",
 ok("irParaVigia fecha o sheet e delega a irParaMontar(t) (destino único de navegação)",
    /const irParaVigia = \(t\) => \{ setVigiasAberto\(false\); irParaMontar\(t\); \};/.test(tela));
 ok("navegar NÃO é alternar (irParaMontar não desseleciona o ativo já aberto)",
-   /const irParaMontar = \(t\) => \{ if \(t && t !== ticker\) escolherTicker\(t\); setAbaOpcoes\("montar"\); \};/.test(tela));
+   /const irParaMontar = \(t\) => setNav\(\(n\) => irMontar\(t && t !== n\.ticker \? abrirAtivo\(n, t\) : n\)\);/.test(tela));
 ok("vigia de ativo fora da carteira NÃO some — ele ganha a explicação",
    /naCarteira \? null : \(/.test(cartao) && /opcoesVigiaForaDaCarteira/.test(cartao));
 

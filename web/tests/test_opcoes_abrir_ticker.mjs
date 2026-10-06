@@ -1,8 +1,14 @@
+// REANCORAGEM — Fase 48 (2026-10-05), caminho B: `abrirTickerOpcoes`/`oportunidadeAberta`
+// na tela -> `estadoInicialOpcoes({abrirTicker, carteira})` (navOpcoes.js) resulta em
+// nivel "objetivo" com o ticker; a tela abre PropostaDoAtivo como `estruturaAberta` do
+// ObjetivoAtivo; one-shot limpo em useEffect([]). Invariante mantida: só abre se o
+// ticker está na carteira. Texto original preservado abaixo.
 // Guardião — one-shot ctx.goOpcoes("oportunidades", { abrirTicker }) (Fase 45, D-05).
 // Roda isolado: `node web/tests/test_opcoes_abrir_ticker.mjs`.
 import { readFileSync } from "fs";
 import { fileURLToPath } from "url";
 import { abrirTickerOpcoes } from "../src/opcoes/memoriaOpcoes.js";
+import { estadoInicialOpcoes } from "../src/opcoes/navOpcoes.js";
 
 let fails = 0;
 const ok = (name, cond, extra) => {
@@ -33,8 +39,18 @@ ok("App: goOpcoes sem opts mantém setOpcoesAbaInicial + navigate", /if \(typeof
 
 // (c) OpcoesScreen.jsx
 const scr = semComentarios(ler("../src/opcoes/OpcoesScreen.jsx"));
-ok("Tela: importa abrirTickerOpcoes", /import \{[^}]*abrirTickerOpcoes[^}]*\} from "\.\/memoriaOpcoes\.js"/.test(scr));
-ok("Tela: oportunidadeAberta com inicializador lazy", /useState\(\(\) => abrirTickerOpcoes\(ctx && ctx\.opcoesAbrirTicker, carteira\)\)/.test(scr));
+const nav = semComentarios(ler("../src/opcoes/navOpcoes.js"));
+ok("Tela: nav inicial via estadoInicialOpcoes com abrirTicker e carteira (reancorado 2026-10-05)",
+   /useState\(\(\) => estadoInicialOpcoes\(\{[\s\S]*?abrirTicker: ctx && ctx\.opcoesAbrirTicker[\s\S]*?carteira,[\s\S]*?\}\)\)/.test(scr));
+ok("navOpcoes: importa abrirTickerOpcoes de memoriaOpcoes (reancorado 2026-10-05)",
+   /import \{[^}]*abrirTickerOpcoes[^}]*\} from "\.\/memoriaOpcoes\.js"/.test(nav));
+const cart = [{ t: "UGPA3" }];
+const e1 = estadoInicialOpcoes({ abrirTicker: "UGPA3", carteira: cart, abas: ["montar"] });
+ok("estadoInicialOpcoes: abrirTicker na carteira -> nivel objetivo + ticker", e1.nivel === "objetivo" && e1.ticker === "UGPA3");
+const e2 = estadoInicialOpcoes({ abrirTicker: "VALE3", carteira: cart, abas: ["montar"] });
+ok("estadoInicialOpcoes: abrirTicker fora da carteira -> hub, sem ticker", e2.nivel === "hub" && !e2.ticker);
+ok("Tela: PropostaDoAtivo é a estruturaAberta do ObjetivoAtivo (Encerrar estrutura...)",
+   /estruturaAberta=\{[\s\S]{0,400}?<PropostaDoAtivo/.test(scr));
 ok("Tela: useEffect [] limpa o one-shot", /useEffect\(\(\) => \{\s*if \(ctx && ctx\.opcoesAbrirTicker && ctx\.limparOpcoesAbrirTicker\) ctx\.limparOpcoesAbrirTicker\(\);\s*\}, \[\]\);/.test(scr));
 
 if (fails) { console.log(`\n${fails} falha(s)`); process.exit(1); }
