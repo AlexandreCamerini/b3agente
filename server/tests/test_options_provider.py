@@ -132,7 +132,9 @@ def test_payload_ok_mydata_contem_todas_as_chaves_de_topo_do_payload_ok_yahoo(mo
     }
     assert set(payload_mydata) >= payload_yahoo_ok_keys
     aditivos = set(payload_mydata) - payload_yahoo_ok_keys
-    assert aditivos <= {"pregao", "provenance"}
+    # 2026-10-06 (quick 261006-oav): `lidoEm` (instante da leitura do hub) é
+    # aditivo novo; a asserção de subconjunto segue valendo.
+    assert aditivos <= {"pregao", "provenance", "lidoEm"}
 
 
 # ---------------------------------------------------------------------------

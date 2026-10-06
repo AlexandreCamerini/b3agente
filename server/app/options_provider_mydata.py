@@ -35,6 +35,12 @@ A-05/A-06/A-07):
     libera em até 60s; cachear a recusa pelo TTL de erro (60s) ou de
     sucesso (300s) estenderia a indisponibilidade muito além da causa real.
 
+quick 261006-oav (2026-10-06): a classe de prioridade (usuario/fundo/
+descoberta) vem do contexto da rota (`mydata_budget.contexto`), não deste
+módulo; as três recusas por cota passam por `_sem_cota` (log com limite de
+taxa); miss de vencimento explícito reaproveita a cadeia `first@` fresca; o
+payload ok carrega `lidoEm` (instante em que o hub respondeu).
+
 Correção 260914-b6p — seleção de vencimento por DATA, não pelo flag de
 vencimento-no-pregão da fonte: medição de produção em 2026-09-14 (`railway
 run`) achou esse flag zerado (falsy) em 100% dos itens de BBAS3 (27/27) e
@@ -229,6 +235,16 @@ def _debita(n: int = 1) -> bool:
     return mydata_budget.reservar(n)
 
 
+def _sem_cota(ticker: str, expiration, n: int) -> dict:
+    """Payload degradado de recusa por cota + rastro no obslog (quick
+    261006-oav, 2026-10-06). Mesma mensagem de sempre; SEM escrita em
+    `_cache` (A-07) — quem chama devolve direto."""
+    mydata_budget.registrar_recusa(n)
+    return _empty_payload(
+        ticker, expiration, MYDATA_ORCAMENTO_WARNING,
+        error="sem cota mydata (60/min · 2.000/dia)")
+
+
 async def _vencimentos(t: str, hoje_efetivo: dt.date) -> Optional[list]:
     """Lista de vencimentos (formato CRU do mydata, mesma forma que
     `mydata_client.get_vencimentos` devolve) cacheada por ticker/dia — Fase
@@ -271,6 +287,19 @@ async def get_options(ticker: str, expiration: Optional[str] = None,
     if hit and (time.time() - hit[0]) < _OPTIONS_TTL:
         return hit[1]
 
+    # 2026-10-06 (quick 261006-oav): reuso cross-key. Compra/venda pedem
+    # vencimento EXPLÍCITO (chave `t:exp`) e davam MISS mesmo com a mesma
+    # cadeia lida segundos antes pelo gate/proposta (chave `first@`) — gastando
+    # cota que o fundo já esgotara. Dado do mydata é EOD (COTAHIST): a cadeia
+    # lida há < 300 s é a que o hub devolveria agora; é o último prêmio real
+    # lido (nunca estimativa) e o payload carrega `lidoEm`. TTL inalterado.
+    if expiration:
+        irmao = _cache.get(f"{t}:first@{hoje_efetivo.isoformat()}")
+        if (irmao and (time.time() - irmao[0]) < _OPTIONS_TTL
+                and irmao[1].get("providerStatus") == "ok"
+                and irmao[1].get("expiration") == expiration):
+            return irmao[1]
+
     # Fase 31: o pré-filtro precisa prever quantas requisições de rede ESTA
     # chamada ainda vai fazer, não um número fixo — `_gate(1)` quando a
     # lista de vencimentos já está em cache fresco (só falta
@@ -288,9 +317,7 @@ async def get_options(ticker: str, expiration: Optional[str] = None,
         # de erro (60s) estenderia a indisponibilidade além da causa real.
         # Um leitor futuro tenderia a "consertar" essa ausência de cache —
         # não é esquecimento, é a decisão A-07.
-        return _empty_payload(
-            ticker, expiration, MYDATA_ORCAMENTO_WARNING,
-            error="sem cota mydata (60/min · 2.000/dia)")
+        return _sem_cota(ticker, expiration, 1 if venc_fresco else 2)
 
     try:
         venc = await _vencimentos(t, hoje_efetivo)
@@ -299,9 +326,7 @@ async def get_options(ticker: str, expiration: Optional[str] = None,
             # entre o pré-filtro e o commit dentro de `_vencimentos()` —
             # degrada aqui, nunca toca a rede sem cota reservada de
             # verdade.
-            return _empty_payload(
-                ticker, expiration, MYDATA_ORCAMENTO_WARNING,
-                error="sem cota mydata (60/min · 2.000/dia)")
+            return _sem_cota(ticker, expiration, 1)
         if not venc:
             payload = _empty_payload(
                 ticker, expiration,
@@ -340,9 +365,7 @@ async def get_options(ticker: str, expiration: Optional[str] = None,
             # WR-01: mesma degradação do primeiro ponto de commit — a
             # requisição de vencimentos já saiu, mas a segunda perna não tem
             # cota reservada de verdade.
-            return _empty_payload(
-                ticker, expiration, MYDATA_ORCAMENTO_WARNING,
-                error="sem cota mydata (60/min · 2.000/dia)")
+            return _sem_cota(ticker, expiration, 1)
         linhas = await mydata_client.get_options_chain(t, vencimento=escolhido)
 
         spot = None
@@ -374,6 +397,7 @@ async def get_options(ticker: str, expiration: Optional[str] = None,
             "calls": calls,
             "puts": puts,
             "pregao": pregao,
+            "lidoEm": dt.datetime.now(BRT).isoformat(timespec="seconds"),
         }
         if provenance:
             payload["provenance"] = provenance

@@ -31,6 +31,7 @@ from . import ai_activity  # qa/45: custo (R$) + histórico de comportamento da 
 from . import fundamentals  # qa/36 (F10.2): fundamento × técnica (score, cache, rebaixamento)
 from . import scan_deep  # FASE 1 (N1): aprofundamento IA do top-N do Radar
 from . import candle_provider  # ADR-001: ponto único de entrada de candles
+from . import mydata_budget  # quick 261006-oav: classe de prioridade (usuario) nas rotas de execução de opções
 from . import options_provider  # v2: cotação de contratos (ADR-003/004/005), provedor selecionável
 from . import technical_snapshot  # FASE 1 (STU): fonte única de N1/N2/N3
 from . import model_catalog  # qa/49: catálogo de modelos por provedor + parâmetros aceitos
@@ -3011,6 +3012,20 @@ async def position(ticker: str, body: dict = Body(default={}), scope: Optional[s
 
 
 # ---- Carteira: opções (v2 — ADR-003/004/005) ----
+def _idade_cotacao(chain: dict):
+    """(lidoEm ISO, idade em segundos) do último prêmio real lido; ausente ou
+    inválido -> (None, None) — nunca 0 (quick 261006-oav)."""
+    raw = (chain or {}).get("lidoEm")
+    try:
+        lido = datetime.fromisoformat(raw)
+        if lido.tzinfo is None:
+            raise ValueError("sem fuso")
+        agora = datetime.now(lido.tzinfo)
+        return raw, max(0, int((agora - lido).total_seconds()))
+    except (TypeError, ValueError):
+        return None, None
+
+
 @app.post("/api/options/buy")
 async def buy_option(body: dict = Body(default={}), scope: Optional[str] = Depends(current_scope)):
     """Compra simulada de UM contrato de opção. ADR-004: bloqueia a execução
@@ -3033,7 +3048,9 @@ async def buy_option(body: dict = Body(default={}), scope: Optional[str] = Depen
         qty = 0
     if len(underlying) < 4 or not contract_symbol or qty <= 0:
         raise HTTPException(400, "Contrato de opção inválido.")
-    chain = await options_provider.get_options(underlying, body.get("expiration"))
+    # 2026-10-06 (quick 261006-oav): acao do usuario gasta a reserva de cota do mydata (o gate da Mesa esgotara o minuto e o buy levou 502). Envolve SO o await: create_task copia o contexto.
+    with mydata_budget.contexto(prioridade="usuario", origem="POST /api/options/buy"):
+        chain = await options_provider.get_options(underlying, body.get("expiration"))
     if chain.get("providerStatus") != "ok":
         raise HTTPException(502, "Cotação de opções indisponível no momento — tente novamente.")
     contrato = next((c for c in [*chain.get("calls", []), *chain.get("puts", [])]
@@ -3065,6 +3082,8 @@ async def buy_option(body: dict = Body(default={}), scope: Optional[str] = Depen
         raise HTTPException(400, str(e))
     out = store.public_state(_conn, user_id=scope)
     out["priceUsed"] = round(price, 2)
+    out["cotacaoLidaEm"], out["cotacaoIdadeS"] = _idade_cotacao(chain)
+    out["pregao"] = chain.get("pregao")
     return out
 
 
@@ -3074,7 +3093,9 @@ async def sell_option(body: dict = Body(default={}), scope: Optional[str] = Depe
     pos = next((p for p in store.get(_conn, "optionPositions", user_id=scope) if p["id"] == contract_symbol), None)
     if not pos:
         raise HTTPException(400, "Sem posição em " + contract_symbol)
-    chain = await options_provider.get_options(pos["underlying"], pos.get("expiration"))
+    # prioridade usuario: ver /api/options/buy (quick 261006-oav).
+    with mydata_budget.contexto(prioridade="usuario", origem="POST /api/options/sell"):
+        chain = await options_provider.get_options(pos["underlying"], pos.get("expiration"))
     if chain.get("providerStatus") != "ok":
         raise HTTPException(502, "Cotação de opções indisponível no momento — tente novamente.")
     contrato = next((c for c in [*chain.get("calls", []), *chain.get("puts", [])]
@@ -3136,6 +3157,8 @@ async def sell_option(body: dict = Body(default={}), scope: Optional[str] = Depe
         raise HTTPException(400, "Sem posição em " + contract_symbol)
     out = store.public_state(_conn, user_id=scope)
     out["priceUsed"] = round(price, 2)
+    out["cotacaoLidaEm"], out["cotacaoIdadeS"] = _idade_cotacao(chain)
+    out["pregao"] = chain.get("pregao")
     return out
 
 
@@ -3747,8 +3770,10 @@ async def options_curadoria_abrir_collar(body: dict = Body(default={}), scope: O
     # execução da Fase 29 (`store.buy_option`).
     modo = cfg.get("appMode") or "estudo"
     try:
-        candidatos, chains, _vencs, degradado = await _curadoria_scan_posicao(
-            underlying, posicao, modo, _hoje_brt(), permitir_a_descoberto=False)
+        # prioridade usuario: ver /api/options/buy (quick 261006-oav).
+        with mydata_budget.contexto(prioridade="usuario", origem="POST /api/options/curadoria/abrir-collar"):
+            candidatos, chains, _vencs, degradado = await _curadoria_scan_posicao(
+                underlying, posicao, modo, _hoje_brt(), permitir_a_descoberto=False)
     except HTTPException:
         raise
     except Exception:
@@ -4234,7 +4259,9 @@ async def options_lastreada_abrir(body: dict = Body(default={}), scope: Optional
     contratos = body.get("contratos")
     if len(underlying) < 4 or not contract_symbol or not isinstance(contratos, (int, float)) or contratos < 1:
         raise HTTPException(400, "Operação lastreada inválida.")
-    chain = await options_provider.get_options(underlying, body.get("expiration"))
+    # prioridade usuario: ver /api/options/buy (quick 261006-oav).
+    with mydata_budget.contexto(prioridade="usuario", origem="POST /api/options/lastreada/abrir"):
+        chain = await options_provider.get_options(underlying, body.get("expiration"))
     if chain.get("providerStatus") != "ok":
         raise HTTPException(502, "Cotação de opções indisponível no momento — tente novamente.")
     contrato = next((c for c in [*chain.get("calls", []), *chain.get("puts", [])]
@@ -4360,7 +4387,9 @@ async def options_lastreada_abrir_collar(body: dict = Body(default={}), scope: O
     # executar sem a re-derivação que é a própria defesa — por isso qualquer
     # falha inesperada aqui vira 502 explícito, não um estado silencioso.
     try:
-        chain = await options_provider.get_options(underlying)
+        # prioridade usuario: ver /api/options/buy (quick 261006-oav).
+        with mydata_budget.contexto(prioridade="usuario", origem="POST /api/options/lastreada/abrir-collar"):
+            chain = await options_provider.get_options(underlying)
         if chain.get("providerStatus") != "ok":
             raise HTTPException(502, "Cotação de opções indisponível no momento — tente novamente.")
         positions = store.get(_conn, "positions", user_id=scope)
@@ -4480,7 +4509,9 @@ async def options_lastreada_fechar(body: dict = Body(default={}), scope: Optiona
     pos = next((p for p in store.get(_conn, "optionPositions", user_id=scope) if p["id"] == contract_symbol), None)
     if not pos:
         raise HTTPException(400, "Sem posição em " + contract_symbol)
-    chain = await options_provider.get_options(pos["underlying"], pos.get("expiration"))
+    # prioridade usuario: ver /api/options/buy (quick 261006-oav).
+    with mydata_budget.contexto(prioridade="usuario", origem="POST /api/options/lastreada/fechar"):
+        chain = await options_provider.get_options(pos["underlying"], pos.get("expiration"))
     if chain.get("providerStatus") != "ok":
         raise HTTPException(502, "Cotação de opções indisponível no momento — tente novamente.")
     contrato = next((c for c in [*chain.get("calls", []), *chain.get("puts", [])]
