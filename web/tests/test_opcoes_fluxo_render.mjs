@@ -6,6 +6,7 @@
 // Efeitos não rodam em SSR: o que se trava é a renderização por nível.
 import { register } from "node:module";
 import { createElement as h } from "react";
+import { readFileSync } from "node:fs";
 import { renderToStaticMarkup } from "react-dom/server";
 import { COPY } from "../src/copy.js";
 
@@ -118,6 +119,32 @@ ok("G-01: cards apontam para a frase via aria-describedby", g01.includes('aria-d
 ok("G-01: texto genérico sem_estrutura não aparece", !g01.includes(COPY.estudo.opcoesEscada.sem_estrutura.replace("{ticker}", "ITUB4")));
 const g01Erro = html(h(ObjetivoAtivo, { cp, mode: "estudo", ticker: "ITUB4", escada: { dados: null, carregando: false, erro: "x" }, pernasAbertas: h("div", null, "SLOT-PERNAS") }));
 ok("G-01: slot de pernas visível mesmo com a escada em erro", g01Erro.includes("SLOT-PERNAS") && g01Erro.includes(COPY.estudo.opcoesEscada.erro_fonte));
+
+// ---- Fase 48 gap G-02 (2026-10-05): PernasAbertas (lista + encerrar por perna)
+const PernasAbertas = (await import("../src/opcoes/PernasAbertas.jsx")).default;
+const ox = COPY.estudo.opcoesEscada;
+const posCall = { id: "ITUBJ492", underlying: "ITUB4", optionType: "call", strike: 49.2, expiration: "2026-10-09", qty: 100, avg: 0.85 };
+const posPut = { id: "ITUBV465", underlying: "ITUB4", optionType: "put", strike: 46.5, expiration: "2026-10-09", qty: 100, avg: 0.85 };
+const posLastro = { id: "ITUBJ500", underlying: "ITUB4", optionType: "call", strike: 50, expiration: "2026-10-09", qty: 100, avg: 0.5, lastro: { t: "ITUB4", qty: 100 } };
+const posVendida = { id: "ITUBJ510", underlying: "ITUB4", optionType: "call", strike: 51, expiration: "2026-10-09", qty: 100, avg: 0.4, side: "vendida" };
+const posOutra = { id: "PETRJ300", underlying: "PETR4", optionType: "call", strike: 30, expiration: "2026-10-09", qty: 100, avg: 0.3 };
+const pernas = (props) => html(h(PernasAbertas, { mode: "estudo", ticker: "ITUB4", A: {}, ...props }));
+ok("G-02: sem pernas do ticker renderiza vazio", pernas({ optionPositions: [posOutra] }) === "");
+const p1 = pernas({ optionPositions: [posCall, posPut], estrutura: null });
+ok("G-02: título e os dois ids", p1.includes(ox.pernas_titulo) && p1.includes("ITUBJ492") && p1.includes("ITUBV465"));
+ok("G-02: resultado sem motor vira travessão, nunca 0,00", p1.includes("—") && !p1.includes("0,00"));
+ok("G-02: botão Encerrar habilitado sem estrutura (2 botões)", (p1.match(new RegExp(">" + ox.pernas_encerrar + "<", "g")) || []).length === 2 && !/<button[^>]*disabled/.test(p1) && !p1.includes('aria-disabled="true"'));
+ok("G-02: prêmio de entrada vem da posição (0,85) e data DD/MM", p1.includes("0,85") && p1.includes("09/10"));
+const p2 = pernas({ optionPositions: [posCall], estrutura: { pernas: [{ id: "ITUBJ492", resultado: -12.5, premioAtual: 0.4, encerrar: { permitido: true } }] } });
+ok("G-02: resultado e prêmio atual do motor (−12,50 e 0,40)", p2.includes("−12,50") && p2.includes("0,40"));
+const p3 = pernas({ optionPositions: [posCall], estrutura: { pernas: [{ id: "ITUBJ492", resultado: null, motivoSemCotacao: "SEM-COTACAO-MOTOR", encerrar: { permitido: true } }] } });
+ok("G-02: resultado null mostra motivo do motor, sem 0,00", p3.includes("SEM-COTACAO-MOTOR") && !p3.includes("0,00"));
+const p4 = pernas({ optionPositions: [posCall], estrutura: { pernas: [{ id: "ITUBJ492", resultado: null, encerrar: { permitido: false, texto: "VETO-DO-MOTOR" } }] } });
+ok("G-02: encerrar.permitido false -> aria-disabled com texto do motor e describedby", p4.includes('aria-disabled="true"') && p4.includes("VETO-DO-MOTOR") && p4.includes("aria-describedby"));
+const p5 = pernas({ optionPositions: [posLastro, posVendida] });
+ok("G-02: lastro e vendida sem botão Encerrar", !p5.includes(">" + ox.pernas_encerrar + "<") && p5.includes(ox.pernas_na_estrutura) && p5.includes(ox.pernas_vendida_sem_acao));
+ok("G-02: perna de PETR4 ausente na lista de ITUB4", !pernas({ optionPositions: [posCall, posOutra] }).includes("PETRJ300"));
+ok("G-02: componente não decide botão por frescor/executavel/liquida", !/executavel|frescor|liquida/.test(readFileSync(new URL("../src/opcoes/PernasAbertas.jsx", import.meta.url), "utf8")));
 
 if (fails) { console.log("\n" + fails + " falha(s)"); process.exit(1); }
 console.log("\nOK");
