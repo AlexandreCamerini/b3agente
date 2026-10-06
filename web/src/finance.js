@@ -284,9 +284,13 @@ export function resolverBaseSerie(snapshots) {
 export function equityCurve(snapshots, budget, livePatr, todayYmd) { // eslint-disable-line no-unused-vars
   const r = resolverBaseSerie(snapshots);
   const base = r.base;
-  // Janela: só de `inicio` em diante (antes de um aporte/retirada não há operação,
-  // logo o retorno ali é exatamente 0 — descartar não perde informação).
-  const snaps = r.serie.slice(r.inicio || 0);
+  // Janela: só de `inicio` em diante — vale para retorno/drawdown/benchmark (a base
+  // só existe a partir dali). O patrimônio ANTERIOR é dado real e entra apenas na
+  // exibição (`curvaCompleta`). Nota 2026-10-06 (quick 261006-qre, regressão da
+  // 261006-dvf): descartar o prefixo da LINHA desenhada fazia o começo da curva sumir.
+  const k = r.inicio || 0;
+  const snaps = r.serie.slice(k);
+  const antes = r.serie.slice(0, k);
   const series = snaps.map((s) => s.patrimonio);
 
   // série de exibição: snapshots, com o ÚLTIMO ponto refletindo o patrimônio AO
@@ -318,9 +322,13 @@ export function equityCurve(snapshots, budget, livePatr, todayYmd) { // eslint-d
     if (v > peak) peak = v;
     if (peak > 0) { const d = ((peak - v) / peak) * 100; if (d > dd) dd = d; }
   }
+  // exibição: série inteira (mesma referência de curve/datas quando não há prefixo)
+  const curvaCompleta = k > 0 ? [...antes.map((s) => s.patrimonio), ...curve] : curve;
+  const datasCompleta = k > 0 ? [...antes.map((s) => s.data), ...datas] : datas;
   return {
-    curve, series, days: series.length, retAcum, drawdown: dd, base, end, datas,
+    curve, series, days: r.serie.length, diasJanela: series.length, retAcum, drawdown: dd, base, end, datas,
     baseOrigem: r.origem, baseDesde: r.desde, baseInicio: r.inicio,
+    curvaCompleta, datasCompleta, inicioNaCurvaCompleta: k,
   };
 }
 

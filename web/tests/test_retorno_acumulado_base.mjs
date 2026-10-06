@@ -40,6 +40,47 @@ for (const c of fixture.casos) {
   ok("sem_serie: retAcum null (não 0)", ec.retAcum === null);
 }
 
+// ---- 2026-10-06 (quick 261006-qre): curva completa — a janela mede, a exibição mostra tudo ----
+for (const c of fixture.casos) {
+  const e = c.esperado;
+  const antes = JSON.stringify(c.snapshots);
+  const ec = equityCurve(c.snapshots, 10000, c.fim, "2099-01-01");
+  const serie = resolverBaseSerie(c.snapshots).serie;
+  const k = e.inicio ?? 0;
+  ok(`${c.nome}: qre leitura não muta`, JSON.stringify(c.snapshots) === antes);
+  ok(`${c.nome}: qre inicioNaCurvaCompleta`, ec.inicioNaCurvaCompleta === k);
+  ok(`${c.nome}: qre curvaCompleta.length`, ec.curvaCompleta.length === k + ec.curve.length);
+  ok(`${c.nome}: qre datasCompleta paralelo`, ec.datasCompleta.length === ec.curvaCompleta.length);
+  ok(`${c.nome}: qre cauda == curve`, JSON.stringify(ec.curvaCompleta.slice(k)) === JSON.stringify(ec.curve));
+  ok(`${c.nome}: qre cauda datas == datas`, JSON.stringify(ec.datasCompleta.slice(k)) === JSON.stringify(ec.datas));
+  ok(`${c.nome}: qre prefixo == patrimônios anteriores`,
+    JSON.stringify(ec.curvaCompleta.slice(0, k)) === JSON.stringify(serie.slice(0, k).map((s) => s.patrimonio)));
+  if (k === 0) {
+    ok(`${c.nome}: qre inicio 0 => mesma referência`, ec.curvaCompleta === ec.curve && ec.datasCompleta === ec.datas);
+  } else {
+    ok(`${c.nome}: qre todos os snapshots + live`,
+      ec.datasCompleta.filter((d) => d != null).length === serie.length + 1
+      && ec.curvaCompleta.at(-1) === c.fim && ec.datasCompleta.at(-1) === "2099-01-01");
+  }
+}
+{
+  const snaps = [];
+  for (let i = 1; i <= 30; i++) snaps.push({ data: `2026-07-${String(i).padStart(2, "0")}`, patrimonio: 10000 + i * 10 });
+  snaps.push({ data: "2026-07-31", patrimonio: 10500, base: 10500 });
+  const ec = equityCurve(snaps, 10000, 10600, "2026-08-01");
+  ok("qre sintético: curvaCompleta >= 32", ec.curvaCompleta.length >= 32);
+  ok("qre sintético: inicioNaCurvaCompleta 30", ec.inicioNaCurvaCompleta === 30);
+  ok("qre sintético: days 31", ec.days === 31);
+  ok("qre sintético: diasJanela 1", ec.diasJanela === 1);
+  ok("qre sintético: retAcum só desde a âncora", r2(ec.retAcum) === r2(((10600 - 10500) / 10500) * 100));
+  const mesmo = equityCurve(snaps, 10000, 10700, "2026-07-31");
+  ok("qre sintético: live na mesma data substitui", mesmo.curvaCompleta.at(-1) === 10700 && mesmo.curvaCompleta.length === 31 + 1);
+}
+{
+  const ec = equityCurve([], 10000, null, "2026-10-06");
+  ok("qre vazio: curvaCompleta === curve", ec.curvaCompleta === ec.curve);
+}
+
 // ---- escrita no aparelho (upsertSnapshot é privada; persistence.js importa
 // @capacitor/core, então extraímos o fonte da função e a rodamos isolada) ----
 const pers = readFileSync(join(here, "..", "src", "persistence.js"), "utf8");
