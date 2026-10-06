@@ -1,12 +1,13 @@
 """Rotas e análise educacional de opcoes."""
 from __future__ import annotations
 
+import asyncio
 from datetime import date, datetime, timedelta, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Body, HTTPException
 
-from . import candle_provider, indicators, tickers, yahoo
+from . import candle_provider, indicators, mydata_budget, tickers, yahoo
 from .options_provider import get_options
 from .options_quant import (
     FAIXA_NEGOCIAVEL,
@@ -23,6 +24,20 @@ from .options_quant import (
 )
 
 router = APIRouter(prefix="/api/options", tags=["options"])
+
+# quick 261006-oav (2026-10-06): no máximo 2 gates falando com o provedor ao
+# mesmo tempo. Semáforo criado POR event loop (TestClient/asyncio.run usam um
+# loop novo por teste; um Semaphore preso a outro loop levantaria RuntimeError).
+GATE_CONCORRENCIA = 2
+_gate_sem: Optional[tuple] = None
+
+
+def _semaforo_gate() -> asyncio.Semaphore:
+    global _gate_sem
+    loop = asyncio.get_running_loop()
+    if _gate_sem is None or _gate_sem[0] is not loop:
+        _gate_sem = (loop, asyncio.Semaphore(GATE_CONCORRENCIA))
+    return _gate_sem[1]
 
 # DECISÃO (260911-dtx, achado D-2 parte 2): produção roda no Railway com o
 # container em UTC, então `date.today()` naive já virou o dia às 21:00 BRT e o
@@ -174,12 +189,22 @@ async def liquidity_gate(ticker: str):
     o único caso que continua `liquida: false`. A resposta ganha `faixa` e
     `melhorScore` em TODOS os ramos, inclusive os dois de degradação abaixo:
     ali `faixa` é sempre `FAIXA_SEM_MERCADO` e `melhorScore` é sempre `None`
-    — NUNCA `0.0` disfarçando "não sei" de "não tem" (CLAUDE.md princípio 4)."""
+    — NUNCA `0.0` disfarçando "não sei" de "não tem" (CLAUDE.md princípio 4).
+
+    ATUALIZADO 2026-10-06 (quick 261006-oav): incidente — a Mesa dispara um
+    gate por AtivoCard no mount e a rajada esgotou a cota do mydata, derrubando
+    o POST /api/options/buy do usuário. Agora: semáforo `GATE_CONCORRENCIA=2`
+    (só ordena concorrência; nunca dorme esperando janela, A-06) e classe de
+    prioridade "descoberta" (fatia de 40% do teto útil/min, 21 de 54; a
+    reserva do usuário é intocável pelo gate). Recusa da fatia cai no mesmo
+    ramo degradado de sempre (sem cache, A-07)."""
     t = _normalize_ticker(ticker)
     if len(t) < 4:
         raise HTTPException(400, "Ticker inválido.")
     try:
-        data = await get_options(t)
+        async with _semaforo_gate():
+            with mydata_budget.contexto(prioridade="descoberta", origem="GET /api/options/gate"):
+                data = await get_options(t)
     except yahoo.QuoteUnavailable:
         return {"ticker": t, "liquida": False, "providerStatus": "degraded",
                 "faixa": FAIXA_SEM_MERCADO, "melhorScore": None}
