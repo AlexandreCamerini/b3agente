@@ -229,8 +229,9 @@ ok("(Fase 32/32-03) App.jsx contém <LinhaChamadaOpcoes exatamente 1x (D-01: sub
 // CarteiraScreen vira negativa: a chamada não existe mais em App.jsx.
 ok("(Fase 32/32-04) useOpcoesPropostas( NÃO aparece mais em App.jsx (o único chamador, CarteiraScreen, foi removido junto com PropostaDaPosicao)",
   !/useOpcoesPropostas\(/.test(fonteSemComentario));
+// NOTA 2026-10-06 (quick 261006-axi): o hub passou a receber `universo` (carteira + ativo só com perna) no lugar de `carteira`; a regex aceita os dois nomes, a intenção da asserção (mesma fonte, sem watchlist) não muda.
 ok("(Fase 32/32-03) useOpcoesPropostas( dentro de OpcoesScreen.jsx recebe (store, carteira.map( como argumentos",
-  /useOpcoesPropostas\(store, carteira\.map\(/.test(telaOpcoesSemComentario));
+  /useOpcoesPropostas\(store, (?:carteira|universo)\.map\(/.test(telaOpcoesSemComentario));
 const linhaHookCallTela = (telaOpcoesSemComentario.match(/^.*useOpcoesPropostas\(.*$/m) || [""])[0];
 ok("(Fase 32/32-03) a chamada de useOpcoesPropostas em OpcoesScreen.jsx não menciona watchlist nem radar",
   linhaHookCallTela.length > 0 && !/watchlist|radar/i.test(linhaHookCallTela));

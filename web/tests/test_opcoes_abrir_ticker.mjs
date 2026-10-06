@@ -40,8 +40,9 @@ ok("App: goOpcoes sem opts mantém setOpcoesAbaInicial + navigate", /if \(typeof
 // (c) OpcoesScreen.jsx
 const scr = semComentarios(ler("../src/opcoes/OpcoesScreen.jsx"));
 const nav = semComentarios(ler("../src/opcoes/navOpcoes.js"));
+// NOTA 2026-10-06 (quick 261006-axi): o hub passou a receber `universo` (carteira + ativo só com perna) no lugar de `carteira`; a regex aceita os dois nomes, a intenção da asserção (mesma fonte, sem watchlist) não muda.
 ok("Tela: nav inicial via estadoInicialOpcoes com abrirTicker e carteira (reancorado 2026-10-05)",
-   /useState\(\(\) => estadoInicialOpcoes\(\{[\s\S]*?abrirTicker: ctx && ctx\.opcoesAbrirTicker[\s\S]*?carteira,[\s\S]*?\}\)\)/.test(scr));
+   /useState\(\(\) => estadoInicialOpcoes\(\{[\s\S]*?abrirTicker: ctx && ctx\.opcoesAbrirTicker[\s\S]*?carteira(?:: universo)?,[\s\S]*?\}\)\)/.test(scr));
 ok("navOpcoes: importa abrirTickerOpcoes de memoriaOpcoes (reancorado 2026-10-05)",
    /import \{[^}]*abrirTickerOpcoes[^}]*\} from "\.\/memoriaOpcoes\.js"/.test(nav));
 const cart = [{ t: "UGPA3" }];

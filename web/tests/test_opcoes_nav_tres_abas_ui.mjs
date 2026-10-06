@@ -110,8 +110,9 @@ ok("ABAS_OPCOES é exatamente [\"oportunidades\", \"recomendadas\", \"montar\"]"
 // que delega a `abaInicialOpcoes`/`abrirTickerOpcoes`/`tickerInicialOpcoes`
 // (allowlist T-39-14/T-48-36 preservada, coberta por
 // test_opcoes_continuidade_ui.mjs e test_opcoes_nav_profundidade.mjs).
+// NOTA 2026-10-06 (quick 261006-axi): o quarto campo passou de `carteira` para `carteira: universo` (carteira + ativo só com perna); a regex aceita os dois.
 ok("nav nasce validado por estadoInicialOpcoes({ abas: ABAS_OPCOES, abaInicial: ctx.opcoesAbaInicial, ..., memoria: ctx.opcoesMemoria }) (D-03, T-39-14) (reancorado 2026-10-05)",
-   /useState\(\(\) => estadoInicialOpcoes\(\{\s*abas: ABAS_OPCOES,\s*abaInicial: ctx && ctx\.opcoesAbaInicial,\s*abrirTicker: ctx && ctx\.opcoesAbrirTicker,\s*memoria: ctx && ctx\.opcoesMemoria,\s*carteira,\s*\}\)\)/.test(opcoesScreenBruto));
+   /useState\(\(\) => estadoInicialOpcoes\(\{\s*abas: ABAS_OPCOES,\s*abaInicial: ctx && ctx\.opcoesAbaInicial,\s*abrirTicker: ctx && ctx\.opcoesAbrirTicker,\s*memoria: ctx && ctx\.opcoesMemoria,\s*carteira(?:: universo)?,\s*\}\)\)/.test(opcoesScreenBruto));
 ok("limparOpcoesAbaInicial é chamado dentro de um useEffect(..., [])",
    /useEffect\(\(\) => \{[\s\S]{0,200}limparOpcoesAbaInicial\(\)[\s\S]{0,80}\}, \[\]\);/.test(opcoesScreenBruto));
 ok("os 5 níveis do fluxo (NIVEIS) existem em navOpcoes.js, na ordem hub, objetivo, escada, confirmar, montar (reancorado 2026-10-05)",

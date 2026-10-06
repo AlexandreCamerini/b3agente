@@ -178,7 +178,8 @@ ok('navOpcoes.js importa { tickerInicialOpcoes, abrirTickerOpcoes, abaInicialOpc
 
 // ---- B7) inicializador lazy do ticker --------------------------------------
 // REANCORAGEM (2026-10-05): ticker E aba nascem do MESMO inicializador lazy do nav.
-const reNav = /const \[nav, setNav\] = useState\(\(\) => estadoInicialOpcoes\(\{[\s\S]*?memoria: ctx && ctx\.opcoesMemoria,[\s\S]*?carteira,[\s\S]*?\}\)\);/;
+// NOTA 2026-10-06 (quick 261006-axi): o hub passou a receber `universo` (carteira + ativo só com perna) no lugar de `carteira`; a regex aceita os dois nomes, a intenção da asserção (mesma fonte, sem watchlist) não muda.
+const reNav = /const \[nav, setNav\] = useState\(\(\) => estadoInicialOpcoes\(\{[\s\S]*?memoria: ctx && ctx\.opcoesMemoria,[\s\S]*?carteira(?:: universo)?,[\s\S]*?\}\)\);/;
 ok("nav: inicializador lazy lê estadoInicialOpcoes({ ..., memoria: ctx && ctx.opcoesMemoria, carteira }) — ticker restaurado só se estiver na carteira (reancorado 2026-10-05)",
    reNav.test(opcoesScreenBruto));
 ok("estadoInicialOpcoes restaura o ticker via tickerInicialOpcoes(memoria, carteira) (reancorado 2026-10-05)",
