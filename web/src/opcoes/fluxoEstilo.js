@@ -30,6 +30,9 @@ export const TIPO = {
   display: { fontSize: "24px", fontWeight: 700, lineHeight: 1.2 },
 };
 
+// espelho de App.jsx:313 (Fredoka já carregada em index.html; sem @font-face novo).
+export const DISPLAY = "'Fredoka', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+
 export const NUM = { fontVariantNumeric: "tabular-nums" };
 export const MONO = { fontFamily: 'ui-monospace, "SF Mono", Menlo, Consolas, monospace', fontVariantNumeric: "tabular-nums" };
 
