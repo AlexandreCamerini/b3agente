@@ -108,5 +108,22 @@ ok("App.jsx: contexto evolucao leva retornoAcumuladoOrigem", /retornoAcumuladoOr
 ok("App.jsx: existe `ec.retAcum == null ?` (cor neutra para base indeterminada)", /ec\.retAcum == null \?/.test(app));
 ok("App.jsx: não existe (ec.retAcum || 0)", !/\(ec\.retAcum \|\| 0\)/.test(app));
 
+// ---- 2026-10-06 (quick 261006-qre): CapitalCurve desenha a curva completa ----
+{
+  const i0 = app.indexOf("function CapitalCurve(");
+  const i1 = app.indexOf("\nfunction ", i0 + 10);
+  const cc = app.slice(i0, i1);
+  ok("qre CapitalCurve: ec.curvaCompleta.map", /ec\.curvaCompleta\.map/.test(cc));
+  ok("qre CapitalCurve: ec.inicioNaCurvaCompleta", /ec\.inicioNaCurvaCompleta/.test(cc));
+  ok("qre CapitalCurve: curvaEvolucaoTxt(", /curvaEvolucaoTxt\(/.test(cc));
+  ok("qre CapitalCurve: Ibovespa segue na janela", /benchmarkSerie\(ibov\.candles, ec\.datas\)/.test(cc));
+  const pa = cc.match(/<path d=\{pathAntes\}[^>]*>/);
+  ok("qre CapitalCurve: pathAntes existe", !!pa);
+  ok("qre CapitalCurve: pathAntes pontilhado distinto do Ibovespa + opacidade",
+    !!pa && /strokeDasharray="1 3"/.test(pa[0]) && !/strokeDasharray="3 3"/.test(pa[0]) && /strokeOpacity/.test(pa[0]));
+  ok("qre CapitalCurve: legenda condicional a k > 0", /hasSeries && k > 0 &&/.test(cc));
+  ok("qre CapitalCurve: ibovPath desenhado em xAt(i + k)", /xAt\(i \+ k\)/.test(cc));
+}
+
 if (fails) { console.error(`\n${fails} falha(s)`); process.exit(1); }
 console.log("\nTODOS PASSARAM");

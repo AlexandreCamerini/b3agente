@@ -6,7 +6,7 @@ import { testServer, describeRuntimeConfig, getApiBase, PROD_BASE } from "./api.
 import { createChart, ColorType, CrosshairMode, LineStyle } from "lightweight-charts";
 import { sampleTechnicals } from "./demo.js";
 import { DISCLAIMERS, TERMO_OPERADOR_VERSAO, TERMO_DESCOBERTO_VERSAO } from "./disclaimers.js";
-import { copyFor, retornoAcumuladoTxt, historicoTxt, entradaAutoTxt, reconciliacaoTxt, reconciliacaoPorQueImporta, estruturaCardTxt, cartaoPosicaoTxt, cartaoDidaticaTxt } from "./copy.js";
+import { copyFor, retornoAcumuladoTxt, curvaEvolucaoTxt, historicoTxt, entradaAutoTxt, reconciliacaoTxt, reconciliacaoPorQueImporta, estruturaCardTxt, cartaoPosicaoTxt, cartaoDidaticaTxt } from "./copy.js";
 import { tickersComPernas, tickersSoComPernas, assinaturaEstrutura, estadoLeitura, mostraAvisoSemStop, mostraRR, valorRR, criarFilaLeituras, tipoPillTravada, chipVencimento, ddmmDeIso, tomDoEstado, dominioRegua, posRegua, sinalResultado, kickerResultadoSoAcoes, ancoraRotulo, estadoPrincipalV6, linhasResultadoV6, chipsMetaV6, rsSinalNbsp, fonteValorCabecalho, pctCapitalTexto, flipDuracaoMs, prefereMovimentoReduzido, faceInicial, pontoDoIndice, indiceNomeado, zonaVisual, rotulosSemColisao, colunasDaGrade, rsNbsp, nomeEmpresaCard, sigPosicaoLeitura, situacaoLeituraPlano } from "./estruturaCard.js";
 import { varsCartaoV6, ALFA_ZONA_V6, ALFA_ZONA_MEIO_V6 } from "./cartaoV6Cores.js"; // 2026-10-01: cores do design v6 ESCOPADAS ao card (CSS vars no wrapper); não toca T/PALETTE
 // Fase 41 (TELAS-01): registro único das 8 telas que o assistente conhece —
@@ -2083,7 +2083,11 @@ function CapitalCurve({ ctx }) {
   const poucosDias = ec.days >= 1 && ec.days < 3;
   const retAcum = ec.retAcum;               // base = a da série (resolverBaseSerie) → bate com "vs início"; null se indeterminada
   const dd = ec.drawdown;                   // drawdown sobre a MESMA curva exibida
-  const series = ec.curve;                  // curva exibida (orçamento → ... → ao vivo)
+  // 2026-10-06 (quick 261006-qre): curva exibida = série INTEIRA (ec.curvaCompleta);
+  // a janela do retorno/Ibovespa começa em k = ec.inicioNaCurvaCompleta. Antes disso
+  // é patrimônio registrado, desenhado pontilhado (sem base de retorno).
+  const k = ec.inicioNaCurvaCompleta || 0;
+  const series = ec.curvaCompleta;
   const up = retAcum == null ? (series.length > 1 ? series[series.length - 1] >= series[0] : true) : retAcum >= 0;
 
   // Plano 04-06 (FIX-C03): comparação com o Ibovespa. Busca 1x por montagem
@@ -2109,16 +2113,19 @@ function CapitalCurve({ ctx }) {
   // as duas séries são comparáveis no mesmo viewBox. Transformação afim e
   // monotônica: sem benchmark, a curva desenhada fica IDÊNTICA à de hoje
   // (nenhuma regressão visual no caminho sem 2ª série).
-  const pctCarteira = series.map((v) => (ec.base > 0 ? ((v - ec.base) / ec.base) * 100 : 0));
+  const pctCarteira = ec.curvaCompleta.map((v) => (ec.base > 0 ? ((v - ec.base) / ec.base) * 100 : 0));
 
   // polyline normalizada ao viewBox 300x92
-  let path = "", ibovPath = "";
+  const xAt = (i) => (pctCarteira.length === 1 ? 0 : (i / (pctCarteira.length - 1)) * 300);
+  let path = "", pathAntes = "", ibovPath = "";
   if (hasSeries) {
     const valores = bm ? pctCarteira.concat(bm.pct.filter((v) => v != null)) : pctCarteira;
     const min = Math.min(...valores), max = Math.max(...valores), span = max - min || 1;
-    const xAt = (i) => (pctCarteira.length === 1 ? 0 : (i / (pctCarteira.length - 1)) * 300);
     const yAt = (v) => 84 - ((v - min) / span) * 72;
-    path = pctCarteira.map((v, i) => (i === 0 ? "M" : "L") + xAt(i).toFixed(1) + "," + yAt(v).toFixed(1)).join(" ");
+    // traço cheio: da janela (k) em diante; pontilhado: 0..k (inclui k p/ ligar os trechos)
+    const seg = (de, ate) => pctCarteira.slice(de, ate + 1).map((v, j) => (j === 0 ? "M" : "L") + xAt(de + j).toFixed(1) + "," + yAt(v).toFixed(1)).join(" ");
+    path = seg(k, pctCarteira.length - 1);
+    pathAntes = k > 0 ? seg(0, k) : "";
     if (bm) {
       // ponto null INTERROMPE o path (reinicia com M no próximo ponto
       // válido) — nunca liga por cima de um buraco de cobertura.
@@ -2126,13 +2133,15 @@ function CapitalCurve({ ctx }) {
       const segs = [];
       bm.pct.forEach((v, i) => {
         if (v == null) { aberto = false; return; }
-        segs.push((aberto ? "L" : "M") + xAt(i).toFixed(1) + "," + yAt(v).toFixed(1));
+        segs.push((aberto ? "L" : "M") + xAt(i + k).toFixed(1) + "," + yAt(v).toFixed(1));
         aberto = true;
       });
       ibovPath = segs.join(" ");
     }
   }
   const temIbov = !!(bm && ibovPath); // série do índice de fato desenhável
+  const mDesdeCurva = typeof ec.baseDesde === "string" && ec.baseDesde.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  const desdeCurva = mDesdeCurva ? `${mDesdeCurva[3]}/${mDesdeCurva[2]}/${mDesdeCurva[1]}` : "";
   const diffIbov = temIbov && bm.retAcum != null ? retAcum - bm.retAcum : null;
 
   const stat = (label, value, color) => (
@@ -2182,12 +2191,21 @@ function CapitalCurve({ ctx }) {
                 {/* z-order: Ibovespa por baixo, carteira sempre por cima em qualquer cruzamento */}
                 {temIbov && <path d={ibovPath} fill="none" stroke={P.textDim} strokeWidth="1.5" strokeDasharray="3 3" />}
                 {/* qa/mock v2: ÁREA preenchida (gradiente na cor do modo) sob a linha */}
-                <path d={`${path} L300,92 L0,92 Z`} fill={`url(#${gid})`} stroke="none" />
+                {pathAntes && <path d={pathAntes} fill="none" stroke={up ? P.positive : P.negative} strokeWidth="1.5" strokeOpacity="0.45" strokeDasharray="1 3" strokeLinecap="round" />}
+                <path d={`${path} L300,92 L${xAt(k).toFixed(1)},92 Z`} fill={`url(#${gid})`} stroke="none" />
                 <path d={path} fill="none" stroke={up ? P.positive : P.negative} strokeWidth="2" />
+                {k > 0 && <line x1={xAt(k)} x2={xAt(k)} y1="8" y2="84" stroke={P.chartGrid} strokeWidth="1" />}
               </>)
             : <path d="M0,72 C60,66 110,58 150,52 C200,45 250,40 300,30" fill="none" stroke={P.textFaint} strokeWidth="2" strokeOpacity="0.35" strokeDasharray="4 4" />}
         </svg>
       </div>
+      {/* quick 261006-qre: alternativa textual do trecho pontilhado (só com janela reiniciada e data válida) */}
+      {hasSeries && k > 0 && desdeCurva && (
+        <div style={{ fontSize: "11px", color: T.textFaint, marginTop: "6px", lineHeight: 1.4 }}>
+          <span aria-hidden style={{ display: "inline-block", width: "14px", borderTop: `2px dotted ${up ? T.positive : T.negative}`, opacity: 0.6, marginRight: "6px", verticalAlign: "middle" }} />
+          {curvaEvolucaoTxt(ctx.operador ? "operador" : "estudo", "antes_da_base", { desde: desdeCurva })}
+        </div>
+      )}
       {hasSeries ? (
         <>
           <div style={{ display: "flex", gap: "10px", marginTop: "12px" }}>

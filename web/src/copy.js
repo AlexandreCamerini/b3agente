@@ -605,6 +605,10 @@ export const COPY = {
       sem_serie: "Não há dados suficientes para concluir. Ainda não há nenhum dia de patrimônio registrado nesta simulação.",
       inconsistente: "Não há dados suficientes para concluir. A série de patrimônio registra bases diferentes sem um ajuste de capital que as explique.",
     },
+    // Quick 261006-qre (2026-10-06): espelho byte a byte de skill_ref.CURVA_EVOLUCAO.
+    curvaEvolucao: {
+      antes_da_base: "Antes de {desde} a linha fica pontilhada: mostra só o patrimônio registrado, porque o retorno acumulado só é medido a partir desse dia.",
+    },
     // Fase 43 (HIER-03): espelho byte a byte de
     // skill_ref.RECONCILIACAO_ELEGIBILIDADE (modo "educacional") — placeholders
     // literais, interpolação é do helper reconciliacaoTxt.
@@ -1921,6 +1925,10 @@ export const COPY = {
       sem_serie: "Não há dados suficientes para concluir. Sem dia de patrimônio registrado.",
       inconsistente: "Não há dados suficientes para concluir. Bases da série inconsistentes, sem ajuste de capital registrado.",
     },
+    // Quick 261006-qre (2026-10-06): espelho byte a byte de skill_ref.CURVA_EVOLUCAO.
+    curvaEvolucao: {
+      antes_da_base: "Antes de {desde} (pontilhado): só patrimônio registrado, fora da base do retorno.",
+    },
     // Fase 43 (HIER-03): espelho byte a byte de
     // skill_ref.RECONCILIACAO_ELEGIBILIDADE (modo "operador") — placeholders
     // literais, interpolação é do helper reconciliacaoTxt.
@@ -2697,6 +2705,14 @@ export function retornoAcumuladoTxt(mode, estado, vals) {
   return frase
     .replace("{pct}", (vals && vals.pct) || "—")
     .replace("{desde}", (vals && vals.desde) || "?");
+}
+
+// Espelho de `skill_ref.curva_evolucao_txt` (quick 261006-qre): legenda do trecho
+// pré-janela da curva. vals: { desde } já formatado DD/MM/AAAA pelo chamador.
+export function curvaEvolucaoTxt(mode, chave, vals) {
+  const r = copyFor(mode).curvaEvolucao;
+  const frase = r[chave] || r.antes_da_base;
+  return frase.replace("{desde}", (vals && vals.desde) || "?");
 }
 
 // Espelho de skill_ref.reconciliacao_elegibilidade_txt (Fase 43, HIER-03) —

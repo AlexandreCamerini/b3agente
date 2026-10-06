@@ -457,6 +457,28 @@ def retorno_acumulado_txt(modo: str, estado: str, pct: str = "", desde: str = ""
     return frase.replace("{pct}", pct or "—").replace("{desde}", desde or "?")
 
 
+# Legenda da curva da Evolução (quick 261006-qre, 2026-10-06): o trecho ANTERIOR
+# ao início da janela do retorno é desenhado pontilhado — patrimônio registrado,
+# sem base de retorno. Espelho byte a byte em `web/src/copy.js`
+# (`COPY[modo].curvaEvolucao`), travado por test_vocabulario_espelho.mjs.
+CURVA_EVOLUCAO = {
+    "operador": {
+        "antes_da_base": "Antes de {desde} (pontilhado): só patrimônio registrado, fora da base do retorno.",
+    },
+    "educacional": {
+        "antes_da_base": "Antes de {desde} a linha fica pontilhada: mostra só o patrimônio registrado, porque o retorno acumulado só é medido a partir desse dia.",
+    },
+}
+
+
+def curva_evolucao_txt(modo: str, chave: str = "antes_da_base", desde: str = "") -> str:
+    """Legenda do trecho pré-janela da curva; chave desconhecida cai em
+    `antes_da_base`, modo desconhecido em educacional."""
+    r = CURVA_EVOLUCAO.get(modo if modo in CURVA_EVOLUCAO else "educacional", CURVA_EVOLUCAO["educacional"])
+    frase = r.get(chave) or r["antes_da_base"]
+    return frase.replace("{desde}", desde or "?")
+
+
 def historico_txt(modo: str, estado: str, janela: str = "", medido_ate: str = "") -> str:
     """Frase canônica de um estado do histórico medido, no vocabulário do modo."""
     h = HISTORICO.get(modo if modo in HISTORICO else "educacional", HISTORICO["educacional"])

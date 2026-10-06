@@ -151,3 +151,17 @@ def test_pet_evolucao_serie_vazia_nao_inventa_numero(monkeypatch):
     b = r.json()
     assert b["retornoAcumuladoPct"] is None
     assert "Não há dados suficientes para concluir." in _fala(b)
+
+
+def test_curva_evolucao_txt_interpola_e_cai_com_seguranca():
+    """2026-10-06 (quick 261006-qre): legenda do trecho pré-janela da curva."""
+    from app import skill_ref
+    for modo in ("operador", "educacional"):
+        t = skill_ref.curva_evolucao_txt(modo, "antes_da_base", desde="06/10/2026")
+        assert "06/10/2026" in t and "{desde}" not in t
+    # chave desconhecida cai em antes_da_base; modo desconhecido, em educacional
+    assert skill_ref.curva_evolucao_txt("operador", "xyz", desde="01/01/2026") == \
+        skill_ref.curva_evolucao_txt("operador", "antes_da_base", desde="01/01/2026")
+    assert skill_ref.curva_evolucao_txt("???", "antes_da_base", desde="01/01/2026") == \
+        skill_ref.curva_evolucao_txt("educacional", "antes_da_base", desde="01/01/2026")
+    assert "?" in skill_ref.curva_evolucao_txt("operador", "antes_da_base")
