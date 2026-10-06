@@ -1,3 +1,14 @@
+// REANCORAGEM — Fase 48 (2026-10-05), caminho B: o par de estados `ticker` +
+// `abaOpcoes` virou UM estado `nav` (navOpcoes.js), inicializado por
+// `estadoInicialOpcoes` (que delega a abaInicialOpcoes/tickerInicialOpcoes/
+// abrirTickerOpcoes — a PARTE A, comportamental, segue valendo sem mudança).
+// A PARTE B troca as âncoras de fiação (B6-B12) pelas equivalentes do estado
+// único; a invariante é a mesma (precedência no inicializador lazy, sem salto
+// pós-paint, write-back sem cleanup, memória fora de store). Continuidade da
+// ESCOLHA ao voltar (objetivo/vencimento/degrau preservados; trocar de ativo
+// zera) é travada também em test_opcoes_nav_profundidade.mjs e nos ok()
+// (reancorado 2026-10-05) de B15 abaixo. Texto original abaixo preservado.
+//
 // Fase 40, plano 40-01 (2026-09-25) — guardião do ESTADO-01: continuidade do
 // ticker selecionado e da aba ativa da tela Opções entre trocas de aba
 // principal, na MESMA sessão (D-01), com precedência deep-link > memória >
@@ -156,48 +167,57 @@ ok("memoriaOpcoes.js não contém localStorage/sessionStorage (fora de comentár
 
 // ---- B6) OpcoesScreen importa as três funções puras ------------------------
 // Reversão deliberada Fase 45 (D-05): o import ganha abrirTickerOpcoes (one-shot do "Encerrar estrutura…"); as três funções originais continuam exigidas.
-ok('OpcoesScreen importa { abaInicialOpcoes, tickerInicialOpcoes, memoriaOpcoes, abrirTickerOpcoes } de "./memoriaOpcoes.js"',
-   /import\s*\{\s*abaInicialOpcoes,\s*tickerInicialOpcoes,\s*memoriaOpcoes,\s*abrirTickerOpcoes\s*\}\s*from\s*["']\.\/memoriaOpcoes\.js["']/.test(opcoesScreenBruto));
+// REANCORAGEM (2026-10-05, Fase 48): as três funções puras de entrada são
+// consumidas por navOpcoes.js (estadoInicialOpcoes); OpcoesScreen mantém só
+// `memoriaOpcoes` (write-back).
+const navOpcoesBruto = readFileSync(join(here, "..", "src", "opcoes", "navOpcoes.js"), "utf8");
+ok('OpcoesScreen importa { memoriaOpcoes } de "./memoriaOpcoes.js" (write-back) (reancorado 2026-10-05)',
+   /import\s*\{\s*memoriaOpcoes\s*\}\s*from\s*["']\.\/memoriaOpcoes\.js["']/.test(opcoesScreenBruto));
+ok('navOpcoes.js importa { tickerInicialOpcoes, abrirTickerOpcoes, abaInicialOpcoes } de "./memoriaOpcoes.js" (reancorado 2026-10-05)',
+   /import\s*\{\s*tickerInicialOpcoes,\s*abrirTickerOpcoes,\s*abaInicialOpcoes\s*\}\s*from\s*["']\.\/memoriaOpcoes\.js["']/.test(navOpcoesBruto));
 
 // ---- B7) inicializador lazy do ticker --------------------------------------
-const reTicker = /const \[ticker, setTicker\] = useState\(\(\) => tickerInicialOpcoes\(ctx && ctx\.opcoesMemoria, carteira\)\);/;
-ok("ticker: inicializador lazy lê tickerInicialOpcoes(ctx && ctx.opcoesMemoria, carteira)",
-   reTicker.test(opcoesScreenBruto));
+// REANCORAGEM (2026-10-05): ticker E aba nascem do MESMO inicializador lazy do nav.
+const reNav = /const \[nav, setNav\] = useState\(\(\) => estadoInicialOpcoes\(\{[\s\S]*?memoria: ctx && ctx\.opcoesMemoria,[\s\S]*?carteira,[\s\S]*?\}\)\);/;
+ok("nav: inicializador lazy lê estadoInicialOpcoes({ ..., memoria: ctx && ctx.opcoesMemoria, carteira }) — ticker restaurado só se estiver na carteira (reancorado 2026-10-05)",
+   reNav.test(opcoesScreenBruto));
+ok("estadoInicialOpcoes restaura o ticker via tickerInicialOpcoes(memoria, carteira) (reancorado 2026-10-05)",
+   /tickerInicialOpcoes\(memoria, carteira\)/.test(navOpcoesBruto));
 
 // ---- B8) inicializador lazy da aba ------------------------------------------
-const reAba = /const \[abaOpcoes, setAbaOpcoes\] = useState\(\(\) => abaInicialOpcoes\(ABAS_OPCOES, ctx && ctx\.opcoesAbaInicial, ctx && ctx\.opcoesMemoria\)\);/;
-ok("abaOpcoes: inicializador lazy lê abaInicialOpcoes(ABAS_OPCOES, ctx && ctx.opcoesAbaInicial, ctx && ctx.opcoesMemoria)",
-   reAba.test(opcoesScreenBruto));
+const reAba = reNav;
+ok("aba: o deep-link (abaInicial: ctx && ctx.opcoesAbaInicial) entra no mesmo inicializador e a validação de allowlist é de abaInicialOpcoes (reancorado 2026-10-05)",
+   /abaInicial: ctx && ctx\.opcoesAbaInicial,/.test(opcoesScreenBruto) && /abaInicialOpcoes\(abas, null, memoria\)/.test(navOpcoesBruto));
 
 // ---- B9) `carteira` declarada ANTES do useState do ticker -------------------
 const iCarteira = opcoesScreenBruto.indexOf("const carteira =");
-const iTickerState = opcoesScreenBruto.indexOf("const [ticker, setTicker]");
-ok("const carteira = ... vem antes de const [ticker, setTicker] (ordem de declaração)",
+const iTickerState = opcoesScreenBruto.indexOf("const [nav, setNav]");
+ok("const carteira = ... vem antes de const [nav, setNav] (ordem de declaração) (reancorado 2026-10-05)",
    iCarteira >= 0 && iTickerState > iCarteira);
 
 // ---- B10) D-05: nenhum useEffect com opcoesMemoria chama setTicker/setAbaOpcoes --
 const blocosUseEffect = opcoesScreen.match(/useEffect\(\(\) => \{[\s\S]*?\}, \[[^\]]*\]\);/g) || [];
 ok("localizou ao menos um useEffect em OpcoesScreen.jsx (parse mudo)", blocosUseEffect.length > 0);
-ok("nenhum useEffect com opcoesMemoria chama setTicker(/setAbaOpcoes( — sem salto pós-paint (D-05)",
-   blocosUseEffect.every((b) => !(/opcoesMemoria/.test(b) && (/setTicker\(/.test(b) || /setAbaOpcoes\(/.test(b)))));
+ok("nenhum useEffect com opcoesMemoria chama setNav( — sem salto pós-paint (D-05) (reancorado 2026-10-05)",
+   blocosUseEffect.every((b) => !(/opcoesMemoria/.test(b) && /setNav\(/.test(b))));
 
 // ---- B11) write-back sem cleanup --------------------------------------------
-const blocoWriteBack = blocosUseEffect.find((b) => /ctx\.lembrarOpcoes\(memoriaOpcoes\(ticker, abaOpcoes\)\)/.test(b));
-ok("existe useEffect com ctx.lembrarOpcoes(memoriaOpcoes(ticker, abaOpcoes))", !!blocoWriteBack);
-ok("esse useEffect tem deps exatamente [ticker, abaOpcoes]",
-   !!blocoWriteBack && /\}, \[ticker, abaOpcoes\]\);$/.test(blocoWriteBack));
+const blocoWriteBack = blocosUseEffect.find((b) => /ctx\.lembrarOpcoes\(memoriaOpcoes\(nav\.ticker, nav\.nivel === "montar" \? "montar" : "oportunidades"\)\)/.test(b));
+ok("existe useEffect com ctx.lembrarOpcoes(memoriaOpcoes(nav.ticker, <aba derivada do nível>)) — allowlist antiga de memória preservada (reancorado 2026-10-05)", !!blocoWriteBack);
+ok("esse useEffect tem deps exatamente [nav.ticker, nav.nivel] (reancorado 2026-10-05)",
+   !!blocoWriteBack && /\}, \[nav\.ticker, nav\.nivel\]\);$/.test(blocoWriteBack));
 ok("esse useEffect NÃO contém return (sem cleanup — cenário C)",
    !!blocoWriteBack && !/return/.test(blocoWriteBack));
 ok("lembrarOpcoes nunca aparece dentro de um `return () =>` (sem escrita em unmount) no arquivo",
    !/return \(\) => \{[^}]*lembrarOpcoes/.test(opcoesScreen) && !/return \(\) => ctx\.lembrarOpcoes/.test(opcoesScreen));
 
 // ---- B12) restauração não passa por escolherTicker ---------------------------
-const matchTicker = opcoesScreenBruto.match(reTicker);
+const matchTicker = opcoesScreenBruto.match(reNav);
 const matchAba = opcoesScreenBruto.match(reAba);
-ok("o inicializador do ticker não contém escolherTicker",
-   !matchTicker || !/escolherTicker/.test(matchTicker[0]));
-ok("o inicializador da aba não contém escolherTicker",
-   !matchAba || !/escolherTicker/.test(matchAba[0]));
+ok("o inicializador do ticker (nav) não contém escolherTicker",
+   !!matchTicker && !/escolherTicker/.test(matchTicker[0]));
+ok("o inicializador da aba (nav) não contém escolherTicker",
+   !!matchAba && !/escolherTicker/.test(matchAba[0]));
 
 // ---- B13) one-shot de opcoesAbaInicial continua intacto ----------------------
 ok("continua existindo o useEffect one-shot com limparOpcoesAbaInicial() e deps []",
@@ -208,6 +228,29 @@ ok('OpcoesScreen.jsx não contém a string "Voltamos" fora de comentário',
    !/Voltamos/i.test(opcoesScreen));
 ok('OpcoesScreen.jsx não contém a string "restaurad" fora de comentário',
    !/restaurad/i.test(opcoesScreen));
+
+// ---- B15) (reancorado 2026-10-05) continuidade da escolha no estado único --
+// Substitui, para o invariante "o que o usuário escolheu não se perde ao
+// navegar", a continuidade ENTRE ABAS pela continuidade entre NÍVEIS.
+const nav = await import("../src/opcoes/navOpcoes.js");
+{
+  let e = nav.estadoInicialOpcoes({ abas: ABAS, carteira: [{ t: "PETR4" }] });
+  e = nav.abrirAtivo(e, "PETR4");
+  e = nav.escolherObjetivo(e, "proteger");
+  e = nav.escolherVencimento(e, "2026-11-21");
+  e = nav.escolherDegrau(e, "d1");
+  e = nav.irConfirmar(e);
+  const volta = nav.voltar(nav.voltar(e)); // confirmar -> escada -> objetivo
+  ok("voltar preserva ativo/objetivo/vencimento/degrau ao subir níveis (reancorado 2026-10-05)",
+     volta.nivel === "objetivo" && volta.ticker === "PETR4" && volta.objetivo === "proteger"
+     && volta.vencimento === "2026-11-21" && volta.degrauId === "d1");
+  const outro = nav.abrirAtivo(volta, "VALE3");
+  ok("trocar de ativo zera objetivo/vencimento/degrau (reancorado 2026-10-05)",
+     outro.ticker === "VALE3" && outro.objetivo === null && outro.vencimento === null && outro.degrauId === null);
+  const reabre = nav.abrirAtivo(volta, "PETR4");
+  ok("reabrir o MESMO ativo mantém a escolha (reancorado 2026-10-05)",
+     reabre.objetivo === "proteger" && reabre.degrauId === "d1");
+}
 
 console.log(fails === 0 ? "TODOS OS " + "TESTES PASSARAM" : fails + " FALHA(S)");
 if (fails > 0) {

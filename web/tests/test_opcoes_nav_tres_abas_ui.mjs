@@ -1,3 +1,15 @@
+// REANCORAGEM — Fase 48 (2026-10-05), caminho B: a aba Opções deixou de ter 3
+// sub-abas fixas e passou a um fluxo em profundidade (hub -> objetivo ->
+// escada -> confirmar, + "montar" = Montar do zero), num estado único `nav`
+// (navOpcoes.js, NIVEIS). O texto original (Fase 39, 2026-09-24) segue
+// abaixo, preservado como histórico; cada item reancorado ganha o sufixo
+// "(reancorado 2026-10-05)" e troca a ÂNCORA, nunca a invariante: allowlist
+// ABAS_OPCOES validando deep-link, one-shot em useEffect([]), SecaoVigias 1x
+// dentro de VigiasSheet, SecaoComparar condicional dentro do Montar,
+// isolamento ADR-027 e `.manchete` fora dos componentes (guardrail CVM) —
+// agora também nos componentes novos do fluxo. Quem verifica o fluxo em
+// runtime é test_opcoes_fluxo_render.mjs.
+//
 // Fase 39, plano 39-04 (2026-09-24) — guardião estrutural do NAV-01: a aba
 // Opções tem exatamente 3 abas fixas de nível 1 (Oportunidades/Recomendadas/
 // Montar), Vigias vira badge+sheet no cabeçalho, e a sub-aba "Operar"
@@ -70,6 +82,7 @@ const dirOpcoes = join(here, "..", "src", "opcoes");
 const opcoesScreenBruto = readFileSync(join(dirOpcoes, "OpcoesScreen.jsx"), "utf8");
 const abaOportunidadesBruto = readFileSync(join(dirOpcoes, "AbaOportunidades.jsx"), "utf8");
 const abaRecomendadasBruto = readFileSync(join(dirOpcoes, "AbaRecomendadas.jsx"), "utf8");
+const navOpcoesBruto = readFileSync(join(dirOpcoes, "navOpcoes.js"), "utf8");
 
 // Sem comentários: os próprios doc-comments desta fase citam os termos
 // dissolvidos ao explicar a decisão (histórico não se reescreve) — contá-los
@@ -92,15 +105,19 @@ ok("OpcoesScreen.jsx foi lido e tem corpo (>1000 caracteres)",
 ok("ABAS_OPCOES é exatamente [\"oportunidades\", \"recomendadas\", \"montar\"]",
    /const ABAS_OPCOES = \["oportunidades", "recomendadas", "montar"\];/.test(opcoesScreenBruto));
 // REVERSÃO DELIBERADA (2026-09-25, Fase 40, ESTADO-01): o inicializador
-// passou a chamar `abaInicialOpcoes(ABAS_OPCOES, ctx.opcoesAbaInicial,
-// ctx.opcoesMemoria)` em vez de inline `.includes`. A allowlist T-39-14
-// continua valendo — só que aplicada DENTRO da função pura
-// `web/src/opcoes/memoriaOpcoes.js`, coberta comportamentalmente por
-// `test_opcoes_continuidade_ui.mjs` (cenários de deep-link/aba inválida).
-ok("abaOpcoes nasce validado por abaInicialOpcoes(ABAS_OPCOES, ctx.opcoesAbaInicial, ctx.opcoesMemoria) (D-03, T-39-14)",
-   /useState\(\(\) => abaInicialOpcoes\(ABAS_OPCOES, ctx && ctx\.opcoesAbaInicial, ctx && ctx\.opcoesMemoria\)\)/.test(opcoesScreenBruto));
+// passou a chamar `abaInicialOpcoes(ABAS_OPCOES, ...)`. REANCORAGEM
+// (2026-10-05, Fase 48): quem chama é `estadoInicialOpcoes` (navOpcoes.js),
+// que delega a `abaInicialOpcoes`/`abrirTickerOpcoes`/`tickerInicialOpcoes`
+// (allowlist T-39-14/T-48-36 preservada, coberta por
+// test_opcoes_continuidade_ui.mjs e test_opcoes_nav_profundidade.mjs).
+ok("nav nasce validado por estadoInicialOpcoes({ abas: ABAS_OPCOES, abaInicial: ctx.opcoesAbaInicial, ..., memoria: ctx.opcoesMemoria }) (D-03, T-39-14) (reancorado 2026-10-05)",
+   /useState\(\(\) => estadoInicialOpcoes\(\{\s*abas: ABAS_OPCOES,\s*abaInicial: ctx && ctx\.opcoesAbaInicial,\s*abrirTicker: ctx && ctx\.opcoesAbrirTicker,\s*memoria: ctx && ctx\.opcoesMemoria,\s*carteira,\s*\}\)\)/.test(opcoesScreenBruto));
 ok("limparOpcoesAbaInicial é chamado dentro de um useEffect(..., [])",
    /useEffect\(\(\) => \{[\s\S]{0,200}limparOpcoesAbaInicial\(\)[\s\S]{0,80}\}, \[\]\);/.test(opcoesScreenBruto));
+ok("os 5 níveis do fluxo (NIVEIS) existem em navOpcoes.js, na ordem hub, objetivo, escada, confirmar, montar (reancorado 2026-10-05)",
+   /export const NIVEIS = \["hub", "objetivo", "escada", "confirmar", "montar"\];/.test(navOpcoesBruto));
+ok("o estado antigo (abaOpcoes/setAbaOpcoes/oportunidadeAberta/setOportunidadeAberta/setTicker) não sobrevive em código (absorvido por `nav`) (reancorado 2026-10-05)",
+   !/\b(abaOpcoes|setAbaOpcoes|oportunidadeAberta|setOportunidadeAberta|setTicker)\b/.test(opcoesScreen));
 
 // ---- 2) resquício de código dos dois estados ortogonais dissolvidos -----
 const TOKENS_DISSOLVIDOS = [
@@ -112,32 +129,37 @@ for (const tk of TOKENS_DISSOLVIDOS) {
      !new RegExp("\\b" + tk + "\\b").test(opcoesScreen));
 }
 
-// ---- 3) abaBar: 3 pills fixas, fora de condicional de ticker ------------
-const iAbaBarConst = opcoesScreen.indexOf("const abaBar = (");
-const iAbaBarFimConst = iAbaBarConst >= 0 ? opcoesScreen.indexOf("\n  );", iAbaBarConst) : -1;
-const corpoAbaBar = (iAbaBarConst >= 0 && iAbaBarFimConst > iAbaBarConst)
-  ? opcoesScreen.slice(iAbaBarConst, iAbaBarFimConst) : "";
-ok("a const abaBar foi localizada", corpoAbaBar.length > 0);
-ok("abaBar referencia cp.opcoesAbaOportunidades/opcoesAbaRecomendadas/opcoesAbaMontar",
-   /cp\.opcoesAbaOportunidades/.test(corpoAbaBar) && /cp\.opcoesAbaRecomendadas/.test(corpoAbaBar) && /cp\.opcoesAbaMontar/.test(corpoAbaBar));
-ok("abaBar declara aria-pressed, minHeight: \"44px\" e flexWrap: \"wrap\"",
-   /aria-pressed=\{abaOpcoes === a\.id\}/.test(corpoAbaBar) && /minHeight:\s*"44px"/.test(corpoAbaBar) && /flexWrap:\s*"wrap"/.test(corpoAbaBar));
-ok("{abaBar} aparece exatamente 1x no arquivo",
-   (opcoesScreen.match(/\{abaBar\}/g) || []).length === 1);
-const iSection = opcoesScreen.indexOf("<section>");
-const iAbaBarUso = opcoesScreen.indexOf("{abaBar}");
-const trechoAteAbaBar = (iSection >= 0 && iAbaBarUso > iSection) ? opcoesScreen.slice(iSection, iAbaBarUso) : "";
-ok("o trecho entre <section> e {abaBar} foi localizado", trechoAteAbaBar.length > 0);
-ok("o trecho entre <section> e {abaBar} não depende de `ticker` (D-01: abaBar não é gateada por ativo escolhido)",
-   trechoAteAbaBar.length > 0 && !/\bticker\b/.test(trechoAteAbaBar));
+// ---- 3) (reancorado 2026-10-05) abaBar -> um ramo por NÍVEL ------------
+// Antes: 3 pills fixas `abaBar`, fora de condicional de ticker (D-01). Agora:
+// a barra deixa de existir e o fluxo tem UM ramo por nível; o contêiner dos
+// níveis do hub à confirmação não depende de `ticker` para existir.
+ok("a const abaBar NÃO existe mais (a barra de 3 sub-abas deixou de ser superfície) (reancorado 2026-10-05)",
+   !/\babaBar\b/.test(opcoesScreen));
+const iHub = opcoesScreen.indexOf('{nav.nivel === "hub" ? (');
+const iObj = opcoesScreen.indexOf('{nav.nivel === "objetivo" ? (');
+const iEsc = opcoesScreen.indexOf('{nav.nivel === "escada" ? (');
+const iConf = opcoesScreen.indexOf('{nav.nivel === "confirmar" ? (');
+const iMontar = opcoesScreen.indexOf('{nav.nivel === "montar" ? (');
+const iDisclaimer = opcoesScreen.indexOf("cp.opcoesDisclaimer");
+ok("os 5 ramos de nível foram localizados, na ordem hub → objetivo → escada → confirmar → montar (reancorado 2026-10-05)",
+   iHub >= 0 && iObj > iHub && iEsc > iObj && iConf > iEsc && iMontar > iConf && iDisclaimer > iMontar);
+const ramoHub = (iHub >= 0 && iObj > iHub) ? opcoesScreen.slice(iHub, iObj) : "";
+const ramoObjetivo = (iObj >= 0 && iEsc > iObj) ? opcoesScreen.slice(iObj, iEsc) : "";
+const ramoEscada = (iEsc >= 0 && iConf > iEsc) ? opcoesScreen.slice(iEsc, iConf) : "";
+const ramoConfirmar = (iConf >= 0 && iMontar > iConf) ? opcoesScreen.slice(iConf, iMontar) : "";
+const ramoMontar = (iMontar >= 0 && iDisclaimer > iMontar) ? opcoesScreen.slice(iMontar, iDisclaimer) : "";
+ok("as 5 fatias de nível não estão vazias (parse mudo) (reancorado 2026-10-05)",
+   [ramoHub, ramoObjetivo, ramoEscada, ramoConfirmar, ramoMontar].every((r) => r.length > 0));
+const iSection = opcoesScreen.indexOf("<section");
+const trechoAteHub = (iSection >= 0 && iHub > iSection) ? opcoesScreen.slice(iSection, iHub) : "";
+ok("o trecho entre <section e o ramo do hub foi localizado e não depende de `ticker` (o hub é o nível raiz, não gateado por ativo) (reancorado 2026-10-05)",
+   trechoAteHub.length > 0 && !/\bticker\b/.test(semComentario(trechoAteHub)));
 
-// ---- 4) VigiasBadge visível nas 3 abas; SecaoVigias só dentro do sheet --
-const iVigiasBadgeUso = opcoesScreen.indexOf("<VigiasBadge");
-const iPrimeiraAba = opcoesScreen.indexOf('abaOpcoes === "');
-ok("<VigiasBadge e o primeiro ramo `abaOpcoes === \"` foram localizados",
-   iVigiasBadgeUso >= 0 && iPrimeiraAba >= 0);
-ok("<VigiasBadge aparece ANTES do primeiro ramo de aba (visível nas 3 abas, SC#2)",
-   iVigiasBadgeUso >= 0 && iPrimeiraAba >= 0 && iVigiasBadgeUso < iPrimeiraAba);
+// ---- 4) Vigias: seção Atenção do hub + "ver todos" abre o sheet ---------
+ok("<VigiasBadge não existe mais; Vigias saem do cabeçalho (reancorado 2026-10-05)",
+   !/<VigiasBadge/.test(opcoesScreen));
+ok("o hub recebe onVerTodosVigias que abre o sheet (setVigiasAberto(true)) — Vigias alcançáveis a partir do hub, nível raiz (reancorado 2026-10-05)",
+   /onVerTodosVigias=\{\(\) => \{[^}]*setVigiasAberto\(true\)/.test(ramoHub));
 ok("<SecaoVigias aparece exatamente 1x no arquivo",
    (opcoesScreen.match(/<SecaoVigias/g) || []).length === 1);
 const iVigiasSheetAbre = opcoesScreen.indexOf("<VigiasSheet");
@@ -147,33 +169,28 @@ ok("<SecaoVigias está DENTRO de <VigiasSheet>...</VigiasSheet> (D-07: conteúdo
    iVigiasSheetAbre >= 0 && iVigiasSheetFecha > iVigiasSheetAbre
    && iSecaoVigiasUso > iVigiasSheetAbre && iSecaoVigiasUso < iVigiasSheetFecha);
 
-// ---- 5) cada componente só no ramo da SUA aba --------------------------
-// Fatiamento pelos 3 ramos `abaOpcoes === "..."`, na ordem em que aparecem.
-const iOport = opcoesScreen.indexOf('abaOpcoes === "oportunidades"');
-const iRecom = opcoesScreen.indexOf('abaOpcoes === "recomendadas"');
-const iMontar = opcoesScreen.indexOf('abaOpcoes === "montar"');
-ok("os 3 ramos de aba foram localizados, na ordem Oportunidades → Recomendadas → Montar",
-   iOport >= 0 && iRecom > iOport && iMontar > iRecom);
-const ramoOportunidades = (iOport >= 0 && iRecom > iOport) ? opcoesScreen.slice(iOport, iRecom) : "";
-const ramoRecomendadas = (iRecom >= 0 && iMontar > iRecom) ? opcoesScreen.slice(iRecom, iMontar) : "";
-// Fim do ramo Montar: até o `<p>` do disclaimer, primeiro elemento comum a
-// todas as abas (rodapé global) que vem logo depois do bloco de Montar.
-const iDisclaimer = opcoesScreen.indexOf("cp.opcoesDisclaimer");
-const ramoMontar = (iMontar >= 0 && iDisclaimer > iMontar) ? opcoesScreen.slice(iMontar, iDisclaimer) : "";
-ok("as 3 fatias de aba não estão vazias (parse mudo)",
-   ramoOportunidades.length > 0 && ramoRecomendadas.length > 0 && ramoMontar.length > 0);
-
-ok("<AbaOportunidades e <PropostaDoAtivo só aparecem dentro do ramo Oportunidades",
-   /<AbaOportunidades/.test(ramoOportunidades) && /<PropostaDoAtivo/.test(ramoOportunidades)
-   && !/<AbaOportunidades/.test(ramoRecomendadas) && !/<PropostaDoAtivo/.test(ramoRecomendadas)
-   && !/<AbaOportunidades/.test(ramoMontar) && !/<PropostaDoAtivo/.test(ramoMontar));
-ok("<AbaRecomendadas só aparece dentro do ramo Recomendadas",
-   /<AbaRecomendadas/.test(ramoRecomendadas)
-   && !/<AbaRecomendadas/.test(ramoOportunidades) && !/<AbaRecomendadas/.test(ramoMontar));
+// ---- 5) (reancorado 2026-10-05) cada componente só no ramo do SEU nível --
+ok("<HubOpcoes só no ramo hub; <ObjetivoAtivo só no ramo objetivo; <EscadaObjetivo e <MatrizVencimentos só no ramo escada; <ConfirmarEstrutura só no ramo confirmar (reancorado 2026-10-05)",
+   /<HubOpcoes/.test(ramoHub) && /<ObjetivoAtivo/.test(ramoObjetivo)
+   && /<EscadaObjetivo/.test(ramoEscada) && /<MatrizVencimentos/.test(ramoEscada)
+   && /<ConfirmarEstrutura/.test(ramoConfirmar)
+   && (opcoesScreen.match(/<HubOpcoes/g) || []).length === 1
+   && (opcoesScreen.match(/<ObjetivoAtivo/g) || []).length === 1
+   && (opcoesScreen.match(/<EscadaObjetivo/g) || []).length === 1
+   && (opcoesScreen.match(/<MatrizVencimentos/g) || []).length === 1
+   && (opcoesScreen.match(/<ConfirmarEstrutura/g) || []).length === 1);
+ok("<PropostaDoAtivo (estrutura aberta) só aparece dentro do ramo objetivo, como `estruturaAberta` (reancorado 2026-10-05)",
+   /<PropostaDoAtivo/.test(ramoObjetivo)
+   && !/<PropostaDoAtivo/.test(ramoHub) && !/<PropostaDoAtivo/.test(ramoEscada)
+   && !/<PropostaDoAtivo/.test(ramoConfirmar) && !/<PropostaDoAtivo/.test(ramoMontar));
+ok("<AbaOportunidades e <AbaRecomendadas não são mais montadas em OpcoesScreen (Oportunidades = cards do hub; Destacadas = escada) (reancorado 2026-10-05)",
+   !/<AbaOportunidades/.test(opcoesScreen) && !/<AbaRecomendadas/.test(opcoesScreen));
 ok("<SecaoAnalisar, <SecaoComparar, <SecaoSetups e {cabecalho} só aparecem dentro do ramo Montar",
    /<SecaoAnalisar/.test(ramoMontar) && /<SecaoComparar/.test(ramoMontar) && /<SecaoSetups/.test(ramoMontar) && /\{cabecalho\}/.test(ramoMontar)
-   && !/<SecaoAnalisar/.test(ramoOportunidades) && !/<SecaoComparar/.test(ramoOportunidades) && !/<SecaoSetups/.test(ramoOportunidades) && !/\{cabecalho\}/.test(ramoOportunidades)
-   && !/<SecaoAnalisar/.test(ramoRecomendadas) && !/<SecaoComparar/.test(ramoRecomendadas) && !/<SecaoSetups/.test(ramoRecomendadas) && !/\{cabecalho\}/.test(ramoRecomendadas));
+   && [ramoHub, ramoObjetivo, ramoEscada, ramoConfirmar].every((r) =>
+     !/<SecaoAnalisar/.test(r) && !/<SecaoComparar/.test(r) && !/<SecaoSetups/.test(r) && !/\{cabecalho\}/.test(r)));
+ok("o ramo Montar tem '‹ voltar' (voltar(n)) e o hub/objetivo levam a ele via irMontar (Montar do zero alcançável) (reancorado 2026-10-05)",
+   /setNav\(\(n\) => voltar\(n\)\)/.test(ramoMontar) && /irMontar\(n\)/.test(ramoObjetivo));
 
 // ---- 6) SecaoComparar guardado por compararAberto (D-06) ----------------
 ok("<SecaoComparar só é renderizado sob `compararAberto ? ... : null`",
@@ -181,13 +198,11 @@ ok("<SecaoComparar só é renderizado sob `compararAberto ? ... : null`",
 ok("o botão que alterna Comparar tem aria-expanded={compararAberto} e usa cp.opcoesVerOutrosVencimentos",
    /aria-expanded=\{compararAberto\}/.test(ramoMontar) && /cp\.opcoesVerOutrosVencimentos/.test(ramoMontar));
 
-// ---- 7) sem "saiba mais" fixo; infoDaAba( 3x; ANCORAS_KB.opcoes vivo ----
-const iH1Fecha = opcoesScreen.indexOf("</h1>");
-const trechoAteAbaBarDoH1 = (iH1Fecha >= 0 && iAbaBarUso > iH1Fecha) ? opcoesScreen.slice(iH1Fecha, iAbaBarUso) : "";
-ok("nenhum botão \"saiba mais\" solto entre </h1> e {abaBar} (D-13: vira ⓘ por aba)",
-   trechoAteAbaBarDoH1.length > 0 && !/cp\.saibaMais/.test(trechoAteAbaBarDoH1));
-ok("infoDaAba( aparece exatamente 3x (uma por aba, D-13)",
-   (opcoesScreen.match(/infoDaAba\(/g) || []).length === 3);
+// ---- 7) sem "saiba mais" fixo; infoDaAba( no Montar; ANCORAS_KB.opcoes vivo
+ok("nenhum botão \"saiba mais\" fixo (cp.saibaMais) em OpcoesScreen (D-13: vira ⓘ) (reancorado 2026-10-05)",
+   !/cp\.saibaMais/.test(opcoesScreen));
+ok("infoDaAba( aparece exatamente 1x — só o ⓘ do Montar sobrou; as outras duas abas deixaram de existir (reancorado 2026-10-05)",
+   (opcoesScreen.match(/infoDaAba\(/g) || []).length === 1 && /infoDaAba\(/.test(ramoMontar));
 ok("ANCORAS_KB.opcoes segue referenciado (fonte do verbete do ⓘ)",
    /ANCORAS_KB\.opcoes/.test(opcoesScreen));
 
@@ -231,6 +246,17 @@ ok("nenhum arquivo de web/src/opcoes/ importa App.jsx (OpcoesScreen/AbaOportunid
    !/from\s+["'][^"']*App\.jsx["']/.test(opcoesScreenBruto)
    && !/from\s+["'][^"']*App\.jsx["']/.test(abaOportunidadesBruto)
    && !/from\s+["'][^"']*App\.jsx["']/.test(abaRecomendadasBruto));
+// REANCORAGEM (2026-10-05): o isolamento e a regra CVM valem também para os
+// componentes novos do caminho B (48-08/48-09) — nenhum importa App.jsx e
+// nenhum renderiza a manchete do card.
+const NOVOS = ["HubOpcoes.jsx", "ObjetivoAtivo.jsx", "EscadaObjetivo.jsx", "ConfirmarEstrutura.jsx",
+  "MatrizVencimentos.jsx", "GraficoResultado.jsx", "TermoOpcoes.jsx", "useEscada.js", "useTecnicoCarteira.js",
+  "navOpcoes.js", "fluxoEstilo.js"];
+const novosBrutos = NOVOS.map((f) => readFileSync(join(dirOpcoes, f), "utf8"));
+ok("nenhum componente/hook novo do fluxo importa App.jsx (isolamento ADR-027) (reancorado 2026-10-05)",
+   novosBrutos.every((t) => !/from\s+["'][^"']*App\.jsx["']/.test(t)));
+ok("nenhum componente/hook novo do fluxo renderiza `.manchete` (guardrail CVM) (reancorado 2026-10-05)",
+   novosBrutos.every((t) => !/\.manchete\b/.test(semComentario(t))));
 ok("<CuradoriaEstruturas aparece exatamente 1x em AbaRecomendadas.jsx",
    (abaRecomendadasBruto.match(/<CuradoriaEstruturas/g) || []).length === 1);
 ok("SecaoDescobrir.jsx e WorkspaceHeader.jsx não existem mais",

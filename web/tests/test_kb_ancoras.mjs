@@ -100,8 +100,13 @@ ok("OpcoesScreen: link não usa abrirSetor", !/abrirSetor/.test(blocoAbrirSaibaM
 ok("OpcoesScreen: link não usa openConceito", !/openConceito/.test(blocoAbrirSaibaMaisDef));
 ok("OpcoesScreen: link não usa A.abrirVerbete( antigo (só o estado local verbeteAberto)",
   !/A\.abrirVerbete\(/.test(blocoAbrirSaibaMaisDef));
-ok("OpcoesScreen: infoDaAba( é chamado exatamente 3x (uma por aba — Oportunidades/Recomendadas/Montar, D-13)",
-  (opcoes.match(/infoDaAba\(/g) || []).length === 3);
+// REANCORAGEM — Fase 48 (2026-10-05), caminho B: as abas Oportunidades e
+// Recomendadas deixaram de ser montadas (hub/escada as substituem); sobrou o
+// ⓘ do nível "montar" — `infoDaAba(` agora é chamado exatamente 1x. O portão
+// (didática + verbete no catálogo) e o BotaoSaibaMais compartilhado seguem
+// travados pelas asserções vizinhas. Original (3x) preservado acima.
+ok("OpcoesScreen: infoDaAba( é chamado exatamente 1x (só o ⓘ do Montar sobrou — Fase 48, reancorado 2026-10-05; antes: 3x, D-13)",
+  (opcoes.match(/infoDaAba\(/g) || []).length === 1);
 ok("uiOpcoes.jsx: BotaoSaibaMais usa color: T.accent, fontWeight: 700 (D-13 — mesmo tom do link antigo, ⓘ por aba em vez de link fixo)",
   /export function BotaoSaibaMais/.test(uiOpcoesModulo)
   && /color:\s*T\.accent/.test(uiOpcoesModulo) && /fontWeight:\s*700/.test(uiOpcoesModulo));

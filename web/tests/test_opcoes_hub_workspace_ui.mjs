@@ -1,3 +1,15 @@
+// REANCORAGEM — Fase 48 (2026-10-05), caminho B: o "hub" da aba Opções voltou a
+// existir, mas é OUTRO hub — `HubOpcoes.jsx` (nível raiz do fluxo em
+// profundidade, navOpcoes.js): cards da CARTEIRA + seção Atenção (vigias) +
+// frescor + aviso de dinheiro virtual. As 3 abas fixas (`abaBar`) e o badge de
+// Vigias do cabeçalho deixaram de existir; Vigias viram a seção Atenção do hub
+// + "ver todos" abrindo o sheet existente. Itens 2, 5b, 7 e 8 trocam a âncora
+// (sufixo "(reancorado 2026-10-05)"); 1, 3, 4, 5a, 6, 9 e 10 seguem como
+// estavam. Invariantes mantidos: custo só em clique (o único disparador pago
+// do hub é o "Atualizar" dos vigias, com custo declarado dentro do botão),
+// universo = carteira, travessão em vez de zero. Texto original abaixo
+// preservado.
+//
 // Fase 34, plano 34-01 (2026-09-20) — guardião do split hub/workspace da
 // sub-aba "Setups" da aba Opções.
 //
@@ -125,15 +137,16 @@ const iFimEscolherTicker = iEscolherTickerDef >= 0 ? opcoesScreen.indexOf("};", 
 const escolherTickerSlice = (iEscolherTickerDef >= 0 && iFimEscolherTicker > iEscolherTickerDef)
   ? opcoesScreen.slice(iEscolherTickerDef, iFimEscolherTicker) : "";
 ok("a fatia de `escolherTicker` foi localizada", escolherTickerSlice.length > 0);
-ok("`escolherTicker` faz o toggle de `ticker` (`setTicker(t === ticker ? \"\" : t)`)",
-   /setTicker\(t === ticker \? "" : t\)/.test(escolherTickerSlice));
-ok("`escolherTicker` também fecha `compararAberto` (D-06: trocar de ativo fecha o painel do ativo anterior)",
-   /setCompararAberto\(false\)/.test(escolherTickerSlice));
-const chamadasSetTicker = opcoesScreen.match(/setTicker\([^)]*\)/g) || [];
-ok("existe pelo menos uma chamada a setTicker (sanidade da asserção seguinte)",
-   chamadasSetTicker.length >= 1);
-ok("toda chamada a setTicker no arquivo é o toggle exato de escolherTicker (nenhum setTicker(\"\") solto — sem segundo caminho de reset)",
-   chamadasSetTicker.every((c) => c === 'setTicker(t === ticker ? "" : t)'));
+// REANCORAGEM (2026-10-05): o toggle agora age sobre `nav` (setNav) e o reset
+// de tese/vencimento/alvo/stop/compararAberto mora num useEffect([nav.ticker]),
+// que cobre TAMBÉM a troca de ativo feita pelo hub (não só pelo seletor).
+ok("`escolherTicker` faz o toggle de `nav.ticker` (`t === n.ticker ? { ...n, ticker: \"\" } : { ...n, ticker: t, ... }`) (reancorado 2026-10-05)",
+   /setNav\(\(n\) => \(t === n\.ticker\s*\? \{ \.\.\.n, ticker: "" \}\s*: \{ \.\.\.n, ticker: t, objetivo: null, vencimento: null, degrauId: null \}\)\)/.test(escolherTickerSlice));
+ok("trocar de ativo (qualquer caminho) fecha `compararAberto`: useEffect([nav.ticker]) chama setCompararAberto(false) (D-06) (reancorado 2026-10-05)",
+   /useEffect\(\(\) => \{[^}]*setCompararAberto\(false\);[^}]*\}, \[nav\.ticker\]\);/.test(opcoesScreen));
+const chamadasSetTicker = opcoesScreen.match(/\bsetTicker\(/g) || [];
+ok("nenhum `setTicker(` sobrevive em código: a troca de ativo só passa por `nav` (sem segundo caminho de reset) (reancorado 2026-10-05)",
+   chamadasSetTicker.length === 0);
 ok("nenhum history/pushState/breadcrumb em OpcoesScreen.jsx (sem histórico de navegação paralelo)",
    !/\bhistory\b/i.test(opcoesScreen) && !/pushState/.test(opcoesScreen) && !/breadcrumb/i.test(opcoesScreen));
 
@@ -183,13 +196,15 @@ ok("COPY.operador.curadoriaSubtitulo nega hierarquia (contém \"não\"/\"promess
    subtituloOperador.includes("não") && subtituloOperador.includes("promessa") && subtituloOperador.includes("oportunidades"));
 // 5b) "Seus vigias" deixa de ser bloco fixo do hub — vira badge no
 // cabeçalho + sheet local (D-07). Fase 39 (39-02/39-04, 2026-09-24).
-const iVigiasBadge = opcoesScreen.indexOf("<VigiasBadge");
-const iVigiasSheet = opcoesScreen.indexOf("<VigiasSheet", iVigiasBadge >= 0 ? iVigiasBadge : 0);
+// REANCORAGEM (2026-10-05, Fase 48): o badge do cabeçalho some; o caminho até
+// o sheet é o "ver todos ›" da seção Atenção do HubOpcoes (onVerTodosVigias).
+const iHubUso = opcoesScreen.indexOf("<HubOpcoes");
+const iVigiasSheet = opcoesScreen.indexOf("<VigiasSheet");
 const iSecaoVigiasDentroSheet = iVigiasSheet >= 0 ? opcoesScreen.indexOf("<SecaoVigias", iVigiasSheet) : -1;
-ok("`<VigiasBadge` aparece no cabeçalho, ANTES de `<VigiasSheet`, que envolve `<SecaoVigias` (D-07: badge + sheet, não bloco fixo)",
-   iVigiasBadge >= 0 && iVigiasSheet > iVigiasBadge && iSecaoVigiasDentroSheet > iVigiasSheet);
-ok("`<VigiasBadge` é renderizado ANTES de `{abaBar}` — comum às 3 abas, não preso a um ramo (D-07, SC#2)",
-   iVigiasBadge >= 0 && iVigiasBadge < opcoesScreen.indexOf("{abaBar}"));
+ok("`<HubOpcoes` (com onVerTodosVigias) aparece ANTES de `<VigiasSheet`, que envolve `<SecaoVigias` (sheet segue destino de 'ver todos') (reancorado 2026-10-05)",
+   iHubUso >= 0 && /onVerTodosVigias=/.test(opcoesScreen) && iVigiasSheet > iHubUso && iSecaoVigiasDentroSheet > iVigiasSheet);
+ok("`<VigiasBadge` não existe mais — Vigias não é superfície de mesmo nível do hub (reancorado 2026-10-05)",
+   !/<VigiasBadge/.test(opcoesScreen));
 ok("OpcoesScreen.jsx não importa mais WorkspaceHeader.jsx (import removido junto com o arquivo)",
    !/from\s+["'][^"']*WorkspaceHeader\.jsx["']/.test(opcoesScreenBruto));
 
@@ -208,29 +223,32 @@ ok("as 4 chaves retiradas de uso (Fase 34) continuam existindo e não-vazias em 
    + (chavesFaltando.length ? " (faltando/vazia: " + chavesFaltando.join(", ") + ")" : ""),
    chavesFaltando.length === 0);
 
-// ---- 7) [itens 14/17/18 originais, re-ancorados sem mudança de condição]
-// abaBar substitui workspacePillRow/subabas: 3 abas fixas de NÍVEL 1, sem
-// disparador pago, com afordância, fora de gate de ticker --------------------
-const iAbaBarDef = opcoesScreen.indexOf("const abaBar = (");
-const iFimAbaBar = iAbaBarDef >= 0 ? opcoesScreen.indexOf(");", iAbaBarDef) : -1;
-const abaBarSlice = (iAbaBarDef >= 0 && iFimAbaBar > iAbaBarDef)
-  ? opcoesScreen.slice(iAbaBarDef, iFimAbaBar) : "";
-ok("a fatia de `abaBar` (const abaBar até o fechamento) foi localizada",
-   abaBarSlice.length > 0);
-const DISPARADORES_PROIBIDOS = /abrirLeitura|abrirCadeia|abrirOperaveis|montarProposta|verPossibilidades|atualizarVigias|compilarSetup|confirmarSetup/;
-ok("abaBar não contém nenhum disparador de leitura paga (NAV-05, §3.3 do ADR-027)",
-   abaBarSlice.length > 0 && !DISPARADORES_PROIBIDOS.test(abaBarSlice));
-const idsAbaBar = (abaBarSlice.match(/\{ id: "/g) || []).length;
-ok("abaBar declara exatamente 3 abas (D-01)", idsAbaBar === 3);
-const CHAVES_ABABAR = ["opcoesAbaOportunidades", "opcoesAbaRecomendadas", "opcoesAbaMontar"];
-ok("abaBar usa cp.opcoesAbaOportunidades, cp.opcoesAbaRecomendadas e cp.opcoesAbaMontar, uma vez cada",
-   CHAVES_ABABAR.every((k) => (abaBarSlice.match(new RegExp("cp\\." + k + "\\b", "g")) || []).length === 1));
-ok("abaBar declara minHeight: \"44px\"", /minHeight:\s*"44px"/.test(abaBarSlice));
-ok("abaBar declara aria-pressed", /aria-pressed/.test(abaBarSlice));
-ok("`{abaBar}` é renderizado ANTES de qualquer `abaOpcoes === ...`/`{ticker ? (` (D-01: fora de gate de ticker, sempre a mesma barra)",
-   opcoesScreen.indexOf("{abaBar}") >= 0
-   && opcoesScreen.indexOf("{abaBar}") < opcoesScreen.indexOf('abaOpcoes === "oportunidades" ? (')
-   && opcoesScreen.indexOf("{abaBar}") < opcoesScreen.indexOf("{ticker ? ("));
+// ---- 7) (reancorado 2026-10-05) hub novo: cards da carteira + Atenção ------
+// Antes: `abaBar` com 3 abas fixas (itens 14/17/18 originais). Agora: o nível
+// raiz é o HubOpcoes. Mesmas invariantes de fundo: sem disparador pago além
+// do declarado, com afordância/alvo tátil, sem gate por ativo escolhido.
+const hubBruto = readFileSync(join(dirOpcoes, "HubOpcoes.jsx"), "utf8");
+const hub = semComentario(hubBruto);
+const iHubAbre = opcoesScreen.indexOf("<HubOpcoes");
+const iHubFecha = iHubAbre >= 0 ? opcoesScreen.indexOf("/>", iHubAbre) : -1;
+const hubSlice = (iHubAbre >= 0 && iHubFecha > iHubAbre) ? opcoesScreen.slice(iHubAbre, iHubFecha) : "";
+ok("a fatia de `<HubOpcoes ... />` foi localizada", hubSlice.length > 0);
+const DISPARADORES_PROIBIDOS = /abrirLeitura|abrirCadeia|abrirOperaveis|montarProposta|verPossibilidades|verMatriz|compilarSetup|confirmarSetup/;
+ok("o hub não dispara nenhuma leitura paga fora do 'Atualizar' dos vigias (NAV-05, §3.3 do ADR-027) (reancorado 2026-10-05)",
+   hubSlice.length > 0 && !DISPARADORES_PROIBIDOS.test(hubSlice));
+ok("o único disparador pago do hub (onAtualizarVigias) declara o custo (custoAtualizar={CUSTO_DA_ACAO.listarVigias}) (reancorado 2026-10-05)",
+   /onAtualizarVigias=\{atualizarVigias\}/.test(hubSlice) && /custoAtualizar=\{CUSTO_DA_ACAO\.listarVigias\}/.test(hubSlice));
+ok("o hub recebe a CARTEIRA (carteiraHub, de ctx.data.positions), não a watchlist (universo = carteira) (reancorado 2026-10-05)",
+   /carteira=\{carteiraHub\}/.test(hubSlice) && !/watchlist/i.test(hubSlice));
+ok("HubOpcoes: cards como role=\"button\" com minHeight 64 e teclado (Enter/Espaço) (reancorado 2026-10-05)",
+   /role="button"/.test(hub) && /minHeight: 64/.test(hub) && /e\.key === "Enter" \|\| e\.key === " "/.test(hub));
+ok("HubOpcoes: a seção Atenção só aparece com vigia (`vigias.length > 0`) e 'ver todos ›' é opcional (onVerTodosVigias) (reancorado 2026-10-05)",
+   /vigias\.length > 0 && \(/.test(hub) && /onVerTodosVigias && \(/.test(hub));
+ok("HubOpcoes: carteira vazia tem motivo e caminho (hub_vazio_*, onIrCarteira) — vazio nunca é silêncio (reancorado 2026-10-05)",
+   /hub_vazio_titulo/.test(hub) && /hub_vazio_cta/.test(hub) && /onClick=\{onIrCarteira\}/.test(hub));
+ok("HubOpcoes não menciona Watchlist (reancorado 2026-10-05)", !/watchlist/i.test(hubBruto));
+ok("o hub é renderizado SEM gate de ticker: o ramo hub é `{nav.nivel === \"hub\" ? (` (reancorado 2026-10-05)",
+   /\{nav\.nivel === "hub" \? \(\s*<HubOpcoes/.test(opcoesScreen));
 
 // ---- 8) [item 15 original, re-ancorado — dependência renomeada] nenhum
 // useEffect reage ao estado de navegação (NAV-05) -----------------------------
@@ -243,16 +261,22 @@ ok("`{abaBar}` é renderizado ANTES de qualquer `abaOpcoes === ...`/`{ticker ? (
 // `App.jsx`, sem tocar `store.*`/rota nenhuma. A exceção é NOMEADA (só essa
 // linha exata passa); qualquer OUTRO useEffect com `abaOpcoes` nas deps
 // continua reprovado, preservando o guardião.
+// REANCORAGEM (2026-10-05, Fase 48): o estado de navegação é `nav` — nenhum
+// useEffect com `nav.nivel`/`nav.ticker` nas deps pode disparar CHAMADA
+// (store.*/rota). Efeitos permitidos nomeados: write-back da memória, foco no
+// título e reset de campos locais (todos sem I/O). Os fetches do fluxo vivem
+// nos hooks (useEscada/useTecnicoCarteira), fora deste arquivo.
 const blocosDeEfeito = opcoesScreen.split("useEffect(").slice(1);
-const efeitoComAbaOpcoes = blocosDeEfeito.some((bloco) => {
-  const fimDeps = bloco.indexOf("])");
-  const trecho = fimDeps >= 0 ? bloco.slice(0, fimDeps + 2) : bloco;
-  if (!/\babaOpcoes\b/.test(trecho)) return false;
-  const ehWriteBackDaMemoria = /ctx\.lembrarOpcoes\(memoriaOpcoes\(ticker, abaOpcoes\)\)/.test(trecho);
-  return !ehWriteBackDaMemoria;
+const efeitoDeNavComIO = blocosDeEfeito.some((bloco) => {
+  const fimDeps = bloco.indexOf("]);");
+  const trecho = fimDeps >= 0 ? bloco.slice(0, fimDeps + 3) : bloco;
+  if (!/\bnav\.(nivel|ticker)\b/.test(trecho.slice(trecho.lastIndexOf("}, ["))) ) return false;
+  return /\bstore\./.test(trecho) || /\bmcp[A-Z]/.test(trecho) || /\boptions[A-Z]/.test(trecho) || /\bfetch\(/.test(trecho);
 });
-ok("nenhum useEffect do arquivo lista abaOpcoes nas dependências e dispara CHAMADA (NAV-05) — exceto o write-back de memória (Fase 40, sem I/O)",
-   !efeitoComAbaOpcoes);
+ok("nenhum useEffect do arquivo lista nav.nivel/nav.ticker nas dependências e dispara CHAMADA (NAV-05) — só write-back, foco e reset local (sem I/O) (reancorado 2026-10-05)",
+   !efeitoDeNavComIO && blocosDeEfeito.some((b) => /nav\.nivel/.test(b)));
+ok("a escada e a matriz só são buscadas por hooks dedicados: OpcoesScreen não chama store.opcoesEscada*/mcpEscadaMatriz direto (reancorado 2026-10-05)",
+   !/store\.opcoesEscada|store\.mcpEscadaMatriz/.test(opcoesScreen));
 
 // ---- 9) [itens 19/20 originais, reversão b — D-06] SecaoComparar atrás de
 // `compararAberto`, não mais de uma pill própria ------------------------------

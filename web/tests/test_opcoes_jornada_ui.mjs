@@ -1,3 +1,14 @@
+// REANCORAGEM — Fase 48 (2026-10-05), caminho B: a jornada passou a ser
+// "objetivo primeiro" (hub -> objetivo -> escada -> confirmar; "Montar do zero"
+// leva ao fluxo antigo, que SEGUE com o carril Passo 1/Passo 2 e os 3 CTAs
+// preenchidos dos blocos 1-18 — por isso eles continuam verdes e intactos).
+// O que muda é a jornada NOVA, travada pelo bloco 19 (acrescentado ao fim):
+// um CTA primário por tela (Escolher este / Executar (simulado)), com as
+// invariantes de fundo preservadas — lastro visível, custo declarado antes do
+// clique e travessão em vez de zero. A contagem de 3 CTAs do bloco 11 vale
+// para o Montar; o fluxo novo tem 1 por tela (bloco 19). Texto original
+// abaixo preservado.
+//
 // Fase 35, plano 35-01 (2026-09-21) — guardião da jornada guiada do
 // workspace da sub-aba "Setups" da aba Opções.
 //
@@ -497,6 +508,34 @@ ok("SecaoSetups.jsx continua sem BOTAO_PRIMARIO/T.accent/T.onAccent (paridade é
 // já é travada pela varredura de diretório inteira do Bloco 11 acima.
 ok("WorkspaceHeader.jsx NÃO existe mais em web/src/opcoes/ (D-01/D-04: zero consumidor restante)",
    !existsSync(join(dirOpcoes, "WorkspaceHeader.jsx")));
+
+// ---- 19) (reancorado 2026-10-05) jornada NOVA: 1 CTA primário por tela ------
+const lerOp = (f) => readFileSync(join(dirOpcoes, f), "utf8");
+const semCom = (t) => t.replace(/\/\*[\s\S]*?\*\//g, "").split("\n").filter((l) => !/^\s*\/\//.test(l)).join("\n");
+const hubJ = semCom(lerOp("HubOpcoes.jsx"));
+const objJ = semCom(lerOp("ObjetivoAtivo.jsx"));
+const escJ = semCom(lerOp("EscadaObjetivo.jsx"));
+const confJ = semCom(lerOp("ConfirmarEstrutura.jsx"));
+const matJ = semCom(lerOp("MatrizVencimentos.jsx"));
+const graJ = semCom(lerOp("GraficoResultado.jsx"));
+const preenchidoAccent = /background:\s*(?:executavel \? )?T\.accent\b/;
+ok("tela escada: o CTA primário preenchido é 'Escolher este' (cta_escolher), desabilitado sem execucao.executavel === true (reancorado 2026-10-05)",
+   /tx\("cta_escolher"\)/.test(escJ) && preenchidoAccent.test(escJ) && /disabled=\{!executavel\}/.test(escJ));
+ok("tela confirmar: o CTA primário preenchido é 'Executar (simulado)' (cta_executar), com 'sem custo' declarado junto (reancorado 2026-10-05)",
+   /tx\("cta_executar"\)/.test(confJ) && preenchidoAccent.test(confJ) && /tx\("sem_custo"\)/.test(confJ));
+ok("hub e objetivo não têm botão preenchido de accent (nenhum CTA primário concorrente nessas telas) (reancorado 2026-10-05)",
+   !preenchidoAccent.test(hubJ) && !preenchidoAccent.test(objJ));
+ok("lastro visível: o card do hub mostra qtd/livres via qtyLivre e a confirmação diz lastro_trava/lastro_livre (reancorado 2026-10-05)",
+   /qtyLivre\(pos\)/.test(hubJ) && /lastro_trava/.test(confJ) && /lastro_livre/.test(confJ));
+ok("custo declarado antes do clique: comparar mostra comparar.rotulo do backend e o 'Atualizar' dos vigias mostra hub_atualizar_custo (reancorado 2026-10-05)",
+   /rotuloCusto/.test(escJ) && /dados\.comparar\.rotulo/.test(escJ) && /hub_atualizar_custo/.test(hubJ));
+ok("travessão em vez de zero: nenhum componente do fluxo novo usa `|| 0`/`?? 0`/`Number(...)` como substituto de ausente; ausente vira \"—\" (reancorado 2026-10-05)",
+   [hubJ, objJ, escJ, confJ, matJ, graJ].every((t) => !/(\|\||\?\?)\s*0\b(?!\.)/.test(t))
+   // Number(e.target.value) do slider "E se…?" de GraficoResultado é índice de grade, não valor financeiro.
+   && [hubJ, objJ, escJ, confJ, matJ].every((t) => !/\bNumber\(/.test(t))
+   && [hubJ, escJ, confJ, matJ].every((t) => /"—"/.test(t)));
+ok("a jornada antiga não vazou para o fluxo novo: nenhum componente do fluxo usa opcoesPasso1de2/opcoesPasso2de2 (reancorado 2026-10-05)",
+   [hubJ, objJ, escJ, confJ, matJ].every((t) => !/opcoesPasso[12]de2/.test(t)));
 
 if (fails > 0) {
   console.log(`\n${fails} falha(s).`);

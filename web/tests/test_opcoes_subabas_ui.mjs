@@ -1,3 +1,12 @@
+// REANCORAGEM — Fase 48 (2026-10-05), caminho B: as sub-abas (`abaBar`) e os
+// rótulos `cp.opcoesAba*` deixaram de ser superfícies de navegação; a aba é um
+// fluxo em profundidade (nav único, navOpcoes.js). O item 10 (alternador com
+// aria-pressed/44px) é reancorado para a nova âncora equivalente: o link
+// "Montar do zero" (chave `montar_do_zero` de opcoesEscada, alvo 44px) e o
+// "‹ voltar" de cada nível. Os rótulos opcoesAba* continuam em copy.js (não
+// removidos nesta fase). Itens 1-9 e 11 intactos; texto original abaixo
+// preservado.
+//
 // Fase 28, plano 28-02 (2026-09-13) — guardião das DUAS SUB-ABAS da aba
 // Opções ("Setups" / "Operar") introduzidas neste plano.
 //
@@ -225,12 +234,21 @@ ok("toda `cp.X` referenciada em PropostaDoAtivo existe em COPY.estudo e COPY.ope
    + (chavesFaltando.length ? " (faltando: " + chavesFaltando.join(", ") + ")" : ""),
    chavesFaltando.length === 0);
 
-// ---- 10) alternador com aria-pressed e alvo tátil mínimo --------------------
-const idxSubabas = tela.indexOf("const abaBar = (");
-const blocoSubabas = idxSubabas >= 0 ? tela.slice(idxSubabas, idxSubabas + 1200) : "";
-ok("o alternador de aba existe (`const abaBar = (`)", idxSubabas >= 0);
-ok("o alternador usa `aria-pressed`", /aria-pressed=/.test(blocoSubabas));
-ok("o alternador usa `minHeight: \"44px\"` (alvo tátil mínimo)", /minHeight:\s*"44px"/.test(blocoSubabas));
+// ---- 10) (reancorado 2026-10-05) "Montar do zero" alcançável + voltar -------
+// Antes: alternador `abaBar` com aria-pressed e minHeight 44px nos 3 botões.
+// Agora: o equivalente é o link "Montar do zero" (ObjetivoAtivo) e o voltar,
+// ambos com alvo tátil >= 44px (ALVO_MIN).
+const objetivoAtivoSrc = readFileSync(join(dirOpcoes, "ObjetivoAtivo.jsx"), "utf8");
+const fluxoEstiloSrc = readFileSync(join(dirOpcoes, "fluxoEstilo.js"), "utf8");
+ok("a barra de sub-abas (`const abaBar = (`) não existe mais (reancorado 2026-10-05)", !/const abaBar = \(/.test(tela));
+ok("o link \"Montar do zero\" existe (tx(\"montar_do_zero\") em ObjetivoAtivo) e liga ao nível montar (onMontarDoZero -> irMontar) (reancorado 2026-10-05)",
+   /tx\("montar_do_zero"\)/.test(objetivoAtivoSrc) && /onMontarDoZero=\{\(\) => setNav\(\(n\) => irMontar\(n\)\)\}/.test(tela));
+ok("`montar_do_zero` existe nos DOIS modos de COPY.opcoesEscada (reancorado 2026-10-05)",
+   typeof COPY.estudo.opcoesEscada.montar_do_zero === "string" && typeof COPY.operador.opcoesEscada.montar_do_zero === "string");
+ok("o alvo tátil mínimo do fluxo é 44px (ALVO_MIN) e o link usa minHeight a partir dele (reancorado 2026-10-05)",
+   /ALVO_MIN = 44/.test(fluxoEstiloSrc) && /minHeight: ALVO_MIN/.test(objetivoAtivoSrc));
+ok("o nível Montar tem '‹ voltar' (voltar(n)) para subir um nível (reancorado 2026-10-05)",
+   /nav\.nivel === "montar" \? \([\s\S]{0,400}voltar\(n\)/.test(tela));
 
 // ---- 11) nada da Fase 27 desapareceu -----------------------------------------
 // 2026-09-19, Fase 33 (33-01): `blocoVigias` virou `<SecaoVigias` (o bloco
