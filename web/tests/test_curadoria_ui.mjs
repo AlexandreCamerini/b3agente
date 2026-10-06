@@ -1,3 +1,10 @@
+// REANCORAGEM — Fase 48 (2026-10-05), caminho B: (1) `<VigiasBadge` antes do 1º ramo de aba -> o
+// `<HubOpcoes` (seção Atenção = vigias) é o ramo `nav.nivel === "hub"`, o nível inicial, e não há mais
+// ramos de aba oportunidades/recomendadas; invariante mantida (vigias nunca atrás de um ativo/aba).
+// (2) `curadoria={ctx.curadoria}` em AbaRecomendadas -> OpcoesScreen.jsx não tem mais call site de
+// AbaRecomendadas nem instância própria da curadoria (a MESMA fonte única segue em ctx.curadoria/App;
+// a leitura de .top/.meta continua travada em AbaRecomendadas.jsx, que permanece no repo).
+// Texto original preservado abaixo.
 // Fase 30 (Plano 04, D4) — Guardião estático do bloco "as 4 melhores
 // oportunidades de opções" (CuradoriaEstruturas + useCuradoria). Estendido na
 // Fase 31 (Plano 04, D-04/D-05/D-07/D-08), no Quick 260915-j5l (2026-09-15),
@@ -315,8 +322,9 @@ ok("(Fase 32/32-03) CarteiraScreen passa ctx.curadoria inteiro como prop para Li
 // INTEIRO para `AbaRecomendadas.jsx` (não mais `SecaoDescobrir.jsx`, que foi
 // deletado), que é quem lê `.top`/`.meta` agora (segunda leitura da MESMA
 // fonte, D-03 preservado, nenhuma segunda instância do hook).
-ok("(Fase 39) OpcoesScreen.jsx passa curadoria={ctx.curadoria} inteiro para AbaRecomendadas",
-  /curadoria=\{ctx\s*&&\s*ctx\.curadoria\}/.test(telaOpcoesSemComentario));
+ok("(Fase 39) OpcoesScreen.jsx não lê curadoria.top/.meta nem cria segunda instância (useCuradoria) — fonte única preservada (reancorado 2026-10-05)",
+  !/curadoria\.(top|meta)/.test(telaOpcoesSemComentario) && !/useCuradoria\(/.test(telaOpcoesSemComentario)
+  && !telaOpcoesSemComentario.includes("<AbaRecomendadas"));
 ok("(Fase 39) AbaRecomendadas.jsx lê curadoria.top/curadoria.meta — mesma fonte, segunda leitura",
   /curadoria\.top/.test(abaRecomendadasSemComentario) && /curadoria\.meta/.test(abaRecomendadasSemComentario));
 
@@ -373,11 +381,12 @@ ok("(Fase 39) cada arquivo de aba tem o próprio <CarimboFrescor (D-04b — não
 // que vigias nunca fica escondido) é renderizado ANTES de qualquer ramo de
 // aba — comum às 3 abas, não preso a nenhuma delas (mesma checagem, com
 // nota própria, de `test_opcoes_hub_workspace_ui.mjs`, item 5b).
-const iVigiasBadgeCuradoria = telaOpcoesSemComentario.indexOf("<VigiasBadge");
-const iRamoOportunidadesCuradoria = telaOpcoesSemComentario.indexOf('abaOpcoes === "oportunidades" ? (');
-ok("(Fase 39) <VigiasBadge é renderizado ANTES do primeiro ramo de aba em OpcoesScreen.jsx (D-07: sempre visível, não escondido atrás de nenhuma aba)",
-  iVigiasBadgeCuradoria > -1 && iRamoOportunidadesCuradoria > -1
-  && iVigiasBadgeCuradoria < iRamoOportunidadesCuradoria);
+const iHubCuradoria = telaOpcoesSemComentario.indexOf("<HubOpcoes");
+const iMontarCuradoria = telaOpcoesSemComentario.indexOf('nav.nivel === "montar" ? (');
+ok("(Fase 39) <HubOpcoes (seção Atenção = vigias) é o ramo nav.nivel === \"hub\", renderizado ANTES do Montar e sem ramo de aba escondendo vigias (reancorado 2026-10-05)",
+  iHubCuradoria > -1 && iMontarCuradoria > -1 && iHubCuradoria < iMontarCuradoria
+  && /nav\.nivel === "hub" \? \(\s*<HubOpcoes/.test(telaOpcoesSemComentario)
+  && !/abaOpcoes === "(oportunidades|recomendadas)"/.test(telaOpcoesSemComentario));
 
 // ---- (7) Best-effort: toda chamada de rede do hook tem .catch( -----------
 // Mesmo algoritmo de test_carteira_opcoes_tira.mjs: caminha o encadeamento

@@ -1,3 +1,7 @@
+// REANCORAGEM — Fase 48 (2026-10-05), caminho B: `<VigiasBadge` antes do 1º ramo de aba
+// (`abaOpcoes === "oportunidades" ? (`) -> `<HubOpcoes` (seção Atenção = vigias) é o ramo
+// `nav.nivel === "hub"`, renderizado antes do Montar e sem ramo de aba por cima. Mesma garantia
+// (D-07: vigias sempre visível). Texto original preservado abaixo.
 // Fase 18 (Plano 04) — Guardião estático da tira "Oportunidades de opções"
 // (NAV-01) e do detalhe por posição (NAV-02) em CarteiraScreen.
 //
@@ -205,10 +209,12 @@ ok("(Fase 32/32-03) <OportunidadesOpcoes aparece 0x em App.jsx (call site saiu d
 // pela mesma checagem, com nota própria, de `test_opcoes_hub_workspace_ui.mjs`
 // (item 5b)/`test_curadoria_ui.mjs`: `<VigiasBadge` — o que hoje garante que
 // vigias nunca fica escondido — é renderizado ANTES do primeiro ramo de aba.
-const iUsoVigiasBadgeTela = telaOpcoesSemComentario.indexOf("<VigiasBadge");
-const iUsoRamoOportunidadesTela = telaOpcoesSemComentario.indexOf('abaOpcoes === "oportunidades" ? (');
-ok("(Fase 39) <VigiasBadge é usado antes do primeiro ramo de aba em OpcoesScreen.jsx (D-07: sempre visível, não escondido atrás de nenhuma aba)",
-  iUsoVigiasBadgeTela > -1 && iUsoRamoOportunidadesTela > -1 && iUsoVigiasBadgeTela < iUsoRamoOportunidadesTela);
+const iUsoHubTela = telaOpcoesSemComentario.indexOf("<HubOpcoes");
+const iUsoMontarTela = telaOpcoesSemComentario.indexOf('nav.nivel === "montar" ? (');
+ok("(Fase 39) <HubOpcoes (vigias na seção Atenção) é usado antes do Montar e sem ramo de aba por cima em OpcoesScreen.jsx (D-07: sempre visível) (reancorado 2026-10-05)",
+  iUsoHubTela > -1 && iUsoMontarTela > -1 && iUsoHubTela < iUsoMontarTela
+  && /nav\.nivel === "hub" \? \(\s*<HubOpcoes/.test(telaOpcoesSemComentario)
+  && !/abaOpcoes === "(oportunidades|recomendadas)"/.test(telaOpcoesSemComentario));
 ok("(Fase 32/32-03) App.jsx contém <LinhaChamadaOpcoes exatamente 1x (D-01: substitui os dois blocos em Posições)",
   (fonteSemComentario.match(/<LinhaChamadaOpcoes/g) || []).length === 1);
 

@@ -1,3 +1,8 @@
+// REANCORAGEM — Fase 48 (2026-10-05), caminho B: `optionPositions=` passado ao `<AbaOportunidades`
+// -> OpcoesScreen lê ctx.data.optionPositions e as entrega ao HubOpcoes (estrutura aberta no rodapé
+// do card, `opcoesPorTicker`) e ao ObjetivoAtivo (PropostaDoAtivo como `estruturaAberta`, só quando há
+// perna aberta do ativo). Fechar estrutura aberta segue separado de oportunidade nova (quick 260928-u0h).
+// AbaOportunidades.jsx continua repassando optionPositions (asserção acima, intacta). Texto original abaixo.
 // Quick 260928-u0h (2026-09-28) — guardião: encerramento não é oportunidade
 // confirmada + motivo por posição sem card.
 //
@@ -127,8 +132,10 @@ ok("{pr.manchete} aparece exatamente 1x", (oo.match(/\{pr\.manchete\}/g) || []).
 ok("componente sem literal de motivo nem SEM MERCADO",
   !MOTIVOS_SEM_PROPOSTA.some((m) => oo.includes('"' + m + '"') || oo.includes("'" + m + "'")) && !oo.includes("SEM MERCADO"));
 ok("AbaOportunidades repassa optionPositions={optionPositions}", aba.includes("optionPositions={optionPositions}"));
-ok("OpcoesScreen passa optionPositions= ao <AbaOportunidades",
-  /<AbaOportunidades[^>]*optionPositions=/.test(tela) || /<AbaOportunidades[\s\S]*?optionPositions=[\s\S]*?\/>/.test(tela));
+ok("OpcoesScreen lê ctx.data.optionPositions e entrega as estruturas abertas ao HubOpcoes (opcoesPorTicker) (reancorado 2026-10-05)",
+  /ctx\.data\.optionPositions/.test(tela) && /<HubOpcoes[\s\S]*?opcoesPorTicker=\{estruturaPorTicker\}/.test(tela));
+ok("OpcoesScreen abre PropostaDoAtivo como estruturaAberta do ObjetivoAtivo só com perna aberta do ativo (reancorado 2026-10-05)",
+  /<ObjetivoAtivo[\s\S]*?estruturaAberta=\{myOptionPositions\.length > 0 \? \(\s*<PropostaDoAtivo/.test(tela));
 ok("OpcoesScreen nao importa App.jsx (ADR-027)", !/from "\.\.\/App/.test(tela));
 
 if (fails) process.exit(1);

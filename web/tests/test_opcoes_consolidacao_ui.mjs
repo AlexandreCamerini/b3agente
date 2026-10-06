@@ -1,3 +1,11 @@
+// REANCORAGEM — Fase 48 (2026-10-05), caminho B: os ramos `abaOpcoes === "oportunidades"/"recomendadas"`
+// e `<AbaOportunidades`/`<AbaRecomendadas` saíram de OpcoesScreen.jsx (fluxo hub -> objetivo -> escada ->
+// confirmar; deep-link goOpcoes("oportunidades"/"recomendadas") cai no hub, mapa "nada se perde" do
+// UI-SPEC). Âncoras trocadas: exclusividade mútua das abas agora é provada (a) nos próprios arquivos
+// (AbaOportunidades.jsx não contém <AbaRecomendadas/<CuradoriaEstruturas e vice-versa) e (b) por 0
+// call site de ambas em OpcoesScreen.jsx; `curadoria={ctx && ctx.curadoria}` -> 0 leitura de
+// ctx.curadoria na tela (o componente AbaRecomendadas permanece no repo; remoção física = decisão
+// futura) e o fio WR-01 de `concluido` segue travado em AbaRecomendadas.jsx. Texto original abaixo.
 // Fase 32 (32-03, 2026-09-15) — Guardião DEDICADO da consolidação das
 // operações de opções na aba Opções. Reprova a volta dos dois blocos
 // cross-carteira para Posições e a perda da frase-ponte obrigatória (D-05,
@@ -84,20 +92,19 @@ const ok = (name, cond) => { console.log((cond ? "ok " : "FALHOU ") + name); if 
 // ---- (1) [reversão b] exclusividade mútua entre as duas abas cross-carteira
 // (substitui a ordem sequencial de antes — os dois motores não dividem mais
 // a mesma tela, D-01/D-02) ----------------------------------------------------
-const iRamoOportunidades = telaSC.indexOf('abaOpcoes === "oportunidades" ? (');
-const iRamoRecomendadas = telaSC.indexOf('abaOpcoes === "recomendadas" ? (');
-ok("os dois ramos abaOpcoes === \"oportunidades\"/\"recomendadas\" foram localizados em OpcoesScreen.jsx",
-  iRamoOportunidades > -1 && iRamoRecomendadas > -1);
-const fimRamoOportunidades = iRamoRecomendadas > iRamoOportunidades ? iRamoRecomendadas : telaSC.length;
-const corpoRamoOportunidades = telaSC.slice(iRamoOportunidades, fimRamoOportunidades);
-ok("o ramo \"oportunidades\" contém <AbaOportunidades e NÃO contém <AbaRecomendadas (abas mutuamente exclusivas)",
-  corpoRamoOportunidades.includes("<AbaOportunidades") && !corpoRamoOportunidades.includes("<AbaRecomendadas"));
-const iFimRamoRecomendadas = telaSC.indexOf('abaOpcoes === "montar" ? (', iRamoRecomendadas);
-const corpoRamoRecomendadas = (iFimRamoRecomendadas > iRamoRecomendadas)
-  ? telaSC.slice(iRamoRecomendadas, iFimRamoRecomendadas) : "";
-ok("o ramo \"recomendadas\" contém <AbaRecomendadas e NÃO contém <AbaOportunidades (abas mutuamente exclusivas)",
-  corpoRamoRecomendadas.length > 0
-  && corpoRamoRecomendadas.includes("<AbaRecomendadas") && !corpoRamoRecomendadas.includes("<AbaOportunidades"));
+const _lerAba = (f) => readFileSync(new URL("../src/opcoes/" + f, import.meta.url), "utf8").split("\n").map((l) => l.replace(/\/\/.*$/, "")).join("\n");
+const _abaOp = _lerAba("AbaOportunidades.jsx");
+const _abaRec = _lerAba("AbaRecomendadas.jsx");
+const iRamoHub = telaSC.indexOf('nav.nivel === "hub" ? (');
+ok("o ramo nav.nivel === \"hub\" (destino de goOpcoes oportunidades/recomendadas) foi localizado em OpcoesScreen.jsx (reancorado 2026-10-05)",
+  iRamoHub > -1 && telaSC.indexOf("<HubOpcoes", iRamoHub) > iRamoHub);
+ok("OpcoesScreen.jsx não tem mais ramo abaOpcoes === oportunidades/recomendadas (caminho B, reancorado 2026-10-05)",
+  !/abaOpcoes === "(oportunidades|recomendadas)"/.test(telaSC));
+ok("<AbaOportunidades e <AbaRecomendadas: 0 call sites em OpcoesScreen.jsx (reancorado 2026-10-05)",
+  !telaSC.includes("<AbaOportunidades") && !telaSC.includes("<AbaRecomendadas"));
+ok("abas mutuamente exclusivas nos próprios arquivos: AbaOportunidades.jsx sem <AbaRecomendadas e AbaRecomendadas.jsx sem <AbaOportunidades (reancorado 2026-10-05)",
+  _abaOp.includes("<OportunidadesOpcoes") && !_abaOp.includes("<AbaRecomendadas") && !_abaOp.includes("<CuradoriaEstruturas")
+  && _abaRec.includes("<CuradoriaEstruturas") && !_abaRec.includes("<AbaOportunidades") && !_abaRec.includes("<OportunidadesOpcoes"));
 
 // ---- (2) [reversão b] frase-ponte dissolvida (D-05 histórico) --------------
 // A negação de hierarquia entre os dois motores passa a morar em
@@ -260,8 +267,8 @@ ok("o ramo de vazio de CuradoriaEstruturas.jsx exige o estado combinado (naoMedi
 // `AbaRecomendadas.jsx`, que repassa a mesma expressão de sempre
 // (`!!(curadoria && curadoria.concluido)`) para `CuradoriaEstruturas` — a
 // garantia WR-01 não muda, só onde o fio é lido.
-ok("OpcoesScreen.jsx passa curadoria={ctx && ctx.curadoria} inteiro para AbaRecomendadas",
-  /curadoria=\{ctx\s*&&\s*ctx\.curadoria\}/.test(telaSC));
+ok("OpcoesScreen.jsx não instancia curadoria própria nem compõe ranking: sem useCuradoria( e sem curadoria.top/.meta (segunda instância proibida, reancorado 2026-10-05)",
+  !/useCuradoria\(/.test(telaSC) && !/curadoria\.(top|meta)/.test(telaSC));
 ok("AbaRecomendadas.jsx repassa concluido={!!(curadoria && curadoria.concluido)} para CuradoriaEstruturas",
   /concluido=\{!!\(curadoria\s*&&\s*curadoria\.concluido\)\}/.test(abaRecomendadasSC));
 
