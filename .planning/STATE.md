@@ -27,6 +27,7 @@ See: .planning/PROJECT.md (updated 2026-09-27)
 
 Milestone: v2.0 Estruturas de opções na carteira (Fases 44-47, mais 46.1).
 Phase: 46.1 (a planejar) — Fase 46 COMPLETA com ressalvas (12/12; verifier passed; review 0 crít./2 altos).
+Fase 48 EM EXECUÇÃO (2026-10-05): onda 1/7 completa (48-01..03, 3/14 planos; suíte canônica verde 3248 pytest + .mjs). Próximo: onda 2 (48-04, 05, 08, 11). Execução serial na árvore principal, STATE editado à mão.
 Status: Ready to plan 46.1. Ressalvas do Alex (2026-10-02): G-07 nome da empresa sem fallback; G-08 "total suspenso" sem causa; aba Opções não executa a estrutura (NÃO reproduzida, fora da 46.1 até ter modo/ativo/estrutura). Review: AL-01 (collar mostra conta errada no Estudo, cartao_posicao.py:466-487) e AL-02 (leitura antiga mantida como atual quando /api/carteira/leitura falha, App.jsx:4484-4530) devem ser corrigidos antes de publicar; MD-01..06 e BX-01..07 em 46-REVIEW.md.
 Decisões do Alex (2026-09-29): régua de faixa mantida; pernas sempre visíveis;
   texto do Estudo completo; escopo motor + front aprovado. Instrução
