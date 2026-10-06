@@ -93,41 +93,41 @@ Fonte: UI-SPEC aprovado (`48-UI-SPEC.md`) + decisões fechadas do ROADMAP
 botão com custo 2N+1 (ADR-027); gráfico em R$ total com alternância por ação;
 termos novos em duas ondas. Todo cálculo no backend (princípio 5).
 
-- [ ] **OPC-01**: A aba Opções abre num hub com um card por ação da CARTEIRA
+- [x] **OPC-01**: A aba Opções abre num hub com um card por ação da CARTEIRA
   (nunca watchlist), seção "Atenção" de vigias com custo declarado antes do
   clique, frescor e a linha fixa de dinheiro virtual; navegação em profundidade
   (hub → objetivo → escada → confirmar, `‹ voltar`) com estado único que absorve
   `ticker` e `oportunidadeAberta`; deep-links existentes seguem válidos.
-- [ ] **OPC-02**: A tela de objetivo mostra Proteger de queda, Gerar renda e
+- [x] **OPC-02**: A tela de objetivo mostra Proteger de queda, Gerar renda e
   Proteger com custo baixo em ordem fixa; objetivo inviável fica desabilitado
   com o motivo do motor escrito; "Montar do zero" leva ao Montar atual intacto.
-- [ ] **OPC-03**: O backend (motor puro `opcoes_escada` + rota grátis) entrega,
+- [x] **OPC-03**: O backend (motor puro `opcoes_escada` + rota grátis) entrega,
   por objetivo e vencimento, até 3 degraus derivados do mesmo motor que a
   execução re-deriva, com pior caso, melhor caso, equilíbrio, piso/teto e
   prêmio pago/recebido em R$ total e por ação; ausente é null com motivo.
-- [ ] **OPC-04**: A escada mostra chips de vencimento (custo zero), 3 degraus
+- [x] **OPC-04**: A escada mostra chips de vencimento (custo zero), 3 degraus
   como radiogroup acessível com barras do backend e o CTA "Escolher este".
-- [ ] **OPC-05**: O gráfico "Resultado no vencimento" abre em R$ total nas N
+- [x] **OPC-05**: O gráfico "Resultado no vencimento" abre em R$ total nas N
   ações com alternância "Por ação", duas linhas, 5 marcadores com legenda,
   "E se…?" por lookup da grade do backend e tabela "Ver os números".
-- [ ] **OPC-06**: "Comparar vencimentos" fica atrás de botão, mostra o custo
+- [x] **OPC-06**: "Comparar vencimentos" fica atrás de botão, mostra o custo
   2N+1 informado pelo backend antes do clique e abre a matriz vencimento ×
   degrau; a chamada paga só sai de clique e passa pelo cap.
-- [ ] **OPC-07**: A confirmação mostra frase de risco, pernas, lote e lastro;
+- [x] **OPC-07**: A confirmação mostra frase de risco, pernas, lote e lastro;
   executa pelo despacho existente (tudo-ou-nada), não executa no Estudo, mostra
   "Ordem rejeitada: motivo" verbatim e o toast sem linguagem de ganho.
-- [ ] **OPC-08**: prêmio e perda máxima viram conceito com números do caso e
+- [x] **OPC-08**: prêmio e perda máxima viram conceito com números do caso e
   verbete KB, mesmo texto, dois modos (onda 1); piso, teto e equilíbrio abrem
   os verbetes existentes.
-- [ ] **OPC-09**: put protetora e collar idem (onda 2).
-- [ ] **OPC-10**: Todo texto novo nasce em `skill_ref.OPCOES_ESCADA` com
+- [x] **OPC-09**: put protetora e collar idem (onda 2).
+- [x] **OPC-10**: Todo texto novo nasce em `skill_ref.OPCOES_ESCADA` com
   espelho byte a byte em `copy.js`, sem linguagem proibida.
-- [ ] **OPC-11**: Ajuda, tour e `docs/AJUDA.md` deixam de citar "Watchlist" na
+- [x] **OPC-11**: Ajuda, tour e `docs/AJUDA.md` deixam de citar "Watchlist" na
   aba Opções e descrevem o fluxo sobre a Carteira.
-- [ ] **OPC-12**: Os guardiões afetados são reancorados com nota datada, sem
+- [x] **OPC-12**: Os guardiões afetados são reancorados com nota datada, sem
   apagar teste nem afrouxar invariante (custo só em clique, universo = carteira,
   travessão nunca zero, paridade de stores, manchete só do motor).
-- [ ] **OPC-13**: Estados completos (carregando, vazio, erro de fonte, sem
+- [x] **OPC-13**: Estados completos (carregando, vazio, erro de fonte, sem
   prêmio, cota esgotada, mercado fechado/atrasado, lastro indisponível, ordem
   rejeitada, concluída) e acessibilidade (alvos ≥44, radiogroup, gráfico com
   alternativa textual, aria-live, reduced-motion, folha com Esc e foco) travados

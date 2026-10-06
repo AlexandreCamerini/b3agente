@@ -324,7 +324,7 @@ Requirements: `.planning/REQUIREMENTS.md`. Mock: https://claude.ai/artifact/JEpy
 - [x] Phase 46: Carteira v6 — card de posição com modos Estudo e Operador (CART6-01..07) (completed 2026-10-02)
 - [ ] Phase 46.1: Fechamento das ressalvas da 46 (G-07, G-08, AL-01, AL-02)
 - [ ] Phase 47: Didática — expectativa matemática × taxa de acerto (DIDA-01..02)
-- [ ] Phase 48: Opções, caminho B — redesenho da aba Opções (hub → ativo + escada por objetivo) — numerada 48 por ordem de abertura; execução recomendada ANTES da 47
+- [x] Phase 48: Opções, caminho B — redesenho da aba Opções (hub → ativo + escada por objetivo) — numerada 48 por ordem de abertura; execução recomendada ANTES da 47 (completed 2026-10-06)
 - [ ] Phase 49: Anatomia da perna — card que explica cada perna (frase, pior caso, equilíbrio, prazo, curva de payoff) e gráfico total com "sem esta perna" antes de decidir/encerrar; depende da aprovação do checkpoint 48-17
 
 ### Phase 44: Motor — estrutura por ativo
@@ -430,55 +430,55 @@ Plans:
 **A confirmar no código antes de planejar:** `cenarios_da_estrutura` (`cartao_posicao.py:326`), `/mcp/possibilidades` por vencimento, `opcoes_payoff` (pior/melhor caso/equilíbrio por degrau).
 **Guardiões a reancorar com nota datada:** `test_opcoes_nav_tres_abas_ui`, `test_opcoes_subabas_ui`, `test_opcoes_jornada_ui`, `test_opcoes_continuidade_ui`, `test_opcoes_hub_workspace_ui`, `test_telas_registro`, `test_tour_opcoes`; corrigir "Watchlist" na ajuda/tour (`App.jsx:2703`, `2769`).
 **Pré-condições verificadas no código (2026-10-05):** (1) `cenarios_da_estrutura` serve com ressalvas (1 breakeven; faixa derivada da estrutura; 1 chamada por degrau); (2) `/mcp/possibilidades` NÃO serve para degraus (1 estrutura por vencimento por tese) → rota nova `/api/options/mcp/escada-matriz` com o mesmo custo 2N+1 (1 + cadeia PUT + cadeia CALL por vencimento); (3) `opcoes_payoff` serve por estrutura. Escada grátis sai de `opcoes_curadoria` via `_curadoria_scan_posicao` (o motor que a execução re-deriva).
-**Plans:** 17 plans (10 ondas; OpcoesScreen.jsx serializa a onda 4; reancoragem fecha nas ondas 4-6; ondas 8-10 = gap closure do checkpoint 48-14)
+**Plans:** 17/17 plans complete
 
 Plans:
 **Wave 1**
 
-- [ ] 48-01-PLAN.md — vocabulário OPCOES_ESCADA (skill_ref.py ↔ copy.js) + chaves de Ajuda/tour + guardião de paridade (onda 1)
-- [ ] 48-02-PLAN.md — termos onda 1: prêmio e perda máxima (conceito com números + verbete KB, mesmo texto, 2 modos; setores) (onda 1)
-- [ ] 48-03-PLAN.md — navOpcoes.js (estado único em profundidade) + useEscada.js + 3 métodos nos dois stores + guardião de custo estendido (onda 1)
+- [x] 48-01-PLAN.md — vocabulário OPCOES_ESCADA (skill_ref.py ↔ copy.js) + chaves de Ajuda/tour + guardião de paridade (onda 1)
+- [x] 48-02-PLAN.md — termos onda 1: prêmio e perda máxima (conceito com números + verbete KB, mesmo texto, 2 modos; setores) (onda 1)
+- [x] 48-03-PLAN.md — navOpcoes.js (estado único em profundidade) + useEscada.js + 3 métodos nos dois stores + guardião de custo estendido (onda 1)
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 48-04-PLAN.md — motor puro opcoes_escada.py (degraus por objetivo, perfil total/por ação, gráfico, frase de risco, células da matriz) — TDD (onda 2)
-- [ ] 48-05-PLAN.md — termos onda 2: put protetora e collar (onda 2)
-- [ ] 48-08-PLAN.md — componentes Hub, Objetivo, Confirmar, TermoOpcoes, fluxoEstilo (onda 2)
-- [ ] 48-11-PLAN.md — Ajuda/tour sem "Watchlist" (App.jsx ~2704/~2769 + docs/AJUDA.md), toast do caminho B, test_tour_opcoes/test_telas_registro (onda 2)
+- [x] 48-04-PLAN.md — motor puro opcoes_escada.py (degraus por objetivo, perfil total/por ação, gráfico, frase de risco, células da matriz) — TDD (onda 2)
+- [x] 48-05-PLAN.md — termos onda 2: put protetora e collar (onda 2)
+- [x] 48-08-PLAN.md — componentes Hub, Objetivo, Confirmar, TermoOpcoes, fluxoEstilo (onda 2)
+- [x] 48-11-PLAN.md — Ajuda/tour sem "Watchlist" (App.jsx ~2704/~2769 + docs/AJUDA.md), toast do caminho B, test_tour_opcoes/test_telas_registro (onda 2)
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 48-06-PLAN.md — rotas grátis GET /api/options/escada/{ticker} e POST /api/options/escada/leitura (onda 3)
-- [ ] 48-07-PLAN.md — rota paga POST /api/options/mcp/escada-matriz (2N+1, cap) + guardiões MCP (onda 3)
-- [ ] 48-09-PLAN.md — componentes Escada, Gráfico (total/por ação), Matriz (onda 3)
+- [x] 48-06-PLAN.md — rotas grátis GET /api/options/escada/{ticker} e POST /api/options/escada/leitura (onda 3)
+- [x] 48-07-PLAN.md — rota paga POST /api/options/mcp/escada-matriz (2N+1, cap) + guardiões MCP (onda 3)
+- [x] 48-09-PLAN.md — componentes Escada, Gráfico (total/por ação), Matriz (onda 3)
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
-- [ ] 48-10-PLAN.md — fiação no OpcoesScreen.jsx + reancoragem dos 5 guardiões de navegação (onda 4)
+- [x] 48-10-PLAN.md — fiação no OpcoesScreen.jsx + reancoragem dos 5 guardiões de navegação (onda 4)
 
 **Wave 5** *(blocked on Wave 4 completion)*
 
-- [ ] 48-12-PLAN.md — reancoragem dos demais guardiões de Opções (nota datada, sem apagar) (onda 5)
+- [x] 48-12-PLAN.md — reancoragem dos demais guardiões de Opções (nota datada, sem apagar) (onda 5)
 
 **Wave 6** *(blocked on Wave 5 completion)*
 
-- [ ] 48-13-PLAN.md — ConceitoSheet acessível + guardião transversal test_opcoes_caminho_b_ui (onda 6)
+- [x] 48-13-PLAN.md — ConceitoSheet acessível + guardião transversal test_opcoes_caminho_b_ui (onda 6)
 
 **Wave 7** *(blocked on Wave 6 completion)*
 
-- [ ] 48-14-PLAN.md — checkpoint do Alex no iPhone e no web (onda 7)
+- [x] 48-14-PLAN.md — checkpoint do Alex no iPhone e no web (onda 7)
 
 **Wave 8** *(gap closure G-01/G-02 do checkpoint 48-14)*
 
-- [ ] 48-15-PLAN.md — G-01 backend: motivo real `sem_vencimento_elegivel` × `sem_estrutura` na rota /escada (+dica, objetivosMotivo) e vocabulário G-01/G-02 em skill_ref ↔ copy.js (onda 8)
+- [x] 48-15-PLAN.md — G-01 backend: motivo real `sem_vencimento_elegivel` × `sem_estrutura` na rota /escada (+dica, objetivosMotivo) e vocabulário G-01/G-02 em skill_ref ↔ copy.js (onda 8)
 
 **Wave 9** *(blocked on Wave 8 completion)*
 
-- [ ] 48-16-PLAN.md — G-01 tela (frase única com motivo+dica em ObjetivoAtivo) e G-02 "Suas pernas abertas" com Encerrar por perna via A.sellOption no objetivo e no Montar (onda 9)
+- [x] 48-16-PLAN.md — G-01 tela (frase única com motivo+dica em ObjetivoAtivo) e G-02 "Suas pernas abertas" com Encerrar por perna via A.sellOption no objetivo e no Montar (onda 9)
 
 **Wave 10** *(blocked on Wave 9 completion)*
 
-- [ ] 48-17-PLAN.md — checkpoint humano de reverificação ITUB4/PETR4 venc 09/10 (MyData, B3_DEV_MERCADO_ABERTO=1) (onda 10)
+- [x] 48-17-PLAN.md — checkpoint humano de reverificação ITUB4/PETR4 venc 09/10 (MyData, B3_DEV_MERCADO_ABERTO=1) (onda 10)
 
 ### Phase 49: Anatomia da perna
 
