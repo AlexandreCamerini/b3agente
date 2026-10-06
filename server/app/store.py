@@ -1475,6 +1475,71 @@ def _snap_num(v) -> float:
         return 0.0
 
 
+_TOL_BASE = 0.01
+
+
+def _base_conhecida(s) -> bool:
+    b = s.get("base")
+    return isinstance(b, (int, float)) and not isinstance(b, bool) and math.isfinite(b) and b > 0
+
+
+def resolver_base_serie(snaps) -> dict:
+    """Base do retorno acumulado, resolvida na LEITURA pela própria série.
+
+    Puro (sem I/O, não muta a entrada). Gêmeo de `resolverBaseSerie`
+    (web/src/finance.js) — paridade travada por
+    tests/fixtures/retorno_acumulado_casos.json (pytest + .mjs).
+
+    2026-10-06 (quick 261006-dvf): `initialBudget` NUNCA entra aqui. Retorna
+    {origem, base, inicio, desde, serie}; `inicio` indexa `serie` (já filtrada
+    e ordenada). origem: carimbada | primeiro_registro | sem_serie | inconsistente.
+    """
+    def _num(v):
+        return isinstance(v, (int, float)) and not isinstance(v, bool) and math.isfinite(v)
+
+    serie = [s for s in (snaps or []) if isinstance(s, dict) and _num(s.get("patrimonio"))
+             and isinstance(s.get("data"), str)]
+    serie.sort(key=lambda s: s["data"])
+    vazio = {"origem": "sem_serie", "base": None, "inicio": None, "desde": None, "serie": serie}
+    if not serie:
+        return vazio
+    vigente = None
+    inicio = None
+    if _base_conhecida(serie[0]):
+        vigente, inicio = serie[0]["base"], 0
+    for i in range(1, len(serie)):
+        si = serie[i]
+        if not _base_conhecida(si):
+            continue  # cliente antigo: herda a vigente
+        ancora = abs(si["base"] - si["patrimonio"]) <= _TOL_BASE
+        if vigente is None:
+            # Carimbo isolado sobre série sem base = o caso do bug (initialBudget
+            # legado); só vale como âncora o ponto sem operação (base == patrimônio).
+            if ancora:
+                vigente, inicio = si["base"], i
+        elif si["base"] != vigente:
+            if ancora:  # aporte/retirada: reinicia a janela
+                vigente, inicio = si["base"], i
+            else:
+                return {**vazio, "origem": "inconsistente"}
+    if vigente is not None:
+        return {"origem": "carimbada", "base": vigente, "inicio": inicio,
+                "desde": serie[inicio]["data"], "serie": serie}
+    if serie[0]["patrimonio"] > 0:
+        return {"origem": "primeiro_registro", "base": serie[0]["patrimonio"], "inicio": 0,
+                "desde": serie[0]["data"], "serie": serie}
+    return vazio
+
+
+def _sem_operacao(conn, user_id=None) -> bool:
+    """Sem posições, opções, ordens pendentes nem histórico: patrimônio == caixa
+    == capital aportado."""
+    for k in ("positions", "optionPositions", "pendingOrders", "history"):
+        if get(conn, k, user_id=user_id):
+            return False
+    return True
+
+
 def upsert_snapshot(conn, snap: dict, user_id=None) -> list:
     """Grava UM snapshot de patrimonio por dia (chave = `data`, formato YYYY-MM-DD).
     Reabrir no mesmo dia SOBRESCREVE o registro do dia, sem duplicar."""
@@ -1483,15 +1548,26 @@ def upsert_snapshot(conn, snap: dict, user_id=None) -> list:
     if not data:
         return cur
     # BASE DA SÉRIE: o capital com que ESTA simulação começou, carimbado no
-    # snapshot. Sem isto, o "retorno acumulado" era medido contra
-    # `config.initialBudget` — um campo que a pessoa edita a qualquer momento,
-    # sem que caixa ou posições mudem. Digitar 380 num patrimônio de 37.908
-    # produzia +9876% sem nenhuma operação ter acontecido. O carimbo é gravado
-    # UMA vez (o 1º snapshot da série manda) e não é reescrito depois.
-    cfg = get(conn, "config", user_id=user_id) or {}
-    base_atual = cfg.get("initialBudget")
-    anteriores = [s for s in cur if isinstance(s, dict) and isinstance(s.get("base"), (int, float))]
-    base = anteriores[0]["base"] if anteriores else _snap_num(base_atual)
+    # snapshot. Histórico: o "retorno acumulado" era medido contra
+    # `config.initialBudget` — campo editável a qualquer momento, sem que caixa
+    # ou posições mudem; digitar 380 num patrimônio de 37.908 produzia +9876%
+    # (reporte de 09/08/2026, +9990%).
+    # 2026-10-06 (quick 261006-dvf): +10.193 % — carimbar `initialBudget` sobre
+    # série sem base dividia ~1.029.000 por 10.000. Agora a base só se carimba
+    # quando provada: sem operação = caixa do kv (nunca o patrimônio do corpo,
+    # nunca initialBudget); com operação herda do registro mais recente com
+    # data <= nova; sem registro com base = None (desconhecida, nunca 0.0).
+    if _sem_operacao(conn, user_id=user_id):
+        base = _snap_num(get(conn, "cash", user_id=user_id))
+    else:
+        base = None
+        ant = [s for s in cur if isinstance(s, dict) and isinstance(s.get("data"), str)
+               and s["data"] <= data]
+        if ant:
+            ant.sort(key=lambda s: s["data"])
+            b = ant[-1].get("base")
+            if isinstance(b, (int, float)) and not isinstance(b, bool) and b > 0:
+                base = b
     rec = {
         "data": data,
         "patrimonio": _snap_num((snap or {}).get("patrimonio")),

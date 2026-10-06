@@ -1,0 +1,268 @@
+{
+ "_nota": "2026-10-06 (quick 261006-dvf): casos únicos de paridade front x backend do retorno acumulado. Lido por server/tests/test_retorno_acumulado_base.py e web/tests/test_retorno_acumulado_base.mjs. Números calculados à mão pela regra do plano (resolver_base_serie / resolverBaseSerie).",
+ "casos": [
+  {
+   "nome": "A caso real: snaps sem base (~1.000.000) + carimbo legado 10000 sobre série sem base",
+   "snapshots": [
+    {
+     "data": "2026-07-01",
+     "patrimonio": 1000000
+    },
+    {
+     "data": "2026-07-02",
+     "patrimonio": 1004000
+    },
+    {
+     "data": "2026-07-03",
+     "patrimonio": 1010000
+    },
+    {
+     "data": "2026-07-04",
+     "patrimonio": 1020000,
+     "base": 10000
+    },
+    {
+     "data": "2026-07-05",
+     "patrimonio": 1029000,
+     "base": 10000
+    }
+   ],
+   "fim": 1029000,
+   "esperado": {
+    "origem": "primeiro_registro",
+    "base": 1000000,
+    "inicio": 0,
+    "desde": "2026-07-01",
+    "retAcum": 2.9
+   }
+  },
+  {
+   "nome": "B carimbada",
+   "snapshots": [
+    {
+     "data": "2026-08-01",
+     "patrimonio": 10500,
+     "base": 10000
+    },
+    {
+     "data": "2026-08-02",
+     "patrimonio": 10800,
+     "base": 10000
+    }
+   ],
+   "fim": 10800,
+   "esperado": {
+    "origem": "carimbada",
+    "base": 10000,
+    "inicio": 0,
+    "desde": "2026-08-01",
+    "retAcum": 8.0
+   }
+  },
+  {
+   "nome": "C sem base derivável",
+   "snapshots": [
+    {
+     "data": "2026-08-01",
+     "patrimonio": 5000
+    },
+    {
+     "data": "2026-08-02",
+     "patrimonio": 5200
+    }
+   ],
+   "fim": 5500,
+   "esperado": {
+    "origem": "primeiro_registro",
+    "base": 5000,
+    "inicio": 0,
+    "desde": "2026-08-01",
+    "retAcum": 10.0
+   }
+  },
+  {
+   "nome": "D1 série vazia",
+   "snapshots": [],
+   "fim": 10000,
+   "esperado": {
+    "origem": "sem_serie",
+    "base": null,
+    "inicio": null,
+    "desde": null,
+    "retAcum": null
+   }
+  },
+  {
+   "nome": "D2 patrimônio zero",
+   "snapshots": [
+    {
+     "data": "2026-08-01",
+     "patrimonio": 0
+    }
+   ],
+   "fim": 0,
+   "esperado": {
+    "origem": "sem_serie",
+    "base": null,
+    "inicio": null,
+    "desde": null,
+    "retAcum": null
+   }
+  },
+  {
+   "nome": "E aporte como fluxo",
+   "snapshots": [
+    {
+     "data": "2026-09-01",
+     "patrimonio": 10000,
+     "base": 10000
+    },
+    {
+     "data": "2026-09-02",
+     "patrimonio": 10000,
+     "base": 10000
+    },
+    {
+     "data": "2026-09-03",
+     "patrimonio": 50000,
+     "base": 50000
+    },
+    {
+     "data": "2026-09-04",
+     "patrimonio": 51000,
+     "base": 50000
+    }
+   ],
+   "fim": 51000,
+   "esperado": {
+    "origem": "carimbada",
+    "base": 50000,
+    "inicio": 2,
+    "desde": "2026-09-03",
+    "retAcum": 2.0
+   }
+  },
+  {
+   "nome": "F retirada como fluxo",
+   "snapshots": [
+    {
+     "data": "2026-09-01",
+     "patrimonio": 50000,
+     "base": 50000
+    },
+    {
+     "data": "2026-09-02",
+     "patrimonio": 10000,
+     "base": 10000
+    },
+    {
+     "data": "2026-09-03",
+     "patrimonio": 9900,
+     "base": 10000
+    }
+   ],
+   "fim": 9900,
+   "esperado": {
+    "origem": "carimbada",
+    "base": 10000,
+    "inicio": 1,
+    "desde": "2026-09-02",
+    "retAcum": -1.0,
+    "drawdown": 1.0
+   }
+  },
+  {
+   "nome": "G inconsistente",
+   "snapshots": [
+    {
+     "data": "2026-09-01",
+     "patrimonio": 10000,
+     "base": 10000
+    },
+    {
+     "data": "2026-09-02",
+     "patrimonio": 12000,
+     "base": 11000
+    }
+   ],
+   "fim": 12000,
+   "esperado": {
+    "origem": "inconsistente",
+    "base": null,
+    "inicio": null,
+    "desde": null,
+    "retAcum": null
+   }
+  },
+  {
+   "nome": "H cliente antigo após carimbo",
+   "snapshots": [
+    {
+     "data": "2026-09-01",
+     "patrimonio": 10000,
+     "base": 10000
+    },
+    {
+     "data": "2026-09-02",
+     "patrimonio": 10500
+    }
+   ],
+   "fim": 9700,
+   "esperado": {
+    "origem": "carimbada",
+    "base": 10000,
+    "inicio": 0,
+    "desde": "2026-09-01",
+    "retAcum": -3.0
+   }
+  },
+  {
+   "nome": "I1 legada com base==patrimonio no 1º registro + novo sem base",
+   "snapshots": [
+    {
+     "data": "2026-10-01",
+     "patrimonio": 5000,
+     "base": 5000
+    },
+    {
+     "data": "2026-10-02",
+     "patrimonio": 5200
+    }
+   ],
+   "fim": 5200,
+   "esperado": {
+    "origem": "carimbada",
+    "base": 5000,
+    "inicio": 0,
+    "desde": "2026-10-01",
+    "retAcum": 4.0
+   }
+  },
+  {
+   "nome": "I2 série legada sem base + novo snapshot âncora (base==patrimonio)",
+   "snapshots": [
+    {
+     "data": "2026-10-01",
+     "patrimonio": 5000
+    },
+    {
+     "data": "2026-10-02",
+     "patrimonio": 5200,
+     "base": 5200
+    },
+    {
+     "data": "2026-10-03",
+     "patrimonio": 5356
+    }
+   ],
+   "fim": 5356,
+   "esperado": {
+    "origem": "carimbada",
+    "base": 5200,
+    "inicio": 1,
+    "desde": "2026-10-02",
+    "retAcum": 3.0
+   }
+  }
+ ]
+}

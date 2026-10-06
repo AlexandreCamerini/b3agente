@@ -360,6 +360,11 @@ def test_base_do_retorno_nao_muda_quando_o_orcamento_e_editado():
     c, _ = _fresh_db()
     store.set_config(c, {"initialBudget": 10000})
     store.upsert_snapshot(c, {"data": "2026-08-01", "patrimonio": 10500}, user_id=None)
+    # 2026-10-06 (quick 261006-dvf): sem operação a edição move o caixa — é aporte
+    # real e reinicia a base (fluxo); a regra de negócio protegida aqui é a edição
+    # DURANTE a simulação. Por isso entra UMA operação no histórico antes da edição.
+    store.get(c, "history", user_id=None)
+    db.kv_set(c, "history", [{"id": "op1", "type": "buy", "ticker": "PETR4", "qty": 1, "price": 10.0}], user_id=None)
     store.set_config(c, {"initialBudget": 380})          # a pessoa edita o campo
     store.upsert_snapshot(c, {"data": "2026-08-02", "patrimonio": 10800}, user_id=None)
     snaps = store.get(c, "equitySnapshots", user_id=None)
@@ -383,6 +388,11 @@ def test_base_carimbada_sobrevive_a_snapshot_do_mesmo_dia():
     c, _ = _fresh_db()
     store.set_config(c, {"initialBudget": 5000})
     store.upsert_snapshot(c, {"data": "2026-08-01", "patrimonio": 5100}, user_id=None)
+    # 2026-10-06 (quick 261006-dvf): sem operação a edição move o caixa — é aporte
+    # real e reinicia a base (fluxo); a regra de negócio protegida aqui é a edição
+    # DURANTE a simulação. Por isso entra UMA operação no histórico antes da edição.
+    store.get(c, "history", user_id=None)
+    db.kv_set(c, "history", [{"id": "op1", "type": "buy", "ticker": "PETR4", "qty": 1, "price": 10.0}], user_id=None)
     store.set_config(c, {"initialBudget": 1})
     store.upsert_snapshot(c, {"data": "2026-08-01", "patrimonio": 5200}, user_id=None)
     snaps = store.get(c, "equitySnapshots", user_id=None)
