@@ -545,6 +545,7 @@
       "opcoes",
       "perfil"
     ],
-    "sha256": "fb660848d626217267b286dda647701c04929e6cbc9e5500854d0b96cdc7ea0b"
+    "sha256": "7ca030e690db384b98064e2c8e0554238b7e37d358ea65b2279df96eed5da52c",
+    "nota_2026_10_06": "Reversão deliberada (quick 261006-dvf): o case \"evolucao\" do switch (petTela) ganhou retornoAcumuladoOrigem e retornoAcumuladoDesde (origem e data da base do acumulado). Hash anterior: fb660848d626217267b286dda647701c04929e6cbc9e5500854d0b96cdc7ea0b. O conjunto de case não mudou."
   }
 }
