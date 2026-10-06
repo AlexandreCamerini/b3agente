@@ -4022,6 +4022,9 @@ async def options_escada(ticker: str, objetivo: Optional[str] = None,
     return out
 
 
+_ID_PERNA_RE = _re.compile(r"^[A-Za-z0-9._:\-]{1,64}$")
+
+
 @app.get("/api/options/anatomia/{ticker}")
 async def options_anatomia(ticker: str, excluir: Optional[str] = None,
                            scope: Optional[str] = Depends(current_scope)):
@@ -4042,9 +4045,13 @@ async def options_anatomia(ticker: str, excluir: Optional[str] = None,
     lista = [x.strip() for x in (excluir or "").split(",") if x.strip()]
     if len(lista) > 20:
         raise HTTPException(400, "Lista excluir grande demais.")
-    permitidos = ids | {anatomia_perna.ACOES_ID}
-    if any(x not in permitidos for x in lista):
+    # WR-03 (49-REVIEW): 400 só para formato inválido; id de formato válido mas
+    # desconhecido neste escopo (perna encerrada em outro aparelho) é descartado
+    # em silêncio — um chip defasado não pode derrubar a anatomia inteira.
+    if any(not _ID_PERNA_RE.match(x) for x in lista):
         raise HTTPException(400, "Perna inválida.")
+    permitidos = ids | {anatomia_perna.ACOES_ID}
+    lista = [x for x in lista if x in permitidos]
     out: dict = {"ticker": t, "modo": modo, "estado": "ok", "motivoTexto": None,
                  "custoMcp": 0, "at": now_str(), "source": None,
                  "estrutura": None, "anatomia": None}

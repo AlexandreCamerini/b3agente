@@ -93,7 +93,11 @@ def test_excluir_acoes_e_perna(cli):
 def test_validacao_de_entrada(cli):
     uid, h = _novo_escopo(cli, "val")
     _semear(cli, uid)
-    assert _get(cli, h, "?excluir=NAOEXISTE").status_code == 400
+    # WR-03 (49-REVIEW, 2026-10-06): id desconhecido de formato válido é filtrado
+    # (200, antes 400); 400 só para formato inválido ou lista grande.
+    r = _get(cli, h, "?excluir=NAOEXISTE")
+    assert r.status_code == 200 and r.json()["anatomia"]["excluidas"] == []
+    assert _get(cli, h, "?excluir=%3Cscript%3E").status_code == 400
     assert _get(cli, h, "?excluir=" + ",".join(f"X{i}" for i in range(21))).status_code == 400
     assert _get(cli, h, t="AB").status_code == 400
 
