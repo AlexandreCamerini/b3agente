@@ -396,3 +396,56 @@ def test_constantes_e_pureza():
         "proteger": "put_protecao", "renda": "call_coberta", "collar": "collar"}
     a = _leitura([CALL_40, PUT_36], "collar")
     assert a == _leitura([CALL_40, PUT_36], "collar")  # determinístico
+
+
+# ───────────────────────────── Fase 48 gap G-01 (2026-10-05)
+# motivo_sem_candidato: distingue "nenhum vencimento lido na janela 15-60 dias"
+# de "há vencimento elegível mas sem estrutura montável". Piso/teto não mudam.
+import datetime as _dt
+
+_HOJE = _dt.date(2026, 10, 5)
+
+
+def _iso(dias):
+    return (_HOJE + _dt.timedelta(days=dias)).isoformat()
+
+
+def test_motivo_vencimentos_curtos_sem_vencimento_elegivel():
+    r = opcoes_escada.motivo_sem_candidato([_iso(4), _iso(11)], _HOJE, "educacional", "ITUB4")
+    assert r["chave"] == "sem_vencimento_elegivel"
+    assert "ITUB4" in r["texto"] and "09/10, 16/10" in r["texto"]
+    assert "15" in r["texto"] and "60" in r["texto"]
+    assert r["dica"] == skill_ref.opcoes_escada_txt("educacional", "sem_vencimento_elegivel_dica")
+
+
+def test_motivo_com_vencimento_elegivel_mantem_sem_estrutura():
+    r = opcoes_escada.motivo_sem_candidato([_iso(4), _iso(30)], _HOJE, "educacional", "ITUB4")
+    assert r["chave"] == "sem_estrutura"
+    assert r["texto"] == skill_ref.opcoes_escada_txt("educacional", "sem_estrutura", ticker="ITUB4")
+    assert r["dica"] == skill_ref.opcoes_escada_txt("educacional", "sem_estrutura_dica")
+
+
+def test_motivo_acima_do_teto():
+    r = opcoes_escada.motivo_sem_candidato([_iso(75)], _HOJE, "educacional", "ITUB4")
+    assert r["chave"] == "sem_vencimento_elegivel"
+
+
+@pytest.mark.parametrize("dias", [15, 60])
+def test_motivo_limites_inclusivos(dias):
+    r = opcoes_escada.motivo_sem_candidato([_iso(dias)], _HOJE, "educacional", "ITUB4")
+    assert r["chave"] == "sem_estrutura"
+
+
+@pytest.mark.parametrize("entrada", [[], None, ["xx", 3]])
+def test_motivo_entrada_malformada_nunca_levanta(entrada):
+    r = opcoes_escada.motivo_sem_candidato(entrada, _HOJE, "educacional", "ITUB4")
+    assert r["chave"] == "sem_vencimento_elegivel"
+    assert "—" in r["texto"]
+
+
+def test_motivo_modo_operador_e_desconhecido():
+    r = opcoes_escada.motivo_sem_candidato([_iso(4)], _HOJE, "operador", "ITUB4")
+    assert r["texto"] == skill_ref.opcoes_escada_txt(
+        "operador", "sem_vencimento_elegivel", ticker="ITUB4", vencimentos="09/10", min=15, max=60)
+    r2 = opcoes_escada.motivo_sem_candidato([_iso(4)], _HOJE, "xyz", "ITUB4")
+    assert r2["chave"] == "sem_vencimento_elegivel" and r2["texto"]
