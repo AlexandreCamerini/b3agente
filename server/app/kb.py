@@ -1390,6 +1390,21 @@ _MERCADO_B3 = [
         },
         "veja": ["opc-teto", "opc-piso"],
     },
+    # Fase 48 (2026-10-05), onda 1: texto = conceitos.TEXTO_OPC — mesmo texto, dois modos.
+    {
+        "id": "opc-premio",
+        "titulo": _titulo("Prêmio"),
+        "termos": ("prêmio", "premio"),
+        "texto": conceitos.TEXTO_OPC["opc-premio"],
+        "veja": ["mkt-opcao", "opc-perda-maxima", "opc-piso", "opc-teto"],
+    },
+    {
+        "id": "opc-perda-maxima",
+        "titulo": _titulo("Perda máxima"),
+        "termos": ("perda máxima", "perda maxima", "pior caso"),
+        "texto": conceitos.TEXTO_OPC["opc-perda-maxima"],
+        "veja": ["opc-piso", "opc-premio", "opc-equilibrio"],
+    },
     {
         "id": "mkt-preco-medio",
         "titulo": _titulo("Preço médio"),
