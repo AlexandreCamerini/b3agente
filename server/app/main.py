@@ -17,6 +17,7 @@ from fastapi.staticfiles import StaticFiles
 
 from . import db, defaults, indicators, llm, pending_orders, plan, setups, store, technical_models, tickers, yahoo
 from . import cartao_posicao  # Fase 46: card v6 (motor puro)
+from . import anatomia_perna  # Fase 49: anatomia da perna (motor puro)
 from . import estrutura_posicao  # Fase 44: leitura de estrutura por ativo (motor puro)
 from . import candles as candles_mod  # Objetivo 4: período de candles configurável
 from . import brapi_budget  # ADR-008: orçamento de requisições da brapi (Fase 2)
@@ -4018,6 +4019,50 @@ async def options_escada(ticker: str, objetivo: Optional[str] = None,
             "indice": i, "motivo": skill_ref.opcoes_escada_txt(modo, "sem_estrutura", ticker=t)})
     if not degraus:
         out["motivoTexto"] = skill_ref.opcoes_escada_txt(modo, "sem_estrutura", ticker=t)
+    return out
+
+
+@app.get("/api/options/anatomia/{ticker}")
+async def options_anatomia(ticker: str, excluir: Optional[str] = None,
+                           scope: Optional[str] = Depends(current_scope)):
+    """Fase 49 (2026-10-06), ANAT-03/04/06. Custo MCP ZERO (sem _cap_check); não
+    depende do gate de liquidez (invariante 48-16). Posições só do escopo do
+    token; `excluir` é allowlist de ids do ativo + ACOES. Ações entram só com o
+    preço médio do store (nunca do cliente)."""
+    t = _normalize_ticker(ticker)
+    if len(t) < 4:
+        raise HTTPException(400, "Ticker inválido.")
+    modo = _modo_escada(scope)
+    modo_app = (store.get(_conn, "config", user_id=scope) or {}).get("appMode") or "estudo"
+    positions = store.get(_conn, "positions", user_id=scope) or []
+    posicao = next((p for p in positions if isinstance(p, dict) and p.get("t") == t), None)
+    option_positions = store.get(_conn, "optionPositions", user_id=scope) or []
+    ids = {p.get("id") for p in option_positions
+           if isinstance(p, dict) and p.get("underlying") == t}
+    lista = [x.strip() for x in (excluir or "").split(",") if x.strip()]
+    if len(lista) > 20:
+        raise HTTPException(400, "Lista excluir grande demais.")
+    permitidos = ids | {anatomia_perna.ACOES_ID}
+    if any(x not in permitidos for x in lista):
+        raise HTTPException(400, "Perna inválida.")
+    out: dict = {"ticker": t, "modo": modo, "estado": "ok", "motivoTexto": None,
+                 "custoMcp": 0, "at": now_str(), "source": None,
+                 "estrutura": None, "anatomia": None}
+    if not ids:
+        out["estado"] = "sem_pernas"
+        out["motivoTexto"] = skill_ref.opcoes_escada_txt(modo, "anat_sem_pernas", ticker=t)
+        return out
+    estrutura, spot, source = await _estrutura_do_ativo(
+        t, option_positions, posicao, modo_app, origem="options_anatomia")
+    out["estrutura"], out["source"] = estrutura, source
+    try:
+        out["anatomia"] = anatomia_perna.ler_anatomia(
+            option_positions, t, posicao, spot, estrutura, _hoje_brt(), modo,
+            excluir=tuple(lista))
+    except Exception as e:
+        out["estado"] = "erro"
+        out["motivoTexto"] = skill_ref.opcoes_escada_txt(modo, "anat_erro")
+        obslog.log("err", f"options_anatomia {t}: {type(e).__name__}: {e}", level="warn")
     return out
 
 
