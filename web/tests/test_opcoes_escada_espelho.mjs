@@ -91,5 +91,14 @@ ok("opcoesEscadaTxt modo desconhecido cai no estudo",
 ok("opcoesEscadaTxt chave desconhecida -> null", opcoesEscadaTxt("operador", "nao_existe") === null);
 ok("opcoesEscadaTxt sem vals não interpola", opcoesEscadaTxt("operador", "acao_a") === "ação a R$ {preco}");
 
+// Fase 48 gap G-01/G-02 (2026-10-05): vocabulário de vencimento fora da janela e pernas abertas.
+const CHAVES_G = ["sem_vencimento_elegivel","sem_vencimento_elegivel_dica","objetivo_indisponivel_ver_motivo","pernas_titulo","pernas_linha","pernas_premio","pernas_resultado","perna_lado_compra","perna_lado_venda","pernas_carregando","pernas_encerrar","pernas_encerrar_aria","pernas_confirmar","pernas_confirmar_sim","pernas_cancelar","pernas_encerrando","pernas_na_estrutura","pernas_vendida_sem_acao"];
+for (const m of ["estudo", "operador"]) {
+  const o = COPY[m].opcoesEscada;
+  ok(`COPY.${m}.opcoesEscada tem as ${CHAVES_G.length} chaves G-01/G-02`, CHAVES_G.every((k) => typeof o[k] === "string" && o[k].length > 0));
+}
+const fraseG = opcoesEscadaTxt("estudo", "sem_vencimento_elegivel", { ticker: "ITUB4", vencimentos: "09/10", min: 15, max: 60 }) || "";
+ok("sem_vencimento_elegivel interpola ticker, datas e janela", ["ITUB4", "09/10", "15", "60"].every((x) => fraseG.includes(x)), fraseG);
+
 if (fails) { console.error(`\n${fails} falha(s)`); process.exit(1); }
 console.log("\ntodos os testes passaram");
