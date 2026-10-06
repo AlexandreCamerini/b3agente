@@ -216,5 +216,13 @@ ok("C8. encerrar perna que estava excluída não gera 400: setExcluidas antes de
   srcP.indexOf("setExcluidas((xs) => xs.filter((x) => x !== id))") > 0 && srcP.indexOf("setExcluidas((xs) => xs.filter((x) => x !== id))") < srcP.indexOf("lido.recarregar()"));
 ok("C9. hook recebe a lista filtrada", /useAnatomia\(anatomiaInjetada \? null : store, ticker, excluirValido, ids, mode\)/.test(srcP));
 
+// CR-01 (49-REVIEW, 2026-10-06): releitura falhou => total oculto e marcado como possivelmente desatualizado
+const obs = tot(anatT(), { obsoleto: true });
+ok("CR-01: obsoleto oculta gráfico/slider/tabela e mostra a frase de desatualizado", !obs.includes('role="img"') && !obs.includes('type="range"') && obs.includes(tx("estudo", "anat_desatualizado")));
+ok("CR-01: obsoleto mantém os chips (dá para voltar à hipótese)", obs.includes("aria-pressed"));
+const srcPA = readFileSync(new URL("../src/opcoes/PernasAbertas.jsx", import.meta.url), "utf8");
+ok("CR-01: PernasAbertas consulta lido.erro no ramo da anatomia, com alerta e nova tentativa", /releituraFalhou = comAnatomia && !anatomiaInjetada && !!lido\.erro/.test(srcPA) && /role="alert"/.test(srcPA) && /obsoleto=\{releituraFalhou\}/.test(srcPA));
+ok("IN-02: escolhas locais zeradas no render ao trocar de ativo (sem useEffect)", /tickerEstado !== ticker/.test(srcPA) && !/useEffect/.test(srcPA));
+
 if (fails) { console.log(`\n${fails} falha(s)`); process.exit(1); }
 console.log("\nOK");

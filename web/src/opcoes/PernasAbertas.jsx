@@ -9,7 +9,7 @@
  * 48-16 é o fallback e a saída nunca depende do cálculo.
  * O store chega por prop (leitura grátis); nada é somado nem estimado aqui.
  */
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { opcoesEscadaTxt } from "../copy.js";
 import { T, FOCO, TIPO, ALVO_MIN, NUM } from "./fluxoEstilo.js";
 import { useAnatomia } from "./useAnatomia.js";
@@ -135,6 +135,14 @@ export default function PernasAbertas({
   const [excluidas, setExcluidas] = useState([]);
   const [idxEscolhido, setIdxEscolhido] = useState(null);
   const [selecionada, setSelecionada] = useState(null);
+  // IN-02 (49-REVIEW): outro ativo, outra leitura — as escolhas locais são zeradas
+  // NO render (não em efeito pós-render), para a 1ª leitura do ativo novo não sair
+  // com o "ACOES"/ids do anterior.
+  const [tickerEstado, setTickerEstado] = useState(ticker);
+  if (tickerEstado !== ticker) {
+    setTickerEstado(ticker);
+    setExcluidas([]); setIdxEscolhido(null); setSelecionada(null);
+  }
 
   const abertas = (Array.isArray(optionPositions) ? optionPositions : [])
     .filter((o) => o && o.underlying === ticker && ehNum(o.qty) && o.qty > 0);
@@ -142,11 +150,6 @@ export default function PernasAbertas({
   const excluirValido = excluirParaRota(excluidas, ids);
   const lido = useAnatomia(anatomiaInjetada ? null : store, ticker, excluirValido, ids, mode);
   const dados = anatomiaInjetada || lido.dados;
-
-  // Outro ativo, outra leitura: escolhas locais não atravessam o ticker.
-  useEffect(() => {
-    setExcluidas([]); setIdxEscolhido(null); setSelecionada(null);
-  }, [ticker]);
 
   if (abertas.length === 0) return null;
 
@@ -171,7 +174,10 @@ export default function PernasAbertas({
   const anat = comAnatomia ? dados.anatomia : null;
   const grade = anat && anat.grade ? anat.grade : {};
   const idx = Number.isInteger(idxEscolhido) ? idxEscolhido : (Number.isInteger(grade.indiceInicial) ? grade.indiceInicial : 0);
-  const totalOk = !!(anat && anat.total && Array.isArray(anat.total.pontos));
+  // CR-01 (49-REVIEW): releitura falhou com dado antigo na tela => marcar como
+  // possivelmente desatualizado, ocultar o total (outra hipótese) e oferecer nova tentativa.
+  const releituraFalhou = comAnatomia && !anatomiaInjetada && !!lido.erro;
+  const totalOk = !!(anat && anat.total && Array.isArray(anat.total.pontos)) && !releituraFalhou;
 
   const alternar = (id) => {
     setExcluidas((xs) => (xs.includes(id) ? xs.filter((x) => x !== id) : [...xs, id]));
@@ -193,8 +199,17 @@ export default function PernasAbertas({
     const pernasMotor = Array.isArray(anat.pernas) ? anat.pernas : [];
     return (
       <section aria-labelledby={idTitulo} style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+        {releituraFalhou ? (
+          <div role="alert" style={{ display: "flex", flexDirection: "column", gap: "8px", alignItems: "flex-start" }}>
+            <div style={{ ...TIPO.corpo, color: T.textPrimary }}>{tx("anat_erro")}</div>
+            <button type="button" onClick={() => lido.recarregar && lido.recarregar()} {...comFoco} style={BOTAO}>
+              {tx("tentar_de_novo")}
+            </button>
+          </div>
+        ) : null}
         <div>
           <PosicaoTotal mode={mode} ticker={ticker} anatomia={anat} excluidas={excluidas} onAlternar={alternar}
+            obsoleto={releituraFalhou}
             idx={idx} onIdx={setIdxEscolhido} selecionada={selecionada}
             recalculando={!!lido.carregando && !anatomiaInjetada} />
         </div>

@@ -47,7 +47,7 @@ function Chip({ ligado, onClick, traco, children }) {
   );
 }
 
-export default function PosicaoTotal({ mode, ticker, anatomia, excluidas, onAlternar, idx, onIdx, selecionada, recalculando }) {
+export default function PosicaoTotal({ mode, ticker, anatomia, excluidas, onAlternar, idx, onIdx, selecionada, recalculando, obsoleto }) {
   const tx = (k, v) => opcoesEscadaTxt(mode, k, v);
   const uid = String(useId()).replace(/[^A-Za-z0-9_-]/g, "");
   if (!anatomia) return null;
@@ -56,7 +56,8 @@ export default function PosicaoTotal({ mode, ticker, anatomia, excluidas, onAlte
   const grade = anatomia.grade || {};
   const precos = Array.isArray(grade.precos) ? grade.precos : [];
   const total = anatomia.total || {};
-  const pontos = Array.isArray(total.pontos) ? total.pontos : null;
+  // CR-01 (49-REVIEW): releitura falhou => os pontos guardados são de outra hipótese; não se exibem.
+  const pontos = !obsoleto && Array.isArray(total.pontos) ? total.pontos : null;
   const semEsta = total.semEsta || {};
   const pernas = (Array.isArray(anatomia.pernas) ? anatomia.pernas : []).filter((p) => p && Array.isArray(p.pontos));
   const acoes = anatomia.acoes && typeof anatomia.acoes === "object" ? anatomia.acoes : null;
@@ -72,7 +73,9 @@ export default function PosicaoTotal({ mode, ticker, anatomia, excluidas, onAlte
   const perna = selecionada ? pernas.find((p) => p.id === selecionada) || null : null;
 
   let leitura = null;
-  if (!pontos) {
+  if (obsoleto) {
+    leitura = <span role="status">{tx("anat_desatualizado")}</span>;
+  } else if (!pontos) {
     leitura = total.motivoTexto ? <span role="status">{total.motivoTexto}</span> : null;
   } else if (perna) {
     const sem = Array.isArray(semEsta[perna.id]) ? semEsta[perna.id] : null;
