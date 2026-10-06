@@ -100,5 +100,25 @@ for (const m of ["estudo", "operador"]) {
 const fraseG = opcoesEscadaTxt("estudo", "sem_vencimento_elegivel", { ticker: "ITUB4", vencimentos: "09/10", min: 15, max: 60 }) || "";
 ok("sem_vencimento_elegivel interpola ticker, datas e janela", ["ITUB4", "09/10", "15", "60"].every((x) => fraseG.includes(x)), fraseG);
 
+// Fase 49 (2026-10-06) — anatomia da perna (ANAT-01/06/08). Guardião não se apaga.
+const ANAT_CHAVES = ["anat_titulo_posicao","anat_sub_posicao","anat_total_titulo","anat_total_titulo_sem_data","anat_chips_aria","anat_chip_perna","anat_chip_acoes","anat_slider_rotulo","anat_leitura_total","anat_leitura_com_sem","anat_sem_esta_vazio","anat_acoes_dentro","anat_acoes_fora_sem_pm","anat_total_vencimentos_diferentes","anat_total_vazio","anat_total_aria","anat_total_aria_acoes","anat_pernas_titulo","anat_objetivos_titulo","anat_frase_call_compra","anat_frase_put_compra","anat_frase_call_venda","anat_frase_put_venda","anat_cond_call_compra","anat_cond_put_compra","anat_cond_call_venda","anat_cond_put_venda","anat_prazo_dias","anat_prazo_amanha","anat_prazo_hoje","anat_prazo_vencida","anat_prazo_sem_data","anat_rotulo_pior","anat_rotulo_equilibrio","anat_rotulo_hoje","anat_pior_ilimitado","anat_pior_ilimitado_nota","anat_sem_cotacao_chip","anat_hoje_fonte_indisponivel","anat_hoje_fora_da_cadeia","anat_hoje_sem_negocio","anat_hoje_sem_cotacao","anat_hoje_sem_estrutura","anat_hoje_nota","anat_ver_sem_esta","anat_ver_total","anat_ver_tabela","anat_tabela_preco","anat_tabela_perna","anat_tabela_total","anat_perna_aria","anat_dados_insuficientes","anat_confirmar_com_cotacao","anat_confirmar_sem_cotacao","anat_carregando","anat_recalculando","anat_erro","anat_legenda_perda","anat_legenda_ganho","anat_marcador_strike","anat_marcador_equilibrio","anat_marcador_pm","anat_marcador_hoje","anat_sem_pernas"];
+for (const m of ["estudo", "operador"]) {
+  const o = COPY[m].opcoesEscada;
+  ok(`COPY.${m}.opcoesEscada tem as ${ANAT_CHAVES.length} chaves anat_* (Fase 49)`,
+     ANAT_CHAVES.length === 64 && ANAT_CHAVES.every((k) => typeof o[k] === "string" && o[k].length > 0));
+  ok(`${m}: dados insuficientes usa a frase exata`,
+     o.anat_dados_insuficientes.startsWith("Não há dados suficientes para concluir.") &&
+     o.anat_total_vencimentos_diferentes.startsWith("Não há dados suficientes para concluir."));
+  ok(`${m}: confirmação de Encerrar diz que nenhuma ordem real é enviada`,
+     /Nenhuma ordem real/.test(o.anat_confirmar_com_cotacao) && /Nenhuma ordem real/.test(o.anat_confirmar_sem_cotacao));
+  ok(`${m}: confirmação sem cotação admite que não dá para calcular`, /não dá para calcular/.test(o.anat_confirmar_sem_cotacao));
+  ok(`${m}: slider é hipótese, não previsão`, /não previsão|hipótese, não previsão/.test(o.anat_slider_rotulo));
+}
+for (const k of ["anat_frase_call_compra", "anat_cond_call_compra", "anat_rotulo_pior"]) {
+  ok(`${k}: vocabulário próprio por modo`, COPY.estudo.opcoesEscada[k] !== COPY.operador.opcoesEscada[k]);
+}
+ok('opcoesEscadaTxt("estudo","anat_prazo_dias") interpola',
+   opcoesEscadaTxt("estudo", "anat_prazo_dias", { dias: 3, vencimento: "09/10" }) === "vence em 3 dias (09/10)");
+
 if (fails) { console.error(`\n${fails} falha(s)`); process.exit(1); }
 console.log("\ntodos os testes passaram");
