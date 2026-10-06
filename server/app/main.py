@@ -52,6 +52,7 @@ from . import opcoes_vigias  # Fase 27: índice de "meus vigias" (custo ZERO de 
 from . import opcoes_tecnico  # Fase 27 (D1): leitura técnica interna da aba (custo ZERO de MCP)
 from . import opcoes_lastreadas  # Fase 14 (Plano 03): motor de proposta lastreada (venda coberta/put)
 from . import opcoes_curadoria  # Fase 30 (Plano 01/02): motor puro + varredura cross-posição das 4 melhores
+from . import opcoes_escada  # Fase 48 (Plano 06): motor puro da escada de Opções (caminho B)
 from . import curadoria_narrativa  # Fase 30 (Plano 03): camada fina de LLM sobre o top já rankeado
 from .options_quant import FAIXA_DIFICIL, FAIXA_SEM_MERCADO, faixa_de_liquidez, historical_volatility, liquidity_score  # quick 260908-ldg: gate de liquidez em três faixas; historical_volatility (Fase 39/D-08): fallback lazy de vol para o piso da curadoria
 from . import skill_ref  # Fase 14 (Plano 03): frase canônica da proposta lastreada por modo
@@ -3822,6 +3823,249 @@ async def options_curadoria_abrir_collar(body: dict = Body(default={}), scope: O
         {"contractSymbol": perna_put["contractSymbol"], "lado": "compra", "premioUnitario": round(premio_put, 2)},
     ]
     return out
+
+
+# ---- Fase 48 (Plano 06): escada de Opções por objetivo (caminho B) ----
+def _modo_escada(scope: Optional[str]) -> str:
+    """Mesma regra de /api/carteira/leitura: só "operador" fala a língua da
+    mesa; qualquer outro valor (inclui "estudo") é educacional."""
+    cfg = store.get(_conn, "config", user_id=scope) or {}
+    return "operador" if cfg.get("appMode") == "operador" else "educacional"
+
+
+def _iso_ou_none(v: Any) -> Optional[str]:
+    if not isinstance(v, str) or len(v) != 10:
+        return None
+    try:
+        datetime.strptime(v, "%Y-%m-%d")
+    except ValueError:
+        return None
+    return v
+
+
+@app.get("/api/options/escada/{ticker}")
+async def options_escada(ticker: str, objetivo: Optional[str] = None,
+                         vencimento: Optional[str] = None,
+                         scope: Optional[str] = Depends(current_scope)):
+    """Escada de degraus (até 3) por ativo/objetivo/vencimento — Fase 48
+    (caminho B), ADR-027: custo MCP ZERO. Telas 2 e 3 montam sem consulta
+    paga; a matriz de vencimentos (2N+1 consultas) é outra rota, só por
+    clique, e o custo dela é declarado aqui em `comparar`.
+
+    Reusa `_curadoria_scan_posicao` de propósito: a execução do collar
+    re-deriva pela MESMA varredura (defeito da quick 260915-ndt: card e
+    execução divergiam quando eram motores diferentes), então o `id` e o
+    bloco `execucao` de cada degrau são re-deriváveis lá. Cadeia fora do ar
+    devolve 200 `estado: "degradado"` sem número algum (princípio 4,
+    ADR-004) — nunca 500, nunca estimativa. Posição lida só do escopo do
+    token (T-48-20); `objetivo` é allowlist e `vencimento` só vale se foi
+    varrido (T-48-21)."""
+    t = _normalize_ticker(ticker)
+    if len(t) < 4:
+        raise HTTPException(400, "Ticker inválido.")
+    if objetivo is not None and objetivo not in opcoes_escada.OBJETIVOS:
+        raise HTTPException(400, "Objetivo inválido.")
+    if vencimento is not None and _iso_ou_none(vencimento) is None:
+        raise HTTPException(400, "Vencimento inválido.")
+    modo = _modo_escada(scope)
+    positions = store.get(_conn, "positions", user_id=scope) or []
+    posicao = next((p for p in positions if isinstance(p, dict) and p.get("t") == t), None)
+    objetivos = opcoes_escada.objetivos(posicao, modo)
+    try:
+        from . import pregao as _pregao
+        mercado_aberto = bool(_pregao.in_market_hours())
+    except Exception:
+        mercado_aberto = None
+
+    out: dict = {
+        "ticker": t, "modo": modo, "providerStatus": None, "estado": "ok",
+        "motivoTexto": None, "source": None, "at": now_str(), "pregao": None,
+        "mercadoAberto": mercado_aberto, "precoObjeto": None, "posicao": None,
+        "objetivos": objetivos, "vencimentos": [], "vencimento": None,
+        "degraus": [], "degrausAusentes": [], "comparar": None,
+    }
+    if not isinstance(posicao, dict) or not posicao.get("qty"):
+        out["estado"] = "sem_posicao"
+        out["motivoTexto"] = opcoes_escada.objetivos(None, modo)[0]["motivo"]
+        return out
+    out["posicao"] = {"qty": posicao.get("qty"), "qtyLivre": store.qty_livre(posicao),
+                      "precoMedio": posicao.get("avg")}
+
+    def _degradar():
+        out["estado"] = "degradado"
+        out["providerStatus"] = "degraded"
+        out["motivoTexto"] = skill_ref.opcoes_escada_txt(modo, "erro_fonte")
+        return out
+
+    hoje = _hoje_brt()
+    try:
+        candidatos, chains, vencs, degradado = await _curadoria_scan_posicao(t, posicao, modo, hoje)
+    except Exception as e:
+        obslog.log("err", f"options_escada scan {t}: {type(e).__name__}: {e}", level="warn")
+        return _degradar()
+    if not chains:
+        return _degradar()
+
+    primeira = next(iter(chains.values()))
+    out["providerStatus"] = "ok"
+    out["source"] = primeira.get("source")
+    out["pregao"] = primeira.get("pregao") or None
+    spot = _spot_from_chain_or_quote(primeira, None)
+    if spot is None:
+        try:
+            spot = _spot_from_chain_or_quote({}, await candle_provider.get_quote(t))
+        except Exception:
+            spot = None
+    out["precoObjeto"] = spot
+
+    # Objetivo sem NENHUM candidato varrido fica indisponível com motivo
+    # (ex.: cadeia sem puts não monta proteção) — nada de tela vazia muda.
+    tipos_com_cand = {c.get("tipo") for c in candidatos if isinstance(c, dict)}
+    for o in objetivos:
+        if o["disponivel"] and opcoes_escada.TIPO_DO_OBJETIVO[o["id"]] not in tipos_com_cand:
+            o["disponivel"] = False
+            o["motivoChave"] = "sem_estrutura"
+            o["motivo"] = skill_ref.opcoes_escada_txt(modo, "sem_estrutura", ticker=t)
+
+    def _vencs_montaveis(tipo_alvo=None):
+        com = {c.get("expiration") for c in candidatos if isinstance(c, dict)
+               and c.get("expiration") and (tipo_alvo is None or c.get("tipo") == tipo_alvo)}
+        out_v = []
+        for v in sorted(x for x in vencs if x in com):
+            try:
+                dias = (datetime.strptime(v, "%Y-%m-%d").date() - hoje).days
+            except (TypeError, ValueError):
+                continue
+            out_v.append({"iso": v, "texto": f"{v[8:10]}/{v[5:7]}", "dias": dias})
+        return out_v
+
+    tipo_obj = opcoes_escada.TIPO_DO_OBJETIVO.get(objetivo) if objetivo else None
+    out["vencimentos"] = _vencs_montaveis(tipo_obj)
+
+    expirations = opcoes_curadoria.proximos_vencimentos(
+        primeira.get("expirations"), hoje, teto=options_mcp_api.N_MAX_VENCIMENTOS)
+    n = len(expirations)
+    restam = None
+    try:
+        if scope:
+            cap = options_mcp_api._cap_bloco(scope)
+            if cap.get("limite") is not None:
+                restam = max(0, int(cap["limite"]) - int(cap.get("usado") or 0))
+    except Exception:
+        restam = None
+    prev = 2 * n + 1 if n > 0 else 1
+    out["comparar"] = {
+        "vencimentos": expirations, "chamadasPrevistas": prev,
+        "rotulo": skill_ref.opcoes_escada_txt(
+            modo, "comparar_custo", n=prev, k=n, x=restam if restam is not None else "—"),
+        "restamHoje": restam,
+    }
+
+    if objetivo is None:
+        return out
+
+    varridos = {v["iso"] for v in out["vencimentos"]}
+    if vencimento is not None:
+        escolhido = vencimento
+    else:
+        escolhido = out["vencimentos"][0]["iso"] if out["vencimentos"] else None
+    out["vencimento"] = escolhido
+    if escolhido is None or escolhido not in varridos:
+        out["motivoTexto"] = skill_ref.opcoes_escada_txt(modo, "sem_estrutura", ticker=t)
+        return out
+
+    cands = opcoes_escada.escolher_degraus(candidatos, objetivo, escolhido)
+    degraus = []
+    for i, c in enumerate(cands):
+        try:
+            degraus.append(opcoes_escada.degrau_do_candidato(c, i, objetivo, posicao, spot, t, modo))
+        except Exception as e:
+            obslog.log("err", f"options_escada degrau {t}/{objetivo}/{i}: {type(e).__name__}: {e}",
+                       level="warn")
+            out["degrausAusentes"].append({
+                "indice": i, "motivo": skill_ref.opcoes_escada_txt(modo, "sem_estrutura", ticker=t)})
+    out["degraus"] = opcoes_escada.normalizar_barras(degraus)
+    for i in range(len(cands), opcoes_escada.DEGRAUS):
+        out["degrausAusentes"].append({
+            "indice": i, "motivo": skill_ref.opcoes_escada_txt(modo, "sem_estrutura", ticker=t)})
+    if not degraus:
+        out["motivoTexto"] = skill_ref.opcoes_escada_txt(modo, "sem_estrutura", ticker=t)
+    return out
+
+
+def _perna_escada_valida(p: Any) -> Optional[dict]:
+    """Perna do corpo de /escada/leitura -> dict limpo, ou None se inválida
+    (T-48-18): tipo/lado em allowlist, strike e prêmio numéricos > 0, bool
+    rejeitado (subclasse de int)."""
+    if not isinstance(p, dict):
+        return None
+    tipo = p.get("tipo")
+    lado = p.get("lado")
+    if tipo not in ("PUT", "CALL") or lado not in ("compra", "venda"):
+        return None
+    num = {}
+    for k in ("strike", "premio"):
+        v = p.get(k)
+        if not isinstance(v, (int, float)) or isinstance(v, bool) or not (v > 0) or v != v:
+            return None
+        num[k] = float(v)
+    contrato = p.get("contrato")
+    return {"tipo": tipo, "lado": lado, "strike": num["strike"], "premio": num["premio"],
+            "contrato": contrato if isinstance(contrato, str) and len(contrato) <= 40 else None}
+
+
+@app.post("/api/options/escada/leitura")
+async def options_escada_leitura(body: dict = Body(default={}),
+                                 scope: Optional[str] = Depends(current_scope)):
+    """Leitura completa de UMA célula da matriz (Fase 48): rota PURA, sem
+    provedor de mercado e sem efeito — nada é persistido, nenhuma ordem; o
+    resultado é só exibição do próprio usuário (mesma postura de
+    /api/carteira/leitura). As pernas vêm da resposta paga da matriz
+    (48-07); o preço de referência é o `precoObjeto` que essa resposta já
+    trouxe (ou None — nunca buscado aqui). `execucao.executavel` é SEMPRE
+    False: a execução real re-deriva preço no servidor pelas rotas
+    existentes (T-48-18)."""
+    b = body if isinstance(body, dict) else {}
+    t = _normalize_ticker(str(b.get("ticker") or ""))
+    if len(t) < 4:
+        raise HTTPException(400, "Ticker inválido.")
+    objetivo = b.get("objetivo")
+    if objetivo not in opcoes_escada.OBJETIVOS:
+        raise HTTPException(400, "Objetivo inválido.")
+    pernas_in = b.get("pernas")
+    if not isinstance(pernas_in, list) or not (1 <= len(pernas_in) <= 2):
+        raise HTTPException(400, "Informe de 1 a 2 pernas.")
+    pernas = [_perna_escada_valida(p) for p in pernas_in]
+    if any(p is None for p in pernas):
+        raise HTTPException(400, "Perna inválida: tipo, lado, strike e prêmio são obrigatórios.")
+    venc = b.get("vencimento")
+    if venc is not None and _iso_ou_none(venc) is None:
+        raise HTTPException(400, "Vencimento inválido.")
+    indice = b.get("indice")
+    if not isinstance(indice, int) or isinstance(indice, bool) or not (0 <= indice < opcoes_escada.DEGRAUS):
+        indice = 0
+    preco = b.get("precoObjeto")
+    spot = float(preco) if (isinstance(preco, (int, float)) and not isinstance(preco, bool)
+                            and preco > 0 and preco == preco) else None
+
+    modo = _modo_escada(scope)
+    positions = store.get(_conn, "positions", user_id=scope) or []
+    posicao = next((p for p in positions if isinstance(p, dict) and p.get("t") == t), None)
+    if not isinstance(posicao, dict) or not posicao.get("qty"):
+        return {"ticker": t, "modo": modo, "estado": "sem_posicao",
+                "motivoTexto": opcoes_escada.objetivos(None, modo)[0]["motivo"], "degrau": None}
+    qtd = (store.qty_livre(posicao) // 100) * 100
+    degrau = opcoes_escada.leitura(pernas, qtd, posicao.get("avg"), spot, t, objetivo, venc, indice, modo)
+    execs = b.get("vencimentosExecutaveis")
+    if isinstance(execs, list) and execs and all(_iso_ou_none(x) for x in execs):
+        lista = ", ".join(f"{x[8:10]}/{x[5:7]}" for x in execs[:6])
+    else:
+        lista = "—"
+    degrau["execucao"] = {
+        "executavel": False,
+        "motivo": skill_ref.opcoes_escada_txt(modo, "matriz_so_comparacao", lista=lista),
+    }
+    return {"ticker": t, "modo": modo, "estado": "ok", "motivoTexto": None, "degrau": degrau}
 
 
 @app.get("/api/options/tecnico/{ticker}")
