@@ -62,7 +62,9 @@ from app import opcoes_motor, opcoes_payoff, opcoes_gatilho
 
 _APP_DIR = pathlib.Path(__file__).resolve().parent.parent / "app"
 
-_MODULOS_NOVOS_FASE_15 = ("opcoes_payoff", "opcoes_gatilho", "opcoes_motor")
+# 2026-10-05 (Fase 48, plano 04): "opcoes_escada" entra na lista — motor puro do
+# caminho B (degraus/gráfico), mesma proibição de rede/mcp/b-mcp dos três originais.
+_MODULOS_NOVOS_FASE_15 = ("opcoes_payoff", "opcoes_gatilho", "opcoes_motor", "opcoes_escada")
 
 # Redes/protocolos proibidos dentro do limite (Guardião A). "asyncio" entra
 # porque o único uso legítimo de I/O assíncrono nestes módulos seria para
