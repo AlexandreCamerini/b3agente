@@ -5,6 +5,11 @@ permanece intacto — garantindo que web sem login e as suítes antigas não mud
 (3) seed_user_from adota o dado local numa conta vazia (decisão B); (4)
 delete_user_data apaga só o escopo do usuário.
 
+NOTA 2026-10-06 (quick 261006-dvg): a "decisão B" (item 3) foi revogada nas
+ROTAS — nenhuma rota HTTP chama mais seed_user_from; conta nova nasce de
+ensure_defaults (ver test_conta_nova_nasce_limpa.py). Os testes de seed_user_from
+abaixo seguem como unidade do store.
+
 Roda standalone (`python -m tests.test_multiuser`) e via pytest.
 """
 import os
@@ -83,6 +88,7 @@ def test_persiste_por_usuario_apos_reinicio():
 
 
 def test_seed_first_login_adota_local_e_nao_reescreve():
+    # 2026-10-06: unidade do store; nenhuma rota HTTP chama mais seed_user_from.
     conn, _ = _fresh_db()
     # monta a semente a partir do escopo global (como o web faria no 1º login)
     store.set_config(conn, {"userName": "DoLocal", "apiKey": "LOCALKEY", "keySource": "manual", "initialBudget": 12345})

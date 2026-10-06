@@ -357,28 +357,21 @@ def _public_user(u: dict) -> dict:
 
 
 def _apply_seed(user_id: str, body: dict) -> None:
-    """Decisão B: 1º login com conta vazia adota o dado local como semente.
-      - body["seed"] dict  => semente explícita (iOS envia o doc local, com BYOK).
-      - body["seed"] False => começa limpo (só defaults).
-      - ausente/None       => web: adota o escopo anônimo/global do servidor
-                              (que contém a chave BYOK; nunca trafega ao cliente).
-    Em todos os casos só semeia se a conta ainda estiver vazia."""
-    seed = body.get("seed", "__default__") if isinstance(body, dict) else "__default__"
-    if isinstance(seed, dict):
-        # iOS: o doc é local-first e pertence a quem está no aparelho — semear
-        # com ele preserva o que a pessoa já fez ali (inclusive a chave BYOK).
-        store.seed_user_from(_conn, user_id, seed)
-    else:
-        # WEB: conta nova COMEÇA LIMPA (09/08/2026).
-        #
-        # Antes o web caía em `export_sections(user_id=None)` — uma cópia do
-        # escopo ANÔNIMO/global. Isso fazia sentido enquanto existia "usar sem
-        # conta": a pessoa acumulava dados antes de se cadastrar e não podia
-        # perdê-los. Removido o modo anônimo, ninguém mais acumula nada ali —
-        # e o escopo anônimo é um BALDE ÚNICO do servidor: num servidor
-        # compartilhado, toda conta nova nascia herdando a sobra de quem passou
-        # por ali antes (foi assim que a carteira-demo apareceu numa conta nova).
-        store.ensure_defaults(_conn, user_id=user_id)
+    """Conta nova SEMPRE nasce limpa (2026-10-06, decisão do Alex).
+
+    A "Decisão B" (1º login adota o dado local como semente) foi REVOGADA:
+    invariante "conta nova nasce limpa" + achado 3 do 46.1-05-SUMMARY (a conta
+    nova no iOS herdava caixa/posições/histórico do aparelho e gerou o
+    acumulado com base errada). `body["seed"]`, enviado por qualquer cliente
+    (inclusive binário iOS antigo já instalado), é IGNORADO — o servidor é a
+    garantia. O nome e a assinatura ficam para não mexer nos 3 call sites.
+
+    Histórico (09/08/2026, web): conta nova já começava limpa. Antes o web
+    caía em `export_sections(user_id=None)`, cópia do escopo ANÔNIMO/global —
+    balde único do servidor, em que toda conta nova herdava a sobra de quem
+    passou por ali (foi assim que a carteira-demo apareceu numa conta nova).
+    Idempotente: `ensure_defaults` não reescreve conta existente."""
+    store.ensure_defaults(_conn, user_id=user_id)
 
 
 def _auth_payload(user: dict) -> dict:
@@ -437,7 +430,7 @@ async def auth_login(request: Request, body: dict = Body(default={})):
         raise HTTPException(401, str(e))
     auth.throttle_clear(rl_key)
     auth.throttle_clear(rl_key_email)
-    _apply_seed(user["id"], body)   # idempotente: só semeia conta vazia
+    _apply_seed(user["id"], body)   # idempotente: só garante defaults
     return _auth_payload(user)
 
 
