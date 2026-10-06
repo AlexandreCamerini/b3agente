@@ -236,6 +236,24 @@ def test_guardiao_iv_toda_rota_mcp_exige_sessao_e_passa_pelo_cap():
         f"esgota o teto compartilhado (T-waw-03).")
 
 
+def test_guardiao_iv_escada_matriz_descoberta_e_reserva_em_duas_etapas():
+    """Fase 48 (2026-10-05): a rota paga da matriz "Comparar vencimentos" está
+    na lista descoberta por introspecção (portanto sob `require_user`, checado
+    pelo guardião (iv) acima) e chama `_cap_check` DUAS vezes — reserva 1 para
+    descobrir os vencimentos e 2×N aninhada (D-24.1). Uma só chamada
+    significaria reservar o teto ou gastar mais que o reservado."""
+    caminhos = {r.path for r in _rotas_do_servico_mcp()}
+    assert "/api/options/mcp/escada-matriz" in caminhos
+
+    no = _funcoes_de_rota_do_modulo().get("escada_matriz")
+    assert no is not None, "função escada_matriz sumiu de options_mcp_api.py"
+    reservas = [n for n in ast.walk(no) if isinstance(n, ast.Call)
+                and isinstance(n.func, ast.Name) and n.func.id == "_cap_check"]
+    assert len(reservas) == 2, (
+        f"escada_matriz chama _cap_check {len(reservas)}x; o contrato é 2 "
+        f"(1 + 2N, D-24.1)")
+
+
 # ─────────────────────────────────────────────────────────────────────────
 # (v) — o `consume` do cap NUNCA queima o balde mensal do plano comercial.
 # ─────────────────────────────────────────────────────────────────────────
