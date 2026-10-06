@@ -5,12 +5,42 @@ import { qtyLivre } from "./finance.js";
 // calcula P&L — todo número vem de `estrutura` do motor determinístico
 // (princípio 5 / P9). Testável em Node sem build.
 
-// Tickers da carteira que têm ao menos uma perna de opção aberta (D-01/D-02):
-// sem pernas -> o card segue sendo o atual.
+// Tickers com ao menos uma perna de opção aberta (D-01/D-02): os da carteira
+// primeiro (ordem de positions), depois os que só têm perna (ordem de aparição).
+// Sem pernas -> o card segue sendo o atual.
+// (quick 261006-axi, 2026-10-06: antes só saía a interseção com positions e o
+// ativo só com opção, ex.: PUT VALEV731W2 sem VALE3, sumia da Carteira e do hub.)
 export function tickersComPernas(positions, optionPositions) {
-  if (!Array.isArray(positions) || !Array.isArray(optionPositions)) return [];
+  if (!Array.isArray(optionPositions)) return [];
+  const pos = Array.isArray(positions) ? positions : [];
   const comPernas = new Set(optionPositions.filter((o) => o && o.underlying).map((o) => o.underlying));
-  return positions.filter((p) => p && comPernas.has(p.t)).map((p) => p.t);
+  const daCarteira = pos.filter((p) => p && comPernas.has(p.t)).map((p) => p.t);
+  return [...daCarteira, ...tickersSoComPernas(positions, optionPositions)];
+}
+
+// Underlyings com perna aberta que NÃO têm ações na carteira (ordem de aparição,
+// sem duplicata, ignora item sem underlying).
+export function tickersSoComPernas(positions, optionPositions) {
+  if (!Array.isArray(optionPositions)) return [];
+  const tem = new Set((Array.isArray(positions) ? positions : []).filter((p) => p && p.t).map((p) => p.t));
+  const out = [];
+  for (const o of optionPositions) {
+    const u = o && o.underlying;
+    if (u && !tem.has(u) && !out.includes(u)) out.push(u);
+  }
+  return out;
+}
+
+// Universo de leitura do hub de Opções: a carteira (mesmos objetos, mesma ordem)
+// mais um objeto sintético por ativo só com perna. Nenhum preço/nome é
+// fabricado: qty 0 é fato (zero ações); avg/stop/alvo ficam null, nunca 0;
+// `semAcoes: true` diz à UI para não exibir número de lastro.
+export function universoOpcoes(carteira, optionPositions) {
+  const base = Array.isArray(carteira) ? carteira : [];
+  const avulsos = tickersSoComPernas(base, optionPositions).map((t) => ({
+    t, qty: 0, qtyTravada: 0, avg: null, stop: null, alvo: null, semAcoes: true,
+  }));
+  return avulsos.length ? [...base, ...avulsos] : base;
 }
 
 // Chave estável do efeito de recarga (UI-SPEC §Busca e recarga): não depende

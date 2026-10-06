@@ -148,3 +148,36 @@ def test_isolamento_entre_contas(cli):
     _semear(cli, uid)
     _, h2 = _novo_escopo(cli, "b")
     assert _get(cli, h2).json()["estado"] == "sem_pernas"
+
+
+def test_perna_avulsa_sem_acoes(cli):
+    """quick 261006-axi (2026-10-06): opção comprada sem ações do ativo (caso PUT VALEV731W2
+    sem VALE3). Anatomia: ok, acoes None (nunca 0), sem marcador precoMedio; sell encerra."""
+    uid, h = _novo_escopo(cli, "avulsa")
+    d = cli.get("/api/options/chain/PETR4").json()
+    spot = d["underlyingPrice"]
+    put = max((p for p in d["puts"] if p["strike"] <= spot), key=lambda p: p["strike"])
+    exp = put.get("expiration") or d.get("expiration")
+    perna = {"id": put["contractSymbol"], "underlying": "PETR4", "optionType": "PUT",
+             "strike": put["strike"], "expiration": exp, "qty": 100, "avg": 0.92,
+             "side": "comprada"}
+    db.kv_set(_conn, "optionPositions", [perna], user_id=uid)
+    assert not store.get(_conn, "positions", user_id=uid)
+
+    r = _get(cli, h)
+    assert r.status_code == 200, r.text
+    j = r.json()
+    assert j["estado"] == "ok"
+    assert j["estrutura"] is not None
+    an = j["anatomia"]
+    assert an["acoes"] is None
+    tot = an.get("total")
+    if tot:
+        assert not any(m.get("tipo") == "precoMedio" for m in (tot.get("marcadores") or []))
+    assert "precoMedio" not in str(an.get("acoes"))
+    assert _get(cli, h, "?excluir=ACOES").status_code != 400
+
+    s = cli.post("/api/options/sell", json={"contractSymbol": perna["id"]}, headers=h)
+    assert s.status_code == 200, s.text
+    assert not store.get(_conn, "optionPositions", user_id=uid)
+    assert not store.get(_conn, "positions", user_id=uid)

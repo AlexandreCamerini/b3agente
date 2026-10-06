@@ -12,8 +12,10 @@ const ok = (name, cond, extra) => {
 const eq = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 
 // tickersComPernas
-ok("tickersComPernas interseção", eq(E.tickersComPernas([{ t: "UGPA3" }, { t: "PETR4" }], [{ underlying: "UGPA3" }, { underlying: "UGPA3" }, { underlying: "VALE3" }]), ["UGPA3"]));
+// (reconciliado 2026-10-06, quick 261006-axi: o ticker só com perna passa a entrar; antes era descartado e a opção sumia da tela)
+ok("tickersComPernas: carteira com pernas + ativo só com perna", eq(E.tickersComPernas([{ t: "UGPA3" }, { t: "PETR4" }], [{ underlying: "UGPA3" }, { underlying: "UGPA3" }, { underlying: "VALE3" }]), ["UGPA3", "VALE3"]));
 ok("tickersComPernas não-array positions", eq(E.tickersComPernas(null, []), []));
+ok("tickersComPernas positions null + perna avulsa", eq(E.tickersComPernas(null, [{ underlying: "VALE3" }]), ["VALE3"]));
 ok("tickersComPernas não-array opções", eq(E.tickersComPernas([{ t: "A" }], undefined), []));
 
 // assinaturaEstrutura
@@ -208,6 +210,20 @@ ok("sinalResultado: zero/pos/neg/null", E.sinalResultado(0) === "zero" && E.sina
     const aria = cp.estruturaFaixaAria(null || cp.estruturaGrupoAria, "", "—", "—");
     ok("copy WR-06 (" + modo + "): aria da régua com fallback sem null/undefined/NaN", !/null|undefined|NaN/.test(aria) && aria.startsWith(cp.estruturaGrupoAria));
   }
+}
+
+// quick 261006-axi (2026-10-06): ticker só com opção (PUT VALEV731W2 sem VALE3) sumia da Carteira e do hub
+ok("tickersSoComPernas: só avulsos, sem duplicata, ordem de aparição",
+  eq(E.tickersSoComPernas([{ t: "UGPA3" }], [{ underlying: "UGPA3" }, { underlying: "VALE3" }, { underlying: "VALE3" }, { underlying: "ITUB4" }, {}, null]), ["VALE3", "ITUB4"]));
+ok("tickersSoComPernas: não-array opções -> []", eq(E.tickersSoComPernas([{ t: "A" }], null), []));
+{
+  const petr = { t: "PETR4", qty: 300, avg: 30 };
+  const u = E.universoOpcoes([petr], [{ underlying: "VALE3" }]);
+  ok("universoOpcoes: carteira preservada por identidade", u[0] === petr);
+  ok("universoOpcoes: sintético sem número inventado",
+    eq(u[1], { t: "VALE3", qty: 0, qtyTravada: 0, avg: null, stop: null, alvo: null, semAcoes: true }));
+  ok("universoOpcoes: opções não-array devolve a carteira", E.universoOpcoes([petr], null)[0] === petr && E.universoOpcoes([petr], null).length === 1);
+  ok("universoOpcoes: carteira não-array vira []", eq(E.universoOpcoes(null, null), []));
 }
 
 // pureza estática
