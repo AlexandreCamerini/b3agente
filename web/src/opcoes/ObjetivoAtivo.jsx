@@ -23,7 +23,7 @@ const BOTAO = {
 };
 
 export default function ObjetivoAtivo({
-  cp, mode, ticker, escada, estruturaAberta, onEscolher, onMontarDoZero, onVoltar,
+  cp, mode, ticker, escada, estruturaAberta, pernasAbertas, onEscolher, onMontarDoZero, onVoltar,
   didatica, A, kbCatalogo, onAbrirVerbete, onTentarDeNovo, onIrCarteira,
 }) {
   const tx = (k, v) => opcoesEscadaTxt(mode, k, v);
@@ -32,6 +32,10 @@ export default function ObjetivoAtivo({
   const objetivos = dados && Array.isArray(dados.objetivos) ? dados.objetivos : [];
   const qtd = dados && dados.posicao && ehNum(dados.posicao.qty) ? String(dados.posicao.qty) : "—";
   const semPosicao = dados && dados.estado === "sem_posicao";
+  // Fase 48 gap G-01 (2026-10-05): quando os objetivos caem pela mesma causa, o backend
+  // manda UMA frase real (objetivosMotivo) + dica; os cards só apontam para ela.
+  const motivoUnico = dados && dados.objetivosMotivo && dados.objetivosMotivo.texto ? dados.objetivosMotivo : null;
+  const idMotivo = "objetivos-motivo-" + ticker;
 
   return (
     <section style={{ padding: "16px", display: "flex", flexDirection: "column", gap: "16px", ...transicaoTela(reduzido()) }}>
@@ -49,6 +53,9 @@ export default function ObjetivoAtivo({
         </h2>
         <p style={{ margin: "4px 0 0", ...TIPO.corpo, color: T.textSecondary }}>{tx("pergunta_objetivo_sub")}</p>
       </header>
+
+      {/* Fase 48 gap G-02 (2026-10-05): a saída das pernas vem antes de qualquer estado da escada. */}
+      {pernasAbertas || null}
 
       {estruturaAberta || null}
 
@@ -77,11 +84,19 @@ export default function ObjetivoAtivo({
         </div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+          {motivoUnico ? (
+            <div id={idMotivo} role="status" style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+              <div style={{ ...TIPO.corpo, color: T.textPrimary }}>{motivoUnico.texto}</div>
+              {motivoUnico.dica ? <div style={{ ...TIPO.corpo, color: T.textSecondary }}>{motivoUnico.dica}</div> : null}
+            </div>
+          ) : null}
           {objetivos.map((o) => {
             const indisponivel = o.disponivel === false;
             const escolher = () => { if (!indisponivel && onEscolher) onEscolher(o.id); };
             const motivo = indisponivel
-              ? tx("objetivo_indisponivel", { objetivo: o.titulo || "—", motivo: o.motivo || "—" })
+              ? (motivoUnico
+                ? tx("objetivo_indisponivel_ver_motivo", { objetivo: o.titulo || "—" })
+                : tx("objetivo_indisponivel", { objetivo: o.titulo || "—", motivo: o.motivo || "—" }))
               : null;
             const aoTeclar = (ev) => {
               if (ev.target !== ev.currentTarget) return;
@@ -90,6 +105,7 @@ export default function ObjetivoAtivo({
             return (
               <div key={o.id} role="button" tabIndex={0}
                 aria-disabled={indisponivel ? "true" : undefined}
+                aria-describedby={indisponivel && motivoUnico ? idMotivo : undefined}
                 onClick={indisponivel ? undefined : escolher}
                 onKeyDown={indisponivel ? undefined : aoTeclar}
                 {...comFoco}
@@ -107,6 +123,7 @@ export default function ObjetivoAtivo({
                 {o.perde ? <div style={{ ...TIPO.corpo, color: T.textMuted }}>{o.perde}</div> : null}
                 {/* Fase 48 (48-13): motivo em textPrimary — warn sobre bgPanel mede 4,32:1 no tema claro (< AA); o texto do motivo já carrega o aviso. */}
                 {motivo ? <div style={{ ...TIPO.label, color: T.textPrimary }}>{motivo}</div> : null}
+                {indisponivel && !motivoUnico && o.dica ? <div style={{ ...TIPO.corpo, color: T.textSecondary }}>{o.dica}</div> : null}
               </div>
             );
           })}

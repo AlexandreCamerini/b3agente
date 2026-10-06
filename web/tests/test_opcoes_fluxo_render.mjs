@@ -106,5 +106,18 @@ ok("OpcoesScreen: o hub NÃO mostra o painel de PropostaDoAtivo", !tela.includes
 const telaForaCarteira = html(h(OpcoesScreen, { ctx: { ...ctx, opcoesAbrirTicker: "ZZZZ3" } }));
 ok("OpcoesScreen: abrirTicker fora da carteira cai no hub (T-48-36)", telaForaCarteira.includes("VALE3") && !telaForaCarteira.includes("ZZZZ3"));
 
+// ---- Fase 48 gap G-01 (2026-10-05): frase única de indisponibilidade + slot de pernas acima da escada
+const objInd = (id, t) => ({ id, titulo: t, descricao: "d", termos: {}, disponivel: false, motivoChave: "sem_vencimento_elegivel", motivo: "M-REAL 09/10", dica: "D-REAL" });
+const escadaG01 = { dados: { estado: "ok", posicao: { qty: 100 }, objetivos: [objInd("proteger", "Proteger de queda"), objInd("renda", "Gerar renda"), objInd("collar", "Collar")],
+  objetivosMotivo: { chave: "sem_vencimento_elegivel", texto: "M-REAL 09/10", dica: "D-REAL" } }, carregando: false, erro: null };
+const g01 = html(h(ObjetivoAtivo, { cp, mode: "estudo", ticker: "ITUB4", escada: escadaG01 }));
+ok("G-01: motivo real aparece exatamente 1 vez", g01.split("M-REAL 09/10").length - 1 === 1);
+ok("G-01: dica aparece", g01.includes("D-REAL"));
+ok("G-01: 3 cards seguem aria-disabled", (g01.match(/aria-disabled="true"/g) || []).length === 3);
+ok("G-01: cards apontam para a frase via aria-describedby", g01.includes('aria-describedby="objetivos-motivo-ITUB4"'));
+ok("G-01: texto genérico sem_estrutura não aparece", !g01.includes(COPY.estudo.opcoesEscada.sem_estrutura.replace("{ticker}", "ITUB4")));
+const g01Erro = html(h(ObjetivoAtivo, { cp, mode: "estudo", ticker: "ITUB4", escada: { dados: null, carregando: false, erro: "x" }, pernasAbertas: h("div", null, "SLOT-PERNAS") }));
+ok("G-01: slot de pernas visível mesmo com a escada em erro", g01Erro.includes("SLOT-PERNAS") && g01Erro.includes(COPY.estudo.opcoesEscada.erro_fonte));
+
 if (fails) { console.log("\n" + fails + " falha(s)"); process.exit(1); }
 console.log("\nOK");
