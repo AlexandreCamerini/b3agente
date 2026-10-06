@@ -135,3 +135,18 @@ def test_setores_opcoes_onda1_registrados_e_passam_da_validacao(cli):
             assert r.status_code != 400 or "Setor" not in str(r.json())
         finally:
             app.dependency_overrides.pop(require_user, None)
+
+
+def test_setores_opcoes_onda2_registrados_e_passam_da_validacao(cli):
+    """Fase 48 (2026-10-05), onda 2: opc_put_protetora / opc_collar via SETORES."""
+    s = conceitos.setores()
+    for setor, cid in (("opc_put_protetora", "opc-put-protetora"), ("opc_collar", "opc-collar")):
+        assert s[setor] == cid and cid in conceitos.CONCEITOS
+        app.dependency_overrides[require_user] = lambda: {"id": "u-setor-opc2"}
+        try:
+            r = cli.post("/api/assistente", json={
+                "tela": f"setor:{setor}", "pergunta": "o que é isto?",
+            })
+            assert r.status_code != 400 or "Setor" not in str(r.json())
+        finally:
+            app.dependency_overrides.pop(require_user, None)

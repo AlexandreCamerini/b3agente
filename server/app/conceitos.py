@@ -82,6 +82,33 @@ TEXTO_OPC = {
             "sem piso, segue a ação até zero, amortecida pelo prêmio."
         ),
     },
+    # Fase 48 (2026-10-05), onda 2 — objetivos: put protetora e collar.
+    "opc-put-protetora": {
+        "educacional": (
+            "Put protetora é ter as ações e comprar uma put sobre elas. Você paga um prêmio, "
+            "e, abaixo do strike, a perda para de crescer: a put dá o direito de vender "
+            "pelo strike até o vencimento. Ela limita a perda, não a queda — a ação pode "
+            "continuar caindo, e o prêmio pago é um custo certo, tenha a put utilidade ou não. "
+            "Não é garantia de resultado."
+        ),
+        "operador": (
+            "Put protetora: ações + put comprada. Paga prêmio; abaixo do strike a perda "
+            "fica travada até o vencimento. Limita a perda, não a queda. Prêmio é custo certo."
+        ),
+    },
+    "opc-collar": {
+        "educacional": (
+            "Collar é comprar uma put e vender uma call ao mesmo tempo, tendo as ações. O "
+            "prêmio recebido pela call paga parte ou todo o prêmio da put. Em troca, perda "
+            "e ganho ficam entre um piso e um teto: acima do strike da call você abre mão "
+            "da alta. As ações ficam travadas como lastro da call até o vencimento. "
+            "Não é garantia de resultado nem proteção total."
+        ),
+        "operador": (
+            "Collar: ações + put comprada + call vendida. Prêmio da call financia a put. "
+            "Perda e ganho entre piso e teto; ações travadas como lastro até o vencimento."
+        ),
+    },
 }
 
 
@@ -450,6 +477,50 @@ CONCEITOS = {
         ],
         "veja": [],
     },
+    # ------------------------------------------------------ opções (Fase 48, onda 2)
+    "opc-put-protetora": {
+        "titulo": {"educacional": "A put protetora", "operador": "Put protetora"},
+        "campos": ("ticker", "strike", "premio", "premioTotal", "qtd", "venc", "perdaTotal"),
+        "naoAcontece": [
+            "O app não envia ordem nenhuma: o dinheiro é virtual e a estrutura é uma simulação.",
+            "Não é recomendação: é a descrição de como a estrutura funciona.",
+        ],
+        "oQueE": [
+            TEXTO_OPC["opc-put-protetora"],
+            "Nesta estrutura de {ticker}, a put dá o direito de vender as {qtd} ações por {strike} "
+            "até {venc}, e o prêmio é {premio} por ação ({premioTotal} no total).",
+        ],
+        "oQueAcontece": [
+            "Abaixo de {strike}, a perda para: no pior caso, no vencimento, fica travada em "
+            "{perdaTotal}, sem contar custos. A ação pode cair mais; a perda da estrutura não.",
+        ],
+        "veja": [],
+    },
+    "opc-collar": {
+        "titulo": {"educacional": "O collar", "operador": "Collar"},
+        "campos": ("ticker", "strikePut", "strikeCall", "liquido", "qtd", "venc",
+                   "perdaTotal", "ganhoTotal", "estado"),
+        "naoAcontece": [
+            "O app não envia ordem nenhuma: o dinheiro é virtual e a estrutura é uma simulação.",
+            "Não é recomendação nem proteção total: perda e ganho ficam limitados, "
+            "e o resultado depende do preço no vencimento.",
+        ],
+        "oQueE": [
+            TEXTO_OPC["opc-collar"],
+            "Nesta estrutura de {ticker}, o piso é {strikePut} (put) e o teto é {strikeCall} "
+            "(call), para {qtd} ações, até {venc}.",
+        ],
+        "oQueAcontece": [
+            (("custa",), "Os prêmios não se cancelam: o líquido é de {liquido}, um custo "
+                         "que você paga na abertura."),
+            (("recebe",), "O prêmio da call mais que paga a put: sobram {liquido}, "
+                          "recebidos na abertura."),
+            (("zero",), "O prêmio da call paga exatamente a put: o líquido na abertura é zero."),
+            "No vencimento, a perda fica limitada a {perdaTotal} e o ganho a {ganhoTotal}, "
+            "sem contar custos.",
+        ],
+        "veja": [],
+    },
 }
 
 
@@ -509,6 +580,13 @@ def _volume_milhar(v) -> Optional[str]:
     return skill_ref.num_br_inteiro(v)
 
 
+def _num_abs(v) -> Optional[str]:
+    """Valor em R$ sem sinal: o sentido (custa/recebe) vem do `estado`, no texto."""
+    if not isinstance(v, (int, float)) or isinstance(v, bool):
+        return None
+    return _num(abs(float(v)))
+
+
 _FORMATADORES = {"entrada": _num, "stop": _num, "distancia": _num, "alvo": _num,
                  "precoAtual": _num, "riscoPorAcao": _num_positivo,
                  "distanciaEmR": _emr, "excedenteEmR": _emr,
@@ -516,7 +594,10 @@ _FORMATADORES = {"entrada": _num, "stop": _num, "distancia": _num, "alvo": _num,
                  "spreadPct": _pct, "score": _score_inteiro, "volume": _volume_milhar,
                  # Fase 48 (onda 1): termos de opções — preço em R$, lote inteiro pt-BR.
                  "strike": _num, "premio": _num, "premioTotal": _num, "piso": _num,
-                 "perdaTotal": _num, "perdaAcao": _num, "qtd": _volume_milhar}
+                 "perdaTotal": _num, "perdaAcao": _num, "qtd": _volume_milhar,
+                 # onda 2: collar (put protetora reusa os da onda 1).
+                 "strikePut": _num, "strikeCall": _num, "liquido": _num_abs,
+                 "ganhoTotal": _num}
 
 
 def _constantes() -> dict:
@@ -632,6 +713,9 @@ SETORES = {
     # 2026-10-05 (Fase 48, onda 1): termos clicáveis da aba Opções.
     "opc_premio": "opc-premio",
     "opc_perda_maxima": "opc-perda-maxima",
+    # 2026-10-05 (Fase 48, onda 2): termos dos objetivos.
+    "opc_put_protetora": "opc-put-protetora",
+    "opc_collar": "opc-collar",
 }
 
 
