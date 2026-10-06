@@ -29,11 +29,13 @@ marcadores são com sinal. Todo texto vem de `skill_ref.opcoes_escada_txt`.
 from __future__ import annotations
 
 import copy
+import datetime as dt
 import re
 from typing import Any
 
 from . import cartao_posicao, opcoes_payoff, skill_ref, store
 from .opcoes_curadoria import STRIKES_POR_POSICAO, id_candidato
+from .opcoes_lastreadas import _PRAZO_MAX_DIAS, _PRAZO_MIN_DIAS
 
 OBJETIVOS = ("proteger", "renda", "collar")
 TIPO_DO_OBJETIVO = {"proteger": "put_protecao", "renda": "call_coberta", "collar": "collar"}
@@ -125,9 +127,43 @@ def objetivos(posicao: Any, modo: str) -> list[dict]:
             "disponivel": motivo is None,
             "motivo": motivo,
             "motivoChave": motivo_chave,
+            "dica": None,
             "termos": [{"rotulo": r, "setor": s, "kb": k} for r, s, k in TERMOS_OBJETIVO[oid]],
         })
     return out
+
+
+def motivo_sem_candidato(vencimentos: Any, hoje: dt.date, modo: str, ticker: str) -> dict:
+    """Fase 48 gap G-01 (2026-10-05): por que a varredura não devolveu candidato.
+
+    `sem_vencimento_elegivel` = nenhum vencimento lido cai na janela da varredura
+    (`_PRAZO_MIN_DIAS`..`_PRAZO_MAX_DIAS`, importada de opcoes_lastreadas — sem
+    segundo corte; o piso de 15 dias NÃO muda aqui). `sem_estrutura` = há
+    vencimento na janela mas nenhuma estrutura montável. Pura: `hoje` por argumento;
+    item malformado é ignorado (nunca levanta)."""
+    datas: list[dt.date] = []
+    try:
+        itens = list(vencimentos) if vencimentos is not None else []
+    except TypeError:
+        itens = []
+    for v in itens:
+        try:
+            datas.append(dt.date.fromisoformat(v))
+        except (TypeError, ValueError):
+            continue
+    if any(_PRAZO_MIN_DIAS <= (d - hoje).days <= _PRAZO_MAX_DIAS for d in datas):
+        return {
+            "chave": "sem_estrutura",
+            "texto": _t(modo, "sem_estrutura", ticker=ticker),
+            "dica": _t(modo, "sem_estrutura_dica"),
+        }
+    lidos = ", ".join(_ddmm(d.isoformat()) or "" for d in sorted(set(datas))) or "—"
+    return {
+        "chave": "sem_vencimento_elegivel",
+        "texto": _t(modo, "sem_vencimento_elegivel", ticker=ticker, vencimentos=lidos,
+                    min=_PRAZO_MIN_DIAS, max=_PRAZO_MAX_DIAS),
+        "dica": _t(modo, "sem_vencimento_elegivel_dica"),
+    }
 
 
 # ───────────────────────────── seleção de degraus
