@@ -115,3 +115,21 @@ const vetado = !!(perna.encerrar && perna.encerrar.permitido === false
 _Reviewed: 2026-10-06_
 _Reviewer: Claude (gsd-code-reviewer)_
 _Depth: standard_
+
+## Resolução
+
+Aplicada em 2026-10-06 (gsd-code-fixer). Um commit por achado, exceto CR-01 + IN-02 (mesmo bloco de estado).
+
+| Achado | Status | Commit | Nota |
+|--------|--------|--------|------|
+| CR-01 | fixed: requires human verification | 795b6864 | `releituraFalhou` no ramo da anatomia: alerta `anat_erro` + "Tentar de novo"; `PosicaoTotal obsoleto` oculta gráfico/slider/tabela e mostra `anat_desatualizado` (chave nova, paridade skill_ref↔copy.js) |
+| WR-01 | no_change_needed (docstring) | cc6a32d1 | `yahoo` e `mydata` cacheiam por (ticker, vencimento) 300 s e consultam o cache antes do gate (`options_provider_yahoo.py:93`, `options_provider_mydata.py:270`); toggle de chip dentro do TTL não toca a fonte. Só a 1ª leitura após o TTL passa pelo gate do adaptador |
+| WR-02 | fixed: requires human verification | 9d70cac1 | `premio_indisponivel` vira aviso com botão habilitado (anatomia e fallback 48-16); `vencida`/`dados_invalidos` seguem vetando. Motor intocado. A rota `/api/options/sell` já recusa sem prêmio (502 com mensagem). Fixtures de veto antigos preservados |
+| WR-03 | fixed | 9e77e489 | id de formato válido e desconhecido é filtrado (200); 400 só para formato inválido ou >20 itens |
+| WR-04 | fixed | 3b563901 | perna sem data junto de outra perna: total sem número + `anat_total_sem_data` (chave nova) |
+| WR-05 | fixed | b8fe3828 | série marcada por `tipo: "total"`; cor de texto, peso 3 e halo de fundo; opacidade reduzida quando há seleção |
+| IN-01 | fixed | c60a637d | `math.isfinite` em `_num`, `_num_nn`, `_hoje._n` |
+| IN-02 | fixed | 795b6864 | reset de escolhas no render (estado chaveado por ticker), sem `useEffect` |
+| IN-03 | fixed | 0f38809c | sem sinal "−" quando o pior caso é 0 |
+
+Verificação: pytest (anatomia, rota, estrutura, skill_ref, mcp_guardioes) 182 passed; `web/tests/test_opcoes_*.mjs` e correlatos verdes; `npx vite build` ok.
