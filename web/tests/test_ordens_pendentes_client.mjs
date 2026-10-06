@@ -128,9 +128,21 @@ await (async () => {
 // Padrão de casa: leitura estática da fonte, sem importar persistence.js —
 // ele importa @capacitor/core, que só existe num build nativo (ver TESTING.md
 // "Mocking (Web)" / "Static source inspection").
-for (const nome of ["cancelPendingOrder", "marketStatus", "pendingOrders", "caixaReservado"]) {
+// 2026-10-06 (quick dvg): a remoção de `_localSeed` tirou a 2ª ocorrência de
+// `pendingOrders:` (vinha do objeto da semente). A intenção segue a mesma —
+// pendingOrders chega à tela nos DOIS stores: deviceStore via getState (>= 1
+// ocorrência `pendingOrders:`) e serverStore via estado do servidor, que entra
+// no device pela lista de campos de `_semearDoServidor`. Os outros três nomes
+// mantêm >= 2.
+for (const nome of ["cancelPendingOrder", "marketStatus", "caixaReservado"]) {
   const hits = (persistenceSrc.match(new RegExp("\\b" + nome + "\\s*[:(]", "g")) || []).length;
   okc(nome + " deve existir nos DOIS stores (persistence.js)", hits >= 2);
+}
+{
+  const hits = (persistenceSrc.match(/\bpendingOrders\s*[:(]/g) || []).length;
+  okc("pendingOrders no deviceStore.getState (>= 1 ocorrência)", hits >= 1);
+  okc("pendingOrders na lista de campos de _semearDoServidor",
+    /_semearDoServidor\(state\)[\s\S]*?for \(const k of \[[^\]]*?"pendingOrders"/.test(persistenceSrc));
 }
 
 okc("pub() menciona pendingOrders e caixaReservado",
