@@ -289,3 +289,15 @@ def test_motor_e_puro():
                      "date.today", "anthropic"):
         assert proibido not in fonte
     assert "opcoes_payoff." in fonte
+
+
+def test_inf_nan_sao_dado_ausente():
+    """IN-01 (49-REVIEW, 2026-10-06): inf/nan não derrubam a grade nem vazam NaN."""
+    inf = float("inf")
+    ops = [_op(A, "call", inf, 0.21), _op(B, "call", 49.76, 0.16, exp="2026-10-09")]
+    a = _ler(ops=ops)
+    assert _perna(a, A)["pontos"] is None
+    assert _perna(a, B)["pontos"] is not None
+    est = {"pernas": [{"id": B, "resultado": float("nan"), "premioAtual": inf}]}
+    h = _perna(_ler(estrutura=est), B)["hoje"]
+    assert h["valor"] is None and h["premioAtual"] is None

@@ -43,7 +43,7 @@ def _num(v: Any) -> Optional[float]:
     if isinstance(v, bool) or not isinstance(v, (int, float)):
         return None
     v = float(v)
-    return v if v == v and v > 0 else None
+    return v if math.isfinite(v) and v > 0 else None
 
 
 def _num_nn(v: Any) -> Optional[float]:
@@ -51,7 +51,7 @@ def _num_nn(v: Any) -> Optional[float]:
     if isinstance(v, bool) or not isinstance(v, (int, float)):
         return None
     v = float(v)
-    return v if v == v and v >= 0 else None
+    return v if math.isfinite(v) and v >= 0 else None
 
 
 def _r2(v: Optional[float]) -> Optional[float]:
@@ -177,7 +177,9 @@ def _hoje(modo: str, estrutura: Any, id_: Any) -> tuple[dict, Optional[dict]]:
                  "motivoTexto": _txt(modo, "anat_hoje_sem_cotacao")}, None)
 
     def _n(v):
-        return float(v) if isinstance(v, (int, float)) and not isinstance(v, bool) else None
+        # IN-01 (49-REVIEW): inf/nan do payload é dado ausente, nunca número.
+        return (float(v) if isinstance(v, (int, float)) and not isinstance(v, bool)
+                and math.isfinite(v) else None)
 
     valor, premio = _n(alvo.get("resultado")), _n(alvo.get("premioAtual"))
     motivo = None
