@@ -146,5 +146,18 @@ ok("G-02: lastro e vendida sem botão Encerrar", !p5.includes(">" + ox.pernas_en
 ok("G-02: perna de PETR4 ausente na lista de ITUB4", !pernas({ optionPositions: [posCall, posOutra] }).includes("PETRJ300"));
 ok("G-02: componente não decide botão por frescor/executavel/liquida", !/executavel|frescor|liquida/.test(readFileSync(new URL("../src/opcoes/PernasAbertas.jsx", import.meta.url), "utf8")));
 
+// ---- Fase 48 gap G-02 (2026-10-05): caminho Carteira -> "Encerrar opção" cai no objetivo com a lista de pernas
+const tres = ["ITUBJ492", "ITUBJ500", "ITUBV465"].map((id, i) => ({ id, underlying: "ITUB4", optionType: i === 2 ? "put" : "call", strike: 45 + i, expiration: "2026-10-09", qty: 100, avg: 0.85 }));
+const ctxPernas = { ...ctx, opcoesAbrirTicker: "ITUB4", data: { positions: [{ t: "ITUB4", qty: 100 }], optionPositions: tres } };
+const telaEncerrarPernas = html(h(OpcoesScreen, { ctx: ctxPernas }));
+ok("G-02: objetivo do ativo lista as 3 pernas com título e 3 botões Encerrar",
+   telaEncerrarPernas.includes(ox.pernas_titulo) && tres.every((t) => telaEncerrarPernas.includes(t.id)) &&
+   (telaEncerrarPernas.match(new RegExp(">" + ox.pernas_encerrar + "<", "g")) || []).length === 3);
+ok("G-02: 'Montar com ITUB4' preservado", telaEncerrarPernas.includes(cp.opcoesMontarNoAtivo("ITUB4")));
+// Ticker do Montar só é definido por efeito (SSR não roda efeitos): guardião estático.
+const srcTela = readFileSync(new URL("../src/opcoes/OpcoesScreen.jsx", import.meta.url), "utf8");
+ok("G-02: <PernasAbertas aparece 2x (objetivo e Montar), a do Montar depois de LastroDoAtivo",
+   (srcTela.match(/<PernasAbertas/g) || []).length === 2 && /<LastroDoAtivo pos=\{posicaoSelecionada\} cp=\{cp\} \/>\s*\{\/\*[^]*?\*\/\}\s*<PernasAbertas/.test(srcTela));
+
 if (fails) { console.log("\n" + fails + " falha(s)"); process.exit(1); }
 console.log("\nOK");

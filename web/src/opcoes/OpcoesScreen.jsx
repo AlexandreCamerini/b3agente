@@ -45,6 +45,7 @@ import { useEscada } from "./useEscada.js";
 import useTecnicoCarteira from "./useTecnicoCarteira.js";
 import HubOpcoes from "./HubOpcoes.jsx";
 import ObjetivoAtivo from "./ObjetivoAtivo.jsx";
+import PernasAbertas from "./PernasAbertas.jsx";
 import EscadaObjetivo from "./EscadaObjetivo.jsx";
 import ConfirmarEstrutura from "./ConfirmarEstrutura.jsx";
 import MatrizVencimentos from "./MatrizVencimentos.jsx";
@@ -857,6 +858,18 @@ export default function OpcoesScreen({ ctx }) {
           mode={mode}
           ticker={nav.ticker}
           escada={escada}
+          // Fase 48 gap G-02 (2026-10-05): destino de "Encerrar opção" da Carteira (App.jsx:4707);
+          // a saída das pernas não passa por gate de liquidez, só pelo veto do motor.
+          pernasAbertas={myOptionPositions.length > 0 ? (
+            <PernasAbertas
+              mode={mode}
+              ticker={nav.ticker}
+              optionPositions={optionPositionsAll}
+              estrutura={(opcoesPorTicker[nav.ticker] && opcoesPorTicker[nav.ticker].estrutura) || null}
+              carregandoEstrutura={!!opcoesPorTickerCarregando && !opcoesPorTicker[nav.ticker]}
+              A={ctx && ctx.A}
+            />
+          ) : null}
           estruturaAberta={myOptionPositions.length > 0 ? (
             <PropostaDoAtivo
               ticker={nav.ticker}
@@ -969,6 +982,15 @@ export default function OpcoesScreen({ ctx }) {
             <>
               {cabecalho}
               <LastroDoAtivo pos={posicaoSelecionada} cp={cp} />
+              {/* Fase 48 gap G-02 (2026-10-05): mesma lista de pernas do nível objetivo; saída sem gate de liquidez. */}
+              <PernasAbertas
+                mode={mode}
+                ticker={ticker}
+                optionPositions={optionPositionsAll}
+                estrutura={(opcoesPorTicker[ticker] && opcoesPorTicker[ticker].estrutura) || null}
+                carregandoEstrutura={!!opcoesPorTickerCarregando && !opcoesPorTicker[ticker]}
+                A={ctx && ctx.A}
+              />
               <LeituraInterna tecnico={tecnico} cp={cp} />
               {podePedirLeitura ? blocoLeituraDoServico : null}
               {/* Fase 35 (35-01, D-06) — metadado de "leitura já feita" no
