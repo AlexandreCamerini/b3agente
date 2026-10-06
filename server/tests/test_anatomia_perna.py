@@ -309,3 +309,18 @@ def test_aria_pior_caso_zero_sem_sinal_de_perda():
     ar = _perna(a, A)["aria"]
     assert ar is not None and "pior caso R$ 0,00" in ar and "−R$ 0,00" not in ar
     assert _perna(a, A)["piorCaso"] in (0, 0.0, -0.0)
+
+
+def test_perna_sem_data_nao_entra_no_total_datado():
+    """WR-04 (49-REVIEW, 2026-10-06): perna sem data + perna datada = vencimento
+    indeterminado; total sem número, com motivo; cada perna segue com o quadro."""
+    ops = [_op(A, "call", 49.26, 0.21, exp="2026-10-09"),
+           _op(B, "call", 49.76, 0.16, exp=None)]
+    a = _ler(ops=ops)
+    assert a["total"]["pontos"] is None
+    assert a["total"]["motivoTexto"].startswith(ND)
+    assert "data de vencimento" in a["total"]["motivoTexto"]
+    assert a["total"]["incluidas"] == [A, B]
+    assert _perna(a, A)["pontos"] is not None and _perna(a, B)["pontos"] is not None
+    # excluir a sem-data devolve o total da perna datada
+    assert _ler(ops=ops, excluir=(B,))["total"]["pontos"] is not None

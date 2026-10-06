@@ -326,7 +326,13 @@ def ler_anatomia(option_positions: Sequence[dict], underlying: str, posicao: Any
         total["motivoTexto"] = _txt(modo, "anat_total_vazio")
     else:
         vencs = sorted({p["_venc"] for p in incl if p["_venc"] is not None})
-        if len(vencs) > 1:
+        # WR-04 (49-REVIEW): perna sem data junto de outra perna = vencimento
+        # indeterminado; não se afirma que vencem juntas (sem número, com motivo).
+        sem_data = len(incl) > 1 and any(p["_venc"] is None for p in incl)
+        if sem_data:
+            total["incluidas"] = [p["id"] for p in incl]
+            total["motivoTexto"] = _txt(modo, "anat_total_sem_data")
+        elif len(vencs) > 1:
             total["incluidas"] = [p["id"] for p in incl]
             total["motivoTexto"] = _txt(
                 modo, "anat_total_vencimentos_diferentes",
