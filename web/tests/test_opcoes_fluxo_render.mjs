@@ -137,14 +137,18 @@ ok("G-02: botão Encerrar habilitado sem estrutura (2 botões)", (p1.match(new R
 ok("G-02: prêmio de entrada vem da posição (0,85) e data DD/MM", p1.includes("0,85") && p1.includes("09/10"));
 const p2 = pernas({ optionPositions: [posCall], estrutura: { pernas: [{ id: "ITUBJ492", resultado: -12.5, premioAtual: 0.4, encerrar: { permitido: true } }] } });
 ok("G-02: resultado e prêmio atual do motor (−12,50 e 0,40)", p2.includes("−12,50") && p2.includes("0,40"));
-const p3 = pernas({ optionPositions: [posCall], estrutura: { pernas: [{ id: "ITUBJ492", resultado: null, motivoSemCotacao: "SEM-COTACAO-MOTOR", encerrar: { permitido: true } }] } });
-ok("G-02: resultado null mostra motivo do motor, sem 0,00", p3.includes("SEM-COTACAO-MOTOR") && !p3.includes("0,00"));
+// Fase 49 (2026-10-06): reconciliado — motivoSemCotacao é enum fechado do motor (estrutura_posicao.MOTIVOS_SEM_COTACAO); o 48-16 exibia o enum cru. Agora vira frase de skill_ref (anat_hoje_*). Asserção preservada: motivo do motor visível, sem 0,00.
+const p3 = pernas({ optionPositions: [posCall], estrutura: { pernas: [{ id: "ITUBJ492", resultado: null, motivoSemCotacao: "sem_negocio", encerrar: { permitido: true } }] } });
+ok("G-02: resultado null mostra motivo do motor, sem 0,00", p3.includes(ox.anat_hoje_sem_negocio) && !p3.includes("0,00"));
 const p4 = pernas({ optionPositions: [posCall], estrutura: { pernas: [{ id: "ITUBJ492", resultado: null, encerrar: { permitido: false, texto: "VETO-DO-MOTOR" } }] } });
 ok("G-02: encerrar.permitido false -> aria-disabled com texto do motor e describedby", p4.includes('aria-disabled="true"') && p4.includes("VETO-DO-MOTOR") && p4.includes("aria-describedby"));
 const p5 = pernas({ optionPositions: [posLastro, posVendida] });
 ok("G-02: lastro e vendida sem botão Encerrar", !p5.includes(">" + ox.pernas_encerrar + "<") && p5.includes(ox.pernas_na_estrutura) && p5.includes(ox.pernas_vendida_sem_acao));
 ok("G-02: perna de PETR4 ausente na lista de ITUB4", !pernas({ optionPositions: [posCall, posOutra] }).includes("PETRJ300"));
 ok("G-02: componente não decide botão por frescor/executavel/liquida", !/executavel|frescor|liquida/.test(readFileSync(new URL("../src/opcoes/PernasAbertas.jsx", import.meta.url), "utf8")));
+// Fase 49 (2026-10-06): a varredura estática passa a cobrir também os componentes da anatomia.
+ok("Fase 49: anatomia (AnatomiaPerna/PosicaoTotal/GraficoAnatomia/useAnatomia) não decide botão por frescor/executavel/liquida",
+  ["AnatomiaPerna.jsx", "PosicaoTotal.jsx", "GraficoAnatomia.jsx", "useAnatomia.js"].every((f) => !/executavel|frescor|liquida/.test(readFileSync(new URL("../src/opcoes/" + f, import.meta.url), "utf8"))));
 
 // ---- Fase 48 gap G-02 (2026-10-05): caminho Carteira -> "Encerrar opção" cai no objetivo com a lista de pernas
 const tres = ["ITUBJ492", "ITUBJ500", "ITUBV465"].map((id, i) => ({ id, underlying: "ITUB4", optionType: i === 2 ? "put" : "call", strike: 45 + i, expiration: "2026-10-09", qty: 100, avg: 0.85 }));

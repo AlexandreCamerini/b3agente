@@ -31,7 +31,7 @@ const semComentarios = (s) => s.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:
 
 const NOMES = ["HubOpcoes", "ObjetivoAtivo", "EscadaObjetivo", "GraficoResultado", "MatrizVencimentos", "ConfirmarEstrutura", "TermoOpcoes",
   // Fase 49 (2026-10-06): componentes da anatomia entram nas mesmas regras (reduced-motion, alvo 44, sem cor de texto positive/negative/warn, sem 0 substituto).
-  "GraficoAnatomia", "AnatomiaPerna"];
+  "GraficoAnatomia", "AnatomiaPerna", "PosicaoTotal", "PernasAbertas"];
 const raw = {}; const F = {};
 for (const n of NOMES) { raw[n] = src("opcoes", n + ".jsx"); F[n] = semComentarios(raw[n]); }
 const fluxo = src("opcoes", "fluxoEstilo.js");

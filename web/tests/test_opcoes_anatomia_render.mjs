@@ -165,5 +165,47 @@ ok("T8. recalculando mostra anat_recalculando em status", tem(tot(anatT(), { rec
 const srcT = readFileSync(new URL("../src/opcoes/PosicaoTotal.jsx", import.meta.url), "utf8");
 ok("T9. fonte sem palavras proibidas, reduce nem zero substituto", !/executavel|frescor|liquida|reduce\(|\?\? 0|\|\| 0/.test(srcT));
 
+// ---- Fase 49 (2026-10-06) — PernasAbertas contêiner
+const PernasAbertasMod = await import("../src/opcoes/PernasAbertas.jsx");
+const PernasAbertas = PernasAbertasMod.default;
+const mkPos = (id, ex) => ({ id, underlying: "ITUB4", optionType: "call", strike: 49.2, expiration: "2026-10-09", qty: 100, avg: 0.85, ...ex });
+const posA = mkPos("ITUBJ493W2");
+const posB = mkPos("ITUBV465W2", { optionType: "put", strike: 46.5 });
+const posL = mkPos("ITUBJ500W2", { lastro: { t: "ITUB4", qty: 100 } });
+const pernaMotor = (id, tipo, strike, pts) => ({
+  id, tipo, lado: "compra", strike, quantidade: 100, premioEntrada: 0.85, vencimentoTexto: "09/10", prazoTexto: "PRAZO-" + id,
+  piorCaso: -85, piorIlimitado: false, equilibrio: 50, frase: "FRASE-" + id, condicao: "COND-" + id, pontos: pts,
+  marcadores: [], tabela: [], aria: "ARIA-" + id, incluida: true, motivoTexto: null, hoje: { valor: null, premioAtual: null, motivoTexto: null }, encerrar: null,
+});
+const dadosOk = (extra) => ({
+  ticker: "ITUB4", modo: "estudo", estado: "ok", motivoTexto: null, custoMcp: 0, estrutura: null,
+  anatomia: { ...anatT(), pernas: [pernaMotor("ITUBJ493W2", "CALL", 49.2, pCall.pontos), pernaMotor("ITUBV465W2", "PUT", 46.5, pPut.pontos), pernaMotor("ITUBJ500W2", "CALL", 50, pCall2.pontos)] },
+  ...extra,
+});
+const cont = (props) => html(h(PernasAbertas, { mode: "estudo", ticker: "ITUB4", A: {}, ...props }));
+const c1 = cont({ optionPositions: [posA, posB, posL], anatomia: dadosOk() });
+const iTot = c1.indexOf(esc(tx("estudo", "anat_total_titulo", { vencimento: "09/10" })));
+const iPern = c1.indexOf(esc(tx("estudo", "anat_pernas_titulo")));
+const iCard = c1.indexOf("FRASE-ITUBJ493W2");
+ok("C1. ordem: gráfico total, título das pernas, primeiro card", iTot >= 0 && iTot < iPern && iPern < iCard);
+ok("C1. 3 cards (um por perna aberta)", (c1.match(/<article/g) || []).length === 3 && c1.includes("FRASE-ITUBV465W2") && c1.includes("FRASE-ITUBJ500W2"));
+ok("C1. Encerrar só nas compradas sem lastro (2)", (c1.match(new RegExp(">" + tx("estudo", "pernas_encerrar") + "<", "g")) || []).length === 2);
+const c1b = cont({ optionPositions: [posA, mkPos("SEM-ITEM1")], anatomia: dadosOk() });
+ok("C2. posição sem item na anatomia cai na linha do 48-16", c1b.includes("SEM-ITEM1") && c1b.includes("FRASE-ITUBJ493W2"));
+const c3 = cont({ optionPositions: [posA, posB], anatomia: { ticker: "ITUB4", estado: "erro", motivoTexto: "ERRO-ANAT" } });
+ok("C3. erro: lista 48-16 + motivo + tentar de novo; Encerrar habilitado",
+  c3.includes("ERRO-ANAT") && c3.includes(tx("estudo", "tentar_de_novo")) && (c3.match(new RegExp(">" + tx("estudo", "pernas_encerrar") + "<", "g")) || []).length === 2 && !c3.includes('aria-disabled="true"') && c3.includes(tx("estudo", "pernas_titulo")));
+const c4 = cont({ optionPositions: [posA], estrutura: { pernas: [{ id: "ITUBJ493W2", resultado: null, motivoSemCotacao: "sem_negocio", encerrar: { permitido: true } }] } });
+ok("C4. enum sem_negocio vira a frase, não o enum cru", c4.includes(esc(tx("estudo", "anat_hoje_sem_negocio"))) && !c4.includes("sem_negocio"));
+ok("C5. excluirParaRota nunca leva id encerrado", JSON.stringify(PernasAbertasMod.excluirParaRota(["ITUBJ493W2", "ACOES"], ["ITUBV465W2"])) === JSON.stringify(["ACOES"]));
+const c6d = dadosOk(); c6d.anatomia.total = { pontos: null, incluidas: [], semEsta: {}, motivoTexto: "MOTIVO-TOTAL", aria: null, tabela: [], marcadores: [] };
+ok("C6. total null: nenhum botão Ver sem esta perna", !cont({ optionPositions: [posA, posB], anatomia: c6d }).includes(tx("estudo", "anat_ver_sem_esta")));
+ok("C6b. total ok: botão Ver sem esta perna aparece", c1.includes(tx("estudo", "anat_ver_sem_esta")));
+const srcP = readFileSync(new URL("../src/opcoes/PernasAbertas.jsx", import.meta.url), "utf8");
+ok("C7. fonte: 1 sellOption, sem palavras proibidas", (srcP.match(/A\.sellOption\(/g) || []).length === 1 && !/executavel|frescor|liquida/.test(srcP));
+ok("C8. encerrar perna que estava excluída não gera 400: setExcluidas antes de recarregar",
+  srcP.indexOf("setExcluidas((xs) => xs.filter((x) => x !== id))") > 0 && srcP.indexOf("setExcluidas((xs) => xs.filter((x) => x !== id))") < srcP.indexOf("lido.recarregar()"));
+ok("C9. hook recebe a lista filtrada", /useAnatomia\(anatomiaInjetada \? null : store, ticker, excluirValido, ids, mode\)/.test(srcP));
+
 if (fails) { console.log(`\n${fails} falha(s)`); process.exit(1); }
 console.log("\nOK");
