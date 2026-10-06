@@ -429,7 +429,7 @@ Plans:
 **A confirmar no código antes de planejar:** `cenarios_da_estrutura` (`cartao_posicao.py:326`), `/mcp/possibilidades` por vencimento, `opcoes_payoff` (pior/melhor caso/equilíbrio por degrau).
 **Guardiões a reancorar com nota datada:** `test_opcoes_nav_tres_abas_ui`, `test_opcoes_subabas_ui`, `test_opcoes_jornada_ui`, `test_opcoes_continuidade_ui`, `test_opcoes_hub_workspace_ui`, `test_telas_registro`, `test_tour_opcoes`; corrigir "Watchlist" na ajuda/tour (`App.jsx:2703`, `2769`).
 **Pré-condições verificadas no código (2026-10-05):** (1) `cenarios_da_estrutura` serve com ressalvas (1 breakeven; faixa derivada da estrutura; 1 chamada por degrau); (2) `/mcp/possibilidades` NÃO serve para degraus (1 estrutura por vencimento por tese) → rota nova `/api/options/mcp/escada-matriz` com o mesmo custo 2N+1 (1 + cadeia PUT + cadeia CALL por vencimento); (3) `opcoes_payoff` serve por estrutura. Escada grátis sai de `opcoes_curadoria` via `_curadoria_scan_posicao` (o motor que a execução re-deriva).
-**Plans:** 14 plans (7 ondas; OpcoesScreen.jsx serializa a onda 4; reancoragem fecha nas ondas 4-6)
+**Plans:** 17 plans (10 ondas; OpcoesScreen.jsx serializa a onda 4; reancoragem fecha nas ondas 4-6; ondas 8-10 = gap closure do checkpoint 48-14)
 
 Plans:
 **Wave 1**
@@ -466,3 +466,15 @@ Plans:
 **Wave 7** *(blocked on Wave 6 completion)*
 
 - [ ] 48-14-PLAN.md — checkpoint do Alex no iPhone e no web (onda 7)
+
+**Wave 8** *(gap closure G-01/G-02 do checkpoint 48-14)*
+
+- [ ] 48-15-PLAN.md — G-01 backend: motivo real `sem_vencimento_elegivel` × `sem_estrutura` na rota /escada (+dica, objetivosMotivo) e vocabulário G-01/G-02 em skill_ref ↔ copy.js (onda 8)
+
+**Wave 9** *(blocked on Wave 8 completion)*
+
+- [ ] 48-16-PLAN.md — G-01 tela (frase única com motivo+dica em ObjetivoAtivo) e G-02 "Suas pernas abertas" com Encerrar por perna via A.sellOption no objetivo e no Montar (onda 9)
+
+**Wave 10** *(blocked on Wave 9 completion)*
+
+- [ ] 48-17-PLAN.md — checkpoint humano de reverificação ITUB4/PETR4 venc 09/10 (MyData, B3_DEV_MERCADO_ABERTO=1) (onda 10)
