@@ -3883,6 +3883,7 @@ async def options_escada(ticker: str, objetivo: Optional[str] = None,
         "mercadoAberto": mercado_aberto, "precoObjeto": None, "posicao": None,
         "objetivos": objetivos, "vencimentos": [], "vencimento": None,
         "degraus": [], "degrausAusentes": [], "comparar": None,
+        "objetivosMotivo": None,
     }
     if not isinstance(posicao, dict) or not posicao.get("qty"):
         out["estado"] = "sem_posicao"
@@ -3920,12 +3921,22 @@ async def options_escada(ticker: str, objetivo: Optional[str] = None,
 
     # Objetivo sem NENHUM candidato varrido fica indisponível com motivo
     # (ex.: cadeia sem puts não monta proteção) — nada de tela vazia muda.
+    # Fase 48 gap G-01 (2026-10-05): a causa real distingue "nenhum vencimento
+    # lido na janela de 15 a 60 dias" (sem_vencimento_elegivel) de "há vencimento
+    # elegível mas nenhuma estrutura montável" (sem_estrutura). Piso de 15 dias e
+    # VENCIMENTOS_POR_POSICAO NÃO mudam aqui; é só o motivo que deixa de mentir.
+    motivo_scan = opcoes_escada.motivo_sem_candidato(vencs, hoje, modo, t)
     tipos_com_cand = {c.get("tipo") for c in candidatos if isinstance(c, dict)}
     for o in objetivos:
         if o["disponivel"] and opcoes_escada.TIPO_DO_OBJETIVO[o["id"]] not in tipos_com_cand:
             o["disponivel"] = False
-            o["motivoChave"] = "sem_estrutura"
-            o["motivo"] = skill_ref.opcoes_escada_txt(modo, "sem_estrutura", ticker=t)
+            o["motivoChave"] = motivo_scan["chave"]
+            o["motivo"] = motivo_scan["texto"]
+            o["dica"] = motivo_scan["dica"]
+    # Os 3 indisponíveis pela MESMA causa da varredura: frase única para a tela.
+    if objetivos and all(o["disponivel"] is False and o["motivoChave"] == motivo_scan["chave"]
+                         for o in objetivos):
+        out["objetivosMotivo"] = motivo_scan
 
     def _vencs_montaveis(tipo_alvo=None):
         com = {c.get("expiration") for c in candidatos if isinstance(c, dict)
@@ -3971,7 +3982,12 @@ async def options_escada(ticker: str, objetivo: Optional[str] = None,
         escolhido = out["vencimentos"][0]["iso"] if out["vencimentos"] else None
     out["vencimento"] = escolhido
     if escolhido is None or escolhido not in varridos:
-        out["motivoTexto"] = skill_ref.opcoes_escada_txt(modo, "sem_estrutura", ticker=t)
+        # Sem vencimento montável nenhum: mesma causa real da varredura (G-01);
+        # vencimento pedido fora dos varridos segue sem_estrutura.
+        if not out["vencimentos"]:
+            out["motivoTexto"] = motivo_scan["texto"]
+        else:
+            out["motivoTexto"] = skill_ref.opcoes_escada_txt(modo, "sem_estrutura", ticker=t)
         return out
 
     cands = opcoes_escada.escolher_degraus(candidatos, objetivo, escolhido)

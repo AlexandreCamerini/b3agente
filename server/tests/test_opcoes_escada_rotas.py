@@ -12,7 +12,7 @@ import uuid
 import pytest
 from fastapi.testclient import TestClient
 
-from app import candle_provider, options_mcp_api, options_provider, store
+from app import candle_provider, db, options_mcp_api, options_provider, store
 from app.main import _conn, app
 
 _EXP = (dt.date.today() + dt.timedelta(days=30)).isoformat()
@@ -244,3 +244,56 @@ def test_leitura_validacao_400(cli, corpo):
     _, h = _escopo(cli)
     r = cli.post("/api/options/escada/leitura", json=corpo, headers=h)
     assert r.status_code == 400, r.text
+
+
+# ---- Fase 48 gap G-01/G-02 (2026-10-05) ----
+
+def _h(dias):
+    return (dt.date.today() + dt.timedelta(days=dias)).isoformat()
+
+
+def test_escada_vencimentos_curtos_sem_vencimento_elegivel(cli, monkeypatch):
+    uid, h = _escopo(cli, qty=100)
+    cfg = store.get(_conn, "config", user_id=uid) or {}
+    cfg["permitirOpcaoADescoberto"] = True  # só para a fixture poder comprar perna avulsa
+    db.kv_set(_conn, "config", cfg, user_id=uid)
+    v4, v11 = _h(4), _h(11)
+    # Caso ITUB4 do relato: pernas COMPRADAS (sem lastro) do mesmo underlying.
+    for sym, tipo, k in (("PETRC4926", "call", 49.26), ("PETRC4976", "call", 49.76),
+                         ("PETRP4651", "put", 46.51)):
+        store.buy_option(_conn, {"id": sym, "underlying": "PETR4", "optionType": tipo,
+                                 "strike": k, "expiration": v4}, 100, 0.5, user_id=uid)
+    cad = {None: _cadeia("PETR4", exp=v4, expirations=[v4, v11]),
+           v4: _cadeia("PETR4", exp=v4, expirations=[v4, v11]),
+           v11: _cadeia("PETR4", exp=v11, expirations=[v4, v11])}
+    _fake(monkeypatch, cad)
+    r = cli.get("/api/options/escada/PETR4", headers=h)
+    assert r.status_code == 200, r.text
+    j = r.json()
+    assert [o["disponivel"] for o in j["objetivos"]] == [False, False, False]
+    ddmm = f"{v4[8:10]}/{v4[5:7]}"
+    for o in j["objetivos"]:
+        assert o["motivoChave"] == "sem_vencimento_elegivel"
+        assert ddmm in o["motivo"] and "15" in o["motivo"] and "60" in o["motivo"]
+        assert o["dica"]
+    assert j["objetivosMotivo"]["chave"] == "sem_vencimento_elegivel"
+    assert j["posicao"]["qtyLivre"] == 100  # perna comprada sem lastro não trava ação
+
+
+def test_escada_controle_30_dias_objetivos_disponiveis(cli, monkeypatch):
+    _, h = _escopo(cli)
+    _fake(monkeypatch)
+    j = cli.get("/api/options/escada/PETR4", headers=h).json()
+    assert [o["disponivel"] for o in j["objetivos"]] == [True, True, True]
+    assert j["objetivosMotivo"] is None
+
+
+def test_escada_elegivel_sem_puts_mantem_sem_estrutura(cli, monkeypatch):
+    from app import skill_ref
+    _, h = _escopo(cli)
+    _fake(monkeypatch, {None: _cadeia("PETR4", com_puts=False)})
+    j = cli.get("/api/options/escada/PETR4", headers=h).json()
+    p = next(o for o in j["objetivos"] if o["id"] == "proteger")
+    assert p["motivoChave"] == "sem_estrutura"
+    assert p["dica"] == skill_ref.opcoes_escada_txt("operador", "sem_estrutura_dica")
+    assert j["objetivosMotivo"] is None
