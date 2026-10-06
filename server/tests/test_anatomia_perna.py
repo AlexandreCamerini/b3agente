@@ -301,3 +301,11 @@ def test_inf_nan_sao_dado_ausente():
     est = {"pernas": [{"id": B, "resultado": float("nan"), "premioAtual": inf}]}
     h = _perna(_ler(estrutura=est), B)["hoje"]
     assert h["valor"] is None and h["premioAtual"] is None
+
+
+def test_aria_pior_caso_zero_sem_sinal_de_perda():
+    """IN-03 (49-REVIEW): prêmio de entrada 0 não gera '−R$ 0,00'."""
+    a = _ler(ops=[_op(A, "call", 49.26, 0.0)])
+    ar = _perna(a, A)["aria"]
+    assert ar is not None and "pior caso R$ 0,00" in ar and "−R$ 0,00" not in ar
+    assert _perna(a, A)["piorCaso"] in (0, 0.0, -0.0)

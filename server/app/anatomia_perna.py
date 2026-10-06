@@ -293,7 +293,9 @@ def ler_anatomia(option_positions: Sequence[dict], underlying: str, posicao: Any
             item["piorTexto"] = _txt(modo, "anat_pior_ilimitado_nota", ticker=underlying)
             pior_aria = _txt(modo, "anat_pior_ilimitado")
         else:
-            pior_aria = "−R$ " + skill_ref.num_br(abs(item["piorCaso"]))
+            # IN-03 (49-REVIEW): prêmio 0 => pior caso 0; sem sinal de perda.
+            sinal = "−" if item["piorCaso"] else ""
+            pior_aria = sinal + "R$ " + skill_ref.num_br(abs(item["piorCaso"]))
         if item["equilibrio"] is not None:
             item["aria"] = _txt(modo, "anat_perna_aria", id=id_, pior=pior_aria,
                                 equilibrio=skill_ref.num_br(item["equilibrio"]))
