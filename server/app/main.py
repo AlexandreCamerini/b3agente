@@ -4028,7 +4028,12 @@ _ID_PERNA_RE = _re.compile(r"^[A-Za-z0-9._:\-]{1,64}$")
 @app.get("/api/options/anatomia/{ticker}")
 async def options_anatomia(ticker: str, excluir: Optional[str] = None,
                            scope: Optional[str] = Depends(current_scope)):
-    """Fase 49 (2026-10-06), ANAT-03/04/06. Custo MCP ZERO (sem cap de cota); não
+    """Fase 49 (2026-10-06), ANAT-03/04/06. Custo MCP ZERO (sem cap de cota; nenhuma
+    ferramenta MCP paga é chamada). A cadeia vem de `options_provider.get_options`,
+    que cacheia por (ticker, vencimento) por 300 s em cada provedor (yahoo e mydata
+    consultam o cache ANTES do gate de orçamento): toggle de chip dentro do TTL não
+    toca a fonte. Com `mydata`, só a 1ª leitura após o TTL passa pelo gate do
+    adaptador (49-REVIEW WR-01, verificado — sem mudança de código). Não
     depende do gate de liquidez (invariante 48-16). Posições só do escopo do
     token; `excluir` é allowlist de ids do ativo + ACOES. Ações entram só com o
     preço médio do store (nunca do cliente)."""
