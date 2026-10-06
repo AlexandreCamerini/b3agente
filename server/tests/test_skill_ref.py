@@ -435,3 +435,45 @@ def test_cartao_posicao_uat_card_fechado():
         for k in _V6_NEUTRAS[-18:]:
             assert not rx.search(sr.CARTAO_POSICAO[modo][k]), (modo, k)
         assert not rx.search(sr.CARTAO_POSICAO[modo]["faixa_rot_be"])
+
+
+# --- Fase 48 (2026-10-05): OPCOES_ESCADA (vocabulário do caminho B da aba Opções)
+_OPC_PROIBIDO = r"garant|lucro certo|ganhe|proteção total|sem risco|100%"
+
+
+def test_opcoes_escada_mesmos_modos_e_chaves():
+    a = skill_ref.OPCOES_ESCADA
+    assert set(a) == {"educacional", "operador"}
+    assert set(a["educacional"]) == set(a["operador"])
+    assert len(a["educacional"]) >= 90
+
+
+def test_opcoes_escada_sem_frase_vazia():
+    for modo, d in skill_ref.OPCOES_ESCADA.items():
+        for k, v in d.items():
+            assert isinstance(v, str) and v.strip(), (modo, k)
+
+
+def test_opcoes_escada_vocabulario_proibido():
+    import re
+    rx = re.compile(_OPC_PROIBIDO, re.I)
+    for modo, d in skill_ref.OPCOES_ESCADA.items():
+        for k, v in d.items():
+            assert not rx.search(v), (modo, k, v)
+
+
+def test_opcoes_escada_risco_usa_pior_e_melhor_caso():
+    for modo, d in skill_ref.OPCOES_ESCADA.items():
+        assert "Pior caso" in d["risco_pior"] and "Pior caso" in d["risco_pior_sem_piso"], modo
+        assert "Melhor caso" in d["risco_melhor"] and "Melhor caso" in d["risco_melhor_sem_teto"], modo
+
+
+def test_opcoes_escada_txt_degrada_interpola_e_falha_fechada():
+    assert skill_ref.opcoes_escada_txt("estudo", "acao_a", preco="38,00") == "ação a R$ 38,00"
+    assert skill_ref.opcoes_escada_txt("operador", "acao_a", preco="38,00") == "ação a R$ 38,00"
+    assert skill_ref.opcoes_escada_txt("operador", "nao_existe") is None
+
+
+def test_opcoes_escada_sem_chave_de_ordem_parcial():
+    for d in skill_ref.OPCOES_ESCADA.values():
+        assert not [k for k in d if "parcial" in k.lower()]
