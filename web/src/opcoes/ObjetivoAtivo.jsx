@@ -36,6 +36,8 @@ export default function ObjetivoAtivo({
   // manda UMA frase real (objetivosMotivo) + dica; os cards só apontam para ela.
   const motivoUnico = dados && dados.objetivosMotivo && dados.objetivosMotivo.texto ? dados.objetivosMotivo : null;
   const idMotivo = "objetivos-motivo-" + ticker;
+  // Fase 49 (2026-10-06): ordem posição → pernas → objetivos (decisão do Alex); sem pernas, a tela do 48 fica igual.
+  const comPernas = !!pernasAbertas;
 
   return (
     <section style={{ padding: "16px", display: "flex", flexDirection: "column", gap: "16px", ...transicaoTela(reduzido()) }}>
@@ -47,17 +49,35 @@ export default function ObjetivoAtivo({
       </div>
 
       <header>
-        <h2 tabIndex={-1} style={{ margin: 0, ...TIPO.titulo, fontFamily: DISPLAY, color: T.textPrimary }}>
-          {tx("pergunta_objetivo", { qtd })}
-          {ticker ? <span style={{ color: T.textMuted }}>{" · " + ticker}</span> : null}
-        </h2>
-        <p style={{ margin: "4px 0 0", ...TIPO.corpo, color: T.textSecondary }}>{tx("pergunta_objetivo_sub")}</p>
+        {comPernas ? (
+          <>
+            <h2 tabIndex={-1} style={{ margin: 0, ...TIPO.titulo, fontFamily: DISPLAY, color: T.textPrimary }}>
+              {tx("anat_titulo_posicao", { ticker: ticker || "—" })}
+            </h2>
+            <p style={{ margin: "4px 0 0", ...TIPO.corpo, color: T.textSecondary }}>{tx("anat_sub_posicao")}</p>
+          </>
+        ) : (
+          <>
+            <h2 tabIndex={-1} style={{ margin: 0, ...TIPO.titulo, fontFamily: DISPLAY, color: T.textPrimary }}>
+              {tx("pergunta_objetivo", { qtd })}
+              {ticker ? <span style={{ color: T.textMuted }}>{" · " + ticker}</span> : null}
+            </h2>
+            <p style={{ margin: "4px 0 0", ...TIPO.corpo, color: T.textSecondary }}>{tx("pergunta_objetivo_sub")}</p>
+          </>
+        )}
       </header>
 
       {/* Fase 48 gap G-02 (2026-10-05): a saída das pernas vem antes de qualquer estado da escada. */}
       {pernasAbertas || null}
 
       {estruturaAberta || null}
+
+      {comPernas ? (
+        <header>
+          <h3 style={{ margin: 0, ...TIPO.titulo, fontFamily: DISPLAY, color: T.textPrimary }}>{tx("anat_objetivos_titulo")}</h3>
+          <p style={{ margin: "4px 0 0", ...TIPO.corpo, color: T.textSecondary }}>{tx("pergunta_objetivo_sub")}</p>
+        </header>
+      ) : null}
 
       {e.carregando ? (
         <div role="status" style={{ position: "relative", display: "flex", flexDirection: "column", gap: "16px" }}>
