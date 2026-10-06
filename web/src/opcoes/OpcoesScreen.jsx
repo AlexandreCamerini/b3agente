@@ -787,6 +787,14 @@ export default function OpcoesScreen({ ctx }) {
 
   // Matriz: ABERTA enquanto há resposta, consulta em curso ou erro que não seja
   // cota (cota esgotada volta ao botão desabilitado com o horário).
+  // Cota esgotada: o horário de reinício vem em `erro.detail.reinicia` (forma de
+  // `req()`/ADR-027, a mesma que o resto da aba lê); os componentes esperam
+  // `erro.reinicia`/`cap.reinicia`. Objeto simples (Error não se espalha: perderia `message`).
+  const erroDaMatriz = matriz.erro
+    ? { code: matriz.erro.code, message: matriz.erro.message, detail: matriz.erro.detail,
+        reinicia: matriz.erro.detail && matriz.erro.detail.reinicia }
+    : null;
+  const matrizView = erroDaMatriz ? { ...matriz, erro: erroDaMatriz } : matriz;
   const matrizAberta = !!(matriz.dados || matriz.carregando || (matriz.erro && matriz.erro.code !== "mcp_cota"));
   // ÚNICO disparo da consulta paga: handler de clique (custo declarado antes, em `comparar.rotulo`).
   const abrirMatriz = () => verMatriz({
@@ -889,7 +897,8 @@ export default function OpcoesScreen({ ctx }) {
           onVoltar={() => { setLeituraSel(null); setNav((n) => voltar(n)); }}
           comparar={{
             aberto: matrizAberta,
-            matriz,
+            matriz: matrizView,
+            cap: { reinicia: erroDaMatriz ? erroDaMatriz.reinicia : undefined },
             onAbrir: abrirMatriz,
           }}
           renderMatriz={() => (
@@ -897,7 +906,7 @@ export default function OpcoesScreen({ ctx }) {
               cp={cp}
               mode={mode}
               objetivo={nav.objetivo}
-              matriz={matriz}
+              matriz={matrizView}
               selecionado={celulaSelecionada}
               onSelecionar={aoSelecionarCelula}
               onTentarDeNovo={abrirMatriz}

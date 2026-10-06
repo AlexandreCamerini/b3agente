@@ -73,11 +73,15 @@ ok("escada: CTA habilitado com executavel === true", !/<button[^>]*disabled[^>]*
 const matriz = html(h(MatrizVencimentos, { cp, mode: "estudo", objetivo: "proteger", selecionado: null,
   matriz: { carregando: false, erro: null, dados: { fonte: "mcp", pregao: "2026-10-02", frescor: { medido: true },
     matriz: { proteger: [{ vencimento: "2026-11-21", celulas: [
-      { id: "d1", total: { perdaMaxima: -100, premioPago: 50 } }, { motivo: "sem liquidez" }, null ] }] } } } }));
+      // formato REAL de opcoes_escada.celulas_da_cadeia: id, pernas (tipo/lado/strike/premio/contrato), total, motivo
+      { indice: 0, nome: "d1", id: "c1", pernas: [{ tipo: "PUT", lado: "compra", strike: 30, premio: 0.5, contrato: "PETRX30" }],
+        total: { perdaMaxima: -100, premioPago: 50 }, motivo: null },
+      { indice: 1, nome: "d2", id: null, pernas: null, total: null, motivo: "sem liquidez" }, null ] }] } } } }));
+ok("matriz: célula real mostra os totais do backend formatados (R$ −100,00) e o travessão para ausente", matriz.includes("−100,00") && matriz.includes("—"));
 ok("matriz: célula com motivo mostra o motivo e é aria-disabled", matriz.includes("sem liquidez") && matriz.includes('aria-disabled="true"'));
 
 // ---- Confirmar: Estudo não executa; Operador mostra CTA e usa origem 'escada'
-const degConf = { ...degrau({ executavel: true, tipo: "put_protetora", contractSymbol: "PETRX30", expiration: "2026-11-21", contratos: 1, qtyAcoes: 100 }), nome: "Put protetora", vencimentoTexto: "21/11" };
+const degConf = { ...degrau({ executavel: true, tipo: "put_protecao", contractSymbol: "PETRX30", expiration: "2026-11-21", contratos: 1, qtyAcoes: 100 }), nome: "Put protetora", vencimentoTexto: "21/11" };
 const confEstudo = html(h(ConfirmarEstrutura, { cp, mode: "estudo", operador: false, ticker: "PETR4", degrau: degConf, onExecutar: async () => {} }));
 ok("confirmar: Estudo não tem botão de executar", !confEstudo.includes(COPY.estudo.opcoesEscada.cta_executar));
 const confOp = html(h(ConfirmarEstrutura, { cp: COPY.operador, mode: "operador", operador: true, ticker: "PETR4", degrau: degConf, onExecutar: async () => {} }));
@@ -96,7 +100,9 @@ ok("OpcoesScreen: a barra de 3 sub-abas não existe mais", !tela.includes(cp.opc
 const telaMontar = html(h(OpcoesScreen, { ctx: { ...ctx, opcoesAbaInicial: "montar" } }));
 ok("OpcoesScreen: goOpcoes('montar') abre Montar do zero (kicker de Montar)", telaMontar.includes(cp.opcoesMontarTitulo));
 const telaEncerrar = html(h(OpcoesScreen, { ctx: { ...ctx, opcoesAbrirTicker: "PETR4", data: { ...ctx.data, optionPositions: [{ id: "PETRX30", underlying: "PETR4", qty: 1 }] } } }));
-ok("OpcoesScreen: 'Encerrar estrutura…' abre o objetivo do ativo", telaEncerrar.includes("PETR4") && telaEncerrar.includes(COPY.estudo.opcoesEscada.voltar));
+ok("OpcoesScreen: 'Encerrar estrutura…' abre o objetivo do ativo COM o painel da estrutura aberta (PropostaDoAtivo: 'Montar com PETR4')",
+   telaEncerrar.includes(cp.opcoesMontarNoAtivo("PETR4")) && telaEncerrar.includes(COPY.estudo.opcoesEscada.voltar));
+ok("OpcoesScreen: o hub NÃO mostra o painel de PropostaDoAtivo", !tela.includes(cp.opcoesMontarNoAtivo("PETR4")));
 const telaForaCarteira = html(h(OpcoesScreen, { ctx: { ...ctx, opcoesAbrirTicker: "ZZZZ3" } }));
 ok("OpcoesScreen: abrirTicker fora da carteira cai no hub (T-48-36)", telaForaCarteira.includes("VALE3") && !telaForaCarteira.includes("ZZZZ3"));
 
