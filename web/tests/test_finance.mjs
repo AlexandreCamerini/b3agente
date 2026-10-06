@@ -134,13 +134,17 @@ ok("markPrice 0 sem avg", markPrice({}, {}) === 0);
   ok("call coberta: patr REDUZIDO pelo passivo", near(m.patr, 1000 - 100));
 }
 {
-  // posição de opção SEM `lastro` (modelo antigo) não altera nenhum número —
-  // D-6 não é retroativo.
+  // 2026-10-06 (quick 261006-bwv): REVERSÃO DELIBERADA do guardião D-6 da
+  // Fase 14 ("opção sem lastro fora do agregado"). Decisão do Alex: perna sem
+  // lastro conta no patrimônio pelo avg quando não há prêmio vivo — antes o
+  // caixa debitado sumia do patrimônio (caso VALEV731W2). Bloco mantido, não
+  // apagado: agora trava a expectativa nova.
   const optionPositions = [{ id: "LEGADO1", side: "comprada", qty: 100, avg: 2.0 }]; // sem `lastro`
   const m = portfolioMetrics([], {}, 1000, 0, optionPositions, {});
-  ok("opção sem lastro: opcoesVal = 0 (fora do agregado)", m.opcoesVal === 0);
+  ok("opção sem lastro: opcoesVal = 200 (contada pelo avg)", near(m.opcoesVal, 200));
   ok("opção sem lastro: opcoesPnL = 0", m.opcoesPnL === 0);
-  ok("opção sem lastro: patr não muda", near(m.patr, 1000));
+  ok("opção sem lastro: patr = 1200", near(m.patr, 1200));
+  ok("opção sem lastro: opcoesSemMarcacao = 1", m.opcoesSemMarcacao === 1);
 }
 {
   // sem optionQuotes: a perna é marcada pelo avg (piso estável) — openPnL

@@ -83,11 +83,9 @@ export function markPrice(quote, position) {
 // em App.jsx continuam passando só 4).
 //
 // Regras:
-//  • Só entram posições de opção com `lastro` presente — posição do modelo
-//    antigo (long-only, `buy_option`/`sell_option`, sem `lastro`) continua
-//    FORA do agregado; nenhuma migração/retroatividade foi decidida
-//    (14-CONTEXT.md, Claude's Discretion), então o filtro por `lastro` é o
-//    que mantém essa fase não-retroativa também no front.
+//  • [REVERTIDO em 2026-10-06, quick 261006-bwv — ver nota no fim deste
+//    bloco] Na Fase 14 só entravam posições com `lastro`; a posição do modelo
+//    antigo (`buy_option`, sem `lastro`) ficava FORA do agregado.
 //  • Marcação: prêmio ao vivo de `optionQuotes[contractSymbol]` quando for
 //    número > 0; senão `avg` — MESMO piso estável de `markPrice` (nunca 0,
 //    CLAUDE.md item 4).
@@ -110,6 +108,15 @@ export function markPrice(quote, position) {
 //    medido do mydata (ADR-020), que é justamente o que está travando a
 //    virada de produção; gastar requisição por posição na Carteira compraria
 //    um número mais fresco ao preço de agravar esse bloqueio.
+//
+// quick 261006-bwv (2026-10-06): perna sem lastro (`buy_option`) passa a
+// entrar no agregado — antes ficava fora e o caixa debitado sumia do
+// patrimônio (caso VALEV731W2: PUT 100 x R$ 0,92, R$ 92 a menos na tela).
+// Perna sem `side` é COMPRADA. Regra sem cotação viva = custo de entrada
+// (`avg`, o prêmio de fato pago — nunca 0, nunca inventado), sempre contada em
+// `opcoesSemMarcacao` para a UI sinalizar "prêmio de abertura — sem cotação ao
+// vivo". Gêmeo backend: `store.valor_opcoes`; paridade travada pela fixture
+// server/tests/fixtures/patrimonio_opcoes_paridade.json.
 export function portfolioMetrics(positions, quotes, cash, reservado, optionPositions, optionQuotes) {
   const ps = Array.isArray(positions) ? positions : [];
   const q = quotes || {};
@@ -130,24 +137,26 @@ export function portfolioMetrics(positions, quotes, cash, reservado, optionPosit
   const r = Number(reservado) || 0; // 4º parâmetro opcional (D-05); mesma defensiva do cash acima
   const ops = Array.isArray(optionPositions) ? optionPositions : [];
   const oq = optionQuotes || {};
-  let opcoesVal = 0, opcoesPnL = 0;
+  let opcoesVal = 0, opcoesPnL = 0, opcoesSemMarcacao = 0;
   for (const op of ops) {
-    if (!op || typeof op.lastro !== "object" || op.lastro === null) continue; // modelo antigo: fora do agregado (D-6)
+    if (!op || typeof op !== "object") continue;
     const qty = Number(op.qty) || 0;
     const avg = Number(op.avg) || 0;
     const vivo = oq[op.id];
-    const preco = (typeof vivo === "number" && vivo > 0) ? vivo : avg; // mesmo piso estável de markPrice
-    if (op.side === "comprada") {
-      opcoesVal += qty * preco;
-      opcoesPnL += (preco - avg) * qty;
-    } else if (op.side === "vendida") {
+    const temVivo = typeof vivo === "number" && Number.isFinite(vivo) && vivo > 0;
+    const preco = temVivo ? vivo : avg; // mesmo piso estável de markPrice
+    if (!temVivo) opcoesSemMarcacao += 1;
+    if (op.side === "vendida") {
       opcoesVal += -(qty * preco); // passivo de recompra — prêmio recebido já está em `cash`
       opcoesPnL += (avg - preco) * qty;
+    } else { // "comprada" ou ausente (perna de buy_option)
+      opcoesVal += qty * preco;
+      opcoesPnL += (preco - avg) * qty;
     }
   }
   const patr = c + r + posVal + opcoesVal;
   const openPct = cost > 0 ? (openPnL / cost) * 100 : 0;
-  return { posVal, cost, openPnL, openPct, dayVal, patr, cash: c, reservado: r, opcoesVal, opcoesPnL };
+  return { posVal, cost, openPnL, openPct, dayVal, patr, cash: c, reservado: r, opcoesVal, opcoesPnL, opcoesSemMarcacao };
 }
 
 // Maior posição da carteira em % do patrimônio (Plano 04-07, FIX-C05) — mesma
