@@ -320,7 +320,7 @@ export function equityCurve(snapshots, budget, livePatr, todayYmd) { // eslint-d
   }
   return {
     curve, series, days: series.length, retAcum, drawdown: dd, base, end, datas,
-    baseOrigem: r.origem, baseDesde: r.desde,
+    baseOrigem: r.origem, baseDesde: r.desde, baseInicio: r.inicio,
   };
 }
 

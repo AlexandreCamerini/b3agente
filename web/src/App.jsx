@@ -6,7 +6,7 @@ import { testServer, describeRuntimeConfig, getApiBase, PROD_BASE } from "./api.
 import { createChart, ColorType, CrosshairMode, LineStyle } from "lightweight-charts";
 import { sampleTechnicals } from "./demo.js";
 import { DISCLAIMERS, TERMO_OPERADOR_VERSAO, TERMO_DESCOBERTO_VERSAO } from "./disclaimers.js";
-import { copyFor, historicoTxt, entradaAutoTxt, reconciliacaoTxt, reconciliacaoPorQueImporta, estruturaCardTxt, cartaoPosicaoTxt, cartaoDidaticaTxt } from "./copy.js";
+import { copyFor, retornoAcumuladoTxt, historicoTxt, entradaAutoTxt, reconciliacaoTxt, reconciliacaoPorQueImporta, estruturaCardTxt, cartaoPosicaoTxt, cartaoDidaticaTxt } from "./copy.js";
 import { tickersComPernas, tickersSoComPernas, assinaturaEstrutura, estadoLeitura, mostraAvisoSemStop, mostraRR, valorRR, criarFilaLeituras, tipoPillTravada, chipVencimento, ddmmDeIso, tomDoEstado, dominioRegua, posRegua, sinalResultado, kickerResultadoSoAcoes, ancoraRotulo, estadoPrincipalV6, linhasResultadoV6, chipsMetaV6, rsSinalNbsp, fonteValorCabecalho, pctCapitalTexto, flipDuracaoMs, prefereMovimentoReduzido, faceInicial, pontoDoIndice, indiceNomeado, zonaVisual, rotulosSemColisao, colunasDaGrade, rsNbsp, nomeEmpresaCard, sigPosicaoLeitura, situacaoLeituraPlano } from "./estruturaCard.js";
 import { varsCartaoV6, ALFA_ZONA_V6, ALFA_ZONA_MEIO_V6 } from "./cartaoV6Cores.js"; // 2026-10-01: cores do design v6 ESCOPADAS ao card (CSS vars no wrapper); não toca T/PALETTE
 // Fase 41 (TELAS-01): registro único das 8 telas que o assistente conhece —
@@ -337,6 +337,22 @@ const price = (n) => (n == null || isNaN(n) ? "—" : nf2.format(n));
 const money = (n) => (n == null || isNaN(n) ? "—" : "R$ " + nf2.format(n));
 const moneySigned = (n) => (n == null || isNaN(n) ? "—" : (n >= 0 ? "+R$ " : "−R$ ") + nf2.format(Math.abs(n)));
 const pct = (n) => (n == null || isNaN(n) ? "—" : (n >= 0 ? "+" : "−") + Math.abs(n).toFixed(2).replace(".", ",") + "%");
+
+// Quick 261006-dvf (2026-10-06): frase de origem da base do retorno acumulado
+// (texto vem de copy.js ↔ skill_ref.RETORNO_ACUMULADO; aqui só escolhe o estado
+// e formata a data). `carimbada` simples não ganha linha (devolve null); janela
+// reiniciada por aporte/retirada vira `carimbada_reinicio` (a frase não pode
+// dizer "desde o capital inicial").
+function fraseRetornoAcumulado(ec, operador) {
+  let estado = ec.baseOrigem;
+  if (estado === "carimbada") {
+    if (!(ec.baseInicio > 0)) return null;
+    estado = "carimbada_reinicio";
+  }
+  const m = typeof ec.baseDesde === "string" && ec.baseDesde.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  const desde = m ? `${m[3]}/${m[2]}/${m[1]}` : "";
+  return retornoAcumuladoTxt(operador ? "operador" : "estudo", estado, { pct: pct(ec.retAcum), desde });
+}
 
 // Plano 04-07 (FIX-C05): acima deste percentual de concentração num único
 // ativo, a Carteira avisa (aviso educacional, não bloqueio — CONTEXT.md).
@@ -2054,7 +2070,10 @@ function CapitalCurve({ ctx }) {
   const budget = (data.config && data.config.initialBudget) || 0;
   const todayYmd = new Date().toISOString().slice(0, 10);
   const ec = equityCurve(data.equitySnapshots, budget, patr, todayYmd);
-  const retVsInicio = budget > 0 ? ((patr - budget) / budget) * 100 : ec.retAcum;
+  // 2026-10-06 (quick 261006-dvf): `budget` não é mais divisor (era a 2ª fonte do
+  // +10.193 %). O "vs. início" é o MESMO retorno acumulado, medido pela base da série.
+  const retVsInicio = ec.retAcum;
+  const fraseRet = fraseRetornoAcumulado(ec, ctx.operador);
   // Fase 21 (FIX-03): com menos de 3 snapshots a escala do eixo Y é
   // degenerada (min/max saem de 1-2 valores) e o desenho vira um segmento
   // reto, não uma curva — subir o limiar de 1 para 3 evita apresentar essa
@@ -2062,10 +2081,10 @@ function CapitalCurve({ ctx }) {
   // (1-2 dias): já há dado, mas ainda não forma de verdade pra plotar.
   const hasSeries = ec.days >= 3;           // mostra a curva a partir do 3º dia
   const poucosDias = ec.days >= 1 && ec.days < 3;
-  const retAcum = ec.retAcum;               // base = orçamento inicial → bate com "vs início"
+  const retAcum = ec.retAcum;               // base = a da série (resolverBaseSerie) → bate com "vs início"; null se indeterminada
   const dd = ec.drawdown;                   // drawdown sobre a MESMA curva exibida
   const series = ec.curve;                  // curva exibida (orçamento → ... → ao vivo)
-  const up = retAcum >= 0;
+  const up = retAcum == null ? (series.length > 1 ? series[series.length - 1] >= series[0] : true) : retAcum >= 0;
 
   // Plano 04-06 (FIX-C03): comparação com o Ibovespa. Busca 1x por montagem
   // (o servidor já cacheia 15min — server/app/benchmark.py); a falha NUNCA
@@ -2147,7 +2166,7 @@ function CapitalCurve({ ctx }) {
       )}
       <div style={{ display: "flex", alignItems: "baseline", gap: "12px", marginTop: "4px", flexWrap: "wrap" }}>
         <div style={{ fontFamily: MONO, fontSize: "27px", fontWeight: 700 }}>{money(patr)}</div>
-        <div style={{ fontFamily: MONO, fontSize: "14px", fontWeight: 700, color: retVsInicio >= 0 ? T.positive : T.negative }}>{pct(retVsInicio)} vs. início</div>
+        <div style={{ fontFamily: MONO, fontSize: "14px", fontWeight: 700, color: retVsInicio == null ? T.textMuted : retVsInicio >= 0 ? T.positive : T.negative }}>{pct(retVsInicio)} {ec.baseOrigem === "primeiro_registro" && ec.baseDesde ? "desde " + ec.baseDesde.slice(8, 10) + "/" + ec.baseDesde.slice(5, 7) + "/" + ec.baseDesde.slice(0, 4) : "vs. início"}</div>
       </div>
       <div style={{ marginTop: "12px", position: "relative", height: "92px", borderRadius: "10px", overflow: "hidden", background: T.bgBase, border: `1px solid ${T.borderFaint}` }}>
         <svg viewBox="0 0 300 92" preserveAspectRatio="none" style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }}>
@@ -2172,7 +2191,7 @@ function CapitalCurve({ ctx }) {
       {hasSeries ? (
         <>
           <div style={{ display: "flex", gap: "10px", marginTop: "12px" }}>
-            {stat("RETORNO ACUMULADO", pct(retAcum), retAcum >= 0 ? T.positive : T.negative)}
+            {stat("RETORNO ACUMULADO", pct(retAcum), retAcum == null ? T.textMuted : retAcum >= 0 ? T.positive : T.negative)}
             {stat("DRAWDOWN (DESDE O PICO)", "-" + dd.toFixed(1) + "%", T.negative)}
             {stat("DIAS REGISTRADOS", String(ec.days))}
             {diffIbov != null && stat("VS. IBOVESPA", pct(diffIbov), diffIbov >= 0 ? T.positive : T.negative)}
@@ -2208,6 +2227,9 @@ function CapitalCurve({ ctx }) {
         <div style={{ fontSize: "11.5px", color: T.textFaint, marginTop: "10px", lineHeight: 1.5 }}>
           Sua curva começa amanhã. Volte para vê-la crescer — cada dia que você abrir o app vira um ponto aqui.
         </div>
+      )}
+      {fraseRet && (
+        <div style={{ fontSize: "11px", color: T.textFaint, marginTop: "8px", lineHeight: 1.4 }}>{fraseRet}</div>
       )}
     </div>
   );
@@ -2267,7 +2289,10 @@ function EvolucaoScreen({ ctx }) {
   }, [novato, alertas.length]);
   const it = destaque.item;
   const dColor = (m.dayVal || 0) >= 0 ? T.positive : T.negative;
-  const aColor = (ec.retAcum || 0) >= 0 ? T.positive : T.negative;
+  // 2026-10-06 (quick 261006-dvf): null (base indeterminada) é neutro — antes
+  // o fallback para zero pintava o "—" como positivo.
+  const aColor = ec.retAcum == null ? T.textMuted : ec.retAcum >= 0 ? T.positive : T.negative;
+  const fraseAcum = fraseRetornoAcumulado(ec, operador);
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
       <div>
@@ -2339,7 +2364,7 @@ function EvolucaoScreen({ ctx }) {
           <div style={{ fontSize: "11px", fontWeight: 700, color: T.textSecondary, letterSpacing: "0.05em" }}>RESUMO DO DIA</div>
           <div style={{ display: "flex", gap: "18px", flexWrap: "wrap", marginTop: "10px" }}>
             <div><div style={kicker}>CARTEIRA NO DIA</div><div style={{ fontFamily: MONO, fontWeight: 700, fontSize: "17px", color: dColor }}>{moneySigned(m.dayVal)} <span style={{ fontSize: "12px" }}>({pct(diaPct)})</span></div></div>
-            <div><div style={kicker}>ACUMULADO</div><div style={{ fontFamily: MONO, fontWeight: 700, fontSize: "17px", color: aColor }}>{pct(ec.retAcum)}</div></div>
+            <div><div style={kicker}>ACUMULADO</div><div title={fraseAcum || undefined} aria-label={fraseAcum || undefined} style={{ fontFamily: MONO, fontWeight: 700, fontSize: "17px", color: aColor }}>{pct(ec.retAcum)}</div></div>
             <div><div style={kicker}>OPERAÇÕES HOJE</div><div style={{ fontFamily: MONO, fontWeight: 700, fontSize: "17px", color: T.textPrimary }}>{opsHoje.length}</div></div>
           </div>
           {opsHoje.length > 0 && (
@@ -10375,7 +10400,9 @@ export default function App() {
           patrimonio: m.patr,
           resultadoDia: m.dayVal,
           resultadoDiaPct: diaPct,
-          retornoAcumuladoPct: ec.retAcum,
+          retornoAcumuladoPct: ec.retAcum,  // null quando a base é indeterminada — nunca 0
+          retornoAcumuladoOrigem: ec.baseOrigem,
+          retornoAcumuladoDesde: ec.baseDesde,
           drawdownPct: ec.drawdown,
         };
       }

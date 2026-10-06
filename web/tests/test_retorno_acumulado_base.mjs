@@ -58,7 +58,14 @@ if (m) {
 }
 ok("deviceStore.putSnapshot passa ctx {semOperacao, caixa}", /upsertSnapshot\(doc\.equitySnapshots \|\| \[\], snap, \{ semOperacao, caixa: doc\.cash \}\)/.test(pers));
 ok("resetPortfolio zera equitySnapshots nos dois ramos", (pers.match(/doc\.equitySnapshots = \[\];/g) || []).length >= 2);
-// Guardiões estáticos de App.jsx entram na Task 4.
+
+// ---- guardiões estáticos de App.jsx (2026-10-06, quick 261006-dvf) ----
+const app = readFileSync(join(here, "..", "src", "App.jsx"), "utf8");
+ok("App.jsx: não existe mais ((patr - budget) / budget)", !/\(\(patr - budget\) \/ budget\)/.test(app));
+ok("App.jsx: usa retornoAcumuladoTxt(", /retornoAcumuladoTxt\(/.test(app));
+ok("App.jsx: contexto evolucao leva retornoAcumuladoOrigem", /retornoAcumuladoOrigem:\s*ec\.baseOrigem/.test(app));
+ok("App.jsx: existe `ec.retAcum == null ?` (cor neutra para base indeterminada)", /ec\.retAcum == null \?/.test(app));
+ok("App.jsx: não existe (ec.retAcum || 0)", !/\(ec\.retAcum \|\| 0\)/.test(app));
 
 if (fails) { console.error(`\n${fails} falha(s)`); process.exit(1); }
 console.log("\nTODOS PASSARAM");
