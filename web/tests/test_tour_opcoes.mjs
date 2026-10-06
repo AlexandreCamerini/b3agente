@@ -104,6 +104,19 @@ for (const modo of ["estudo", "operador"]) {
        /fim de pregão/i.test(secaoOpc[1].join(" ")),
        "princípio 3 do CLAUDE.md: dizer se o dado é tempo real, atrasado ou histórico");
   }
+  // REANCORAGEM — Fase 48 (2026-10-05): o universo da aba é a CARTEIRA (Fase 27, D3);
+  // Ajuda e tour citavam Watchlist / "um ativo da sua lista". Travado aqui.
+  const passoOpc = passos.find((p) => new RegExp(rotuloOpc).test(p[0]));
+  ok(`[${modo}] Fase 48 (2026-10-05): o passo do tour de ${rotuloOpc} não cita Watchlist/Monitoramento/lista`,
+     !!passoOpc && !/Watchlist|Monitoramento|da sua lista/i.test(texto(passoOpc)));
+  ok(`[${modo}] Fase 48 (2026-10-05): o passo do tour de ${rotuloOpc} fala da Carteira e mantém fim de pregão`,
+     !!passoOpc && /Carteira/.test(texto(passoOpc)) && /fim de pregão/i.test(texto(passoOpc)));
+  if (secaoOpc) {
+    ok(`[${modo}] Fase 48 (2026-10-05): a seção de ${rotuloOpc} na Ajuda não cita Watchlist/Monitoramento/lista`,
+       !/Watchlist|Monitoramento|da sua lista/i.test(texto(secaoOpc[1])));
+    ok(`[${modo}] Fase 48 (2026-10-05): a seção de ${rotuloOpc} fala da Carteira e do travessão (nunca zero)`,
+       /Carteira/.test(texto(secaoOpc[1])) && /travessão, nunca como zero/.test(texto(secaoOpc[1])));
+  }
   // A Ajuda já cobria a tela inicial desde sempre — o que faltava era no tour.
   ok(`[${modo}] ajudaSecoes continua com a seção da tela inicial (Acompanhar)`,
      secoes.some(([titulo]) => /Acompanhar/.test(titulo)));
@@ -114,6 +127,9 @@ ok("docs/AJUDA.md tem a seção da aba Opções (o arquivo declara espelhar ajud
    /^## Opções$/m.test(ajudaMd));
 ok("a seção de docs/AJUDA.md também diz que nenhuma ordem sai da aba",
    /## Opções[\s\S]*?Nenhuma ordem sai desta aba/.test(ajudaMd));
+
+ok("docs/AJUDA.md: Fase 48 (2026-10-05) a seção Opções não cita Watchlist e fala da Carteira",
+   (() => { const m = /## Opções([\s\S]*?)\n## /.exec(ajudaMd); return !!m && !/Watchlist/.test(m[1]) && /Carteira/.test(m[1]); })());
 
 if (fails) { console.error(`\n${fails} falha(s)`); process.exit(1); }
 console.log("\ntodos os testes passaram");

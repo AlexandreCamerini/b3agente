@@ -3,7 +3,8 @@
     "sha": "6dbf479b71e27dee040a3709adf3f7f6e55f3a0a",
     "data": "2026-09-25",
     "nota": "NÃO regenerar após a 41-02 (D-04) — este JSON é a verdade congelada do comportamento PRÉ-refactor.",
-    "appPath": "/Users/acamerini/dev/borisv2/web/src/App.jsx"
+    "appPath": "/Users/acamerini/dev/borisv2/web/src/App.jsx",
+    "reancoragem_fase48": "2026-10-05 (Fase 48, plano 48-11): SÓ o passo 4 do tour e a seção Opções da Ajuda foram atualizados (Carteira no lugar de Watchlist, achado do ROADMAP); todo o resto segue congelado."
   },
   "barra": {
     "estudo": [
@@ -119,7 +120,7 @@
       ],
       [
         "4 · Estude estruturas em Opções",
-        "A aba Opções lê o comportamento de um ativo da sua lista e mostra as estruturas de opções que cabem nele — leitura de fim de pregão, sem ordem nenhuma."
+        "A aba Opções estuda as ações da sua Carteira: escolha um ativo, diga o que quer fazer (proteger de queda, gerar renda), compare a escada de estruturas e veja o gráfico do resultado no vencimento — leitura de fim de pregão, sem ordem nenhuma."
       ]
     ],
     "operador": [
@@ -145,7 +146,7 @@
       ],
       [
         "4 · Estude estruturas em Opções",
-        "A aba Opções lê o comportamento de um ativo da sua lista e mostra as estruturas de opções que cabem nele — leitura de fim de pregão, sem ordem nenhuma."
+        "A aba Opções trabalha as ações da sua Carteira: escolha o ativo, defina o objetivo, compare a escada e o gráfico do resultado no vencimento — leitura de fim de pregão, sem ordem nenhuma."
       ]
     ]
   },
@@ -198,9 +199,9 @@
       [
         "Opções",
         [
-          "Estuda **opções** sobre um ativo por vez, escolhido na sua Watchlist: como o ativo vem se comportando, quais estruturas do catálogo fazem sentido, os vencimentos disponíveis e os setups já armados.",
+          "Estuda **opções** sobre as ações que você tem na Carteira: você escolhe um ativo, diz o objetivo (proteger de queda, gerar renda ou proteger com custo baixo), compara a escada de estruturas por vencimento e vê, no gráfico, o resultado no vencimento com o pior caso e o melhor caso antes de decidir.",
           "O dado vem de um serviço externo de opções e é uma **leitura de fim de pregão** — não é o preço de agora. O app não recalcula nada aqui: campo que o serviço não mandou aparece como travessão, nunca como zero.",
-          "Abrir a cadeia de um vencimento custa consultas ao serviço, e a tela diz **antes** quantas vão ser. Nenhuma ordem sai desta aba: é estudo da estrutura, do risco e do retorno possível."
+          "Abrir um ativo e ver a escada não gasta consultas. \"Comparar vencimentos\" diz **antes** quantas consultas vai custar. Nenhuma ordem sai desta aba: é estudo da estrutura, do risco e do retorno possível."
         ]
       ],
       [
@@ -281,9 +282,9 @@
       [
         "Opções",
         [
-          "Estuda **opções** sobre um ativo por vez, escolhido na sua Watchlist: como o ativo vem se comportando, quais estruturas do catálogo fazem sentido, os vencimentos disponíveis e os setups já armados.",
+          "Estuda **opções** sobre as ações que você tem na Carteira: você escolhe um ativo, diz o objetivo (proteger de queda, gerar renda ou proteger com custo baixo), compara a escada de estruturas por vencimento e vê, no gráfico, o resultado no vencimento com o pior caso e o melhor caso antes de decidir.",
           "O dado vem de um serviço externo de opções e é uma **leitura de fim de pregão** — não é o preço de agora. O app não recalcula nada aqui: campo que o serviço não mandou aparece como travessão, nunca como zero.",
-          "Abrir a cadeia de um vencimento custa consultas ao serviço, e a tela diz **antes** quantas vão ser. Nenhuma ordem sai desta aba: é estudo da estrutura, do risco e do retorno possível."
+          "Abrir um ativo e ver a escada não gasta consultas. \"Comparar vencimentos\" diz **antes** quantas consultas vai custar. Nenhuma ordem sai desta aba: é estudo da estrutura, do risco e do retorno possível."
         ]
       ],
       [
@@ -364,9 +365,9 @@
       [
         "Opções",
         [
-          "Estuda **opções** sobre um ativo por vez, escolhido na sua Monitoramento: como o ativo vem se comportando, quais estruturas do catálogo fazem sentido, os vencimentos disponíveis e os setups já armados.",
+          "Estuda **opções** sobre as ações que você tem na Carteira: ativo, objetivo, escada de estruturas por vencimento e gráfico do resultado no vencimento, com pior caso e melhor caso à vista.",
           "O dado vem de um serviço externo de opções e é uma **leitura de fim de pregão** — não é o preço de agora. O app não recalcula nada aqui: campo que o serviço não mandou aparece como travessão, nunca como zero.",
-          "Abrir a cadeia de um vencimento custa consultas ao serviço, e a tela diz **antes** quantas vão ser. Nenhuma ordem sai desta aba: é estudo da estrutura, do risco e do retorno possível."
+          "Abrir um ativo e ver a escada não gasta consultas. \"Comparar vencimentos\" diz **antes** quantas consultas vai custar. Nenhuma ordem sai desta aba: é estudo da estrutura, do risco e do retorno possível."
         ]
       ],
       [
@@ -447,9 +448,9 @@
       [
         "Opções",
         [
-          "Estuda **opções** sobre um ativo por vez, escolhido na sua Monitoramento: como o ativo vem se comportando, quais estruturas do catálogo fazem sentido, os vencimentos disponíveis e os setups já armados.",
+          "Estuda **opções** sobre as ações que você tem na Carteira: ativo, objetivo, escada de estruturas por vencimento e gráfico do resultado no vencimento, com pior caso e melhor caso à vista.",
           "O dado vem de um serviço externo de opções e é uma **leitura de fim de pregão** — não é o preço de agora. O app não recalcula nada aqui: campo que o serviço não mandou aparece como travessão, nunca como zero.",
-          "Abrir a cadeia de um vencimento custa consultas ao serviço, e a tela diz **antes** quantas vão ser. Nenhuma ordem sai desta aba: é estudo da estrutura, do risco e do retorno possível."
+          "Abrir um ativo e ver a escada não gasta consultas. \"Comparar vencimentos\" diz **antes** quantas consultas vai custar. Nenhuma ordem sai desta aba: é estudo da estrutura, do risco e do retorno possível."
         ]
       ],
       [

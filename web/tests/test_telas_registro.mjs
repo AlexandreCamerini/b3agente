@@ -120,6 +120,13 @@ ok(
   deepEqual(telasDoTour(), ["radar", "mercado", "carteira", "opcoes"]),
   "achou: " + JSON.stringify(telasDoTour())
 );
+// Fase 48 (2026-10-05): a reescrita do passo "opcoes" (Carteira no lugar de Watchlist)
+// não mexe em id/ordem — âncora preservada, sem reancoragem necessária.
+ok(
+  'Fase 48 (2026-10-05): "opcoes" segue presente no tour, por último na ordem do funil',
+  telasDoTour().indexOf("opcoes") === telasDoTour().length - 1,
+);
+
 ok("o baseline confirma 6 passos de tour (4 do funil + 2 de introdução fora do registro, D-02)", baseline.tour.estudo.length === 6);
 
 // --- ajuda: ids com seção (historico/perfil não têm — achado registrado, não corrigido)
