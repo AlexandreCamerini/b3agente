@@ -62,12 +62,15 @@ def test_quota_dia_default_e_via_env(monkeypatch):
 # Janela do MINUTO
 # ---------------------------------------------------------------------------
 def test_janela_do_minuto_bloqueia_no_teto_e_libera_no_minuto_seguinte():
-    teto = int(b.quota_min() * b.MARGEM)
-    for _ in range(teto):
-        assert b.pode_gastar(now=MIN_10H00) is True
-        b.debita(now=MIN_10H00)
-    assert b.pode_gastar(now=MIN_10H00) is False
-    assert b.pode_gastar(now=MIN_10H01) is True   # minuto seguinte: reabre
+    # 2026-10-06 (quick 261006-oav): o teto útil TOTAL (54) agora é o da classe
+    # usuario; o fundo para em teto−reserva — ver test_mydata_budget_prioridade.py.
+    with b.contexto(prioridade="usuario"):
+        teto = int(b.quota_min() * b.MARGEM)
+        for _ in range(teto):
+            assert b.pode_gastar(now=MIN_10H00) is True
+            b.debita(now=MIN_10H00)
+        assert b.pode_gastar(now=MIN_10H00) is False
+        assert b.pode_gastar(now=MIN_10H01) is True   # minuto seguinte: reabre
 
 
 # ---------------------------------------------------------------------------
@@ -181,7 +184,9 @@ def test_reservar_sob_corrida_nunca_ultrapassa_a_cota_e_nunca_debita_em_false():
 
         def _reservar():
             barreira.wait(timeout=5)
-            return b.reservar(1, now=MIN_10H00)
+            # 2026-10-06 (quick 261006-oav): a corrida mede o teto TOTAL (classe
+            # usuario); ContextVar não cruza ThreadPoolExecutor, então explícito.
+            return b.reservar(1, now=MIN_10H00, prioridade="usuario")
 
         with concurrent.futures.ThreadPoolExecutor(max_workers=2) as ex:
             f1 = ex.submit(_reservar)
