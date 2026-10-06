@@ -28,11 +28,28 @@
  * `escolherTicker`, a ordem grátis-antes-do-pago) continua anotado nos
  * blocos que restaram, não apagado.
  */
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 // Fase 40 (ESTADO-01): módulo puro (sem React, sem I/O) com a precedência
 // deep-link > memória > default (D-03) e a validação do ticker lembrado
 // contra a carteira atual (P-2) — mesmo isolamento de `finance.js` abaixo.
-import { abaInicialOpcoes, tickerInicialOpcoes, memoriaOpcoes, abrirTickerOpcoes } from "./memoriaOpcoes.js";
+import { memoriaOpcoes } from "./memoriaOpcoes.js";
+// Fase 48 (2026-10-05), caminho B: estado único de navegação em profundidade
+// (puro), hook de dados da escada/matriz e as telas novas (48-08/48-09).
+// `abaInicialOpcoes`/`tickerInicialOpcoes`/`abrirTickerOpcoes` agora são
+// consumidos por `estadoInicialOpcoes` (navOpcoes.js), não mais aqui.
+import {
+  estadoInicialOpcoes, abrirAtivo, escolherObjetivo, escolherVencimento, escolherDegrau,
+  irConfirmar, irMontar, voltar, trocarUnidade, selecaoDaCelula,
+} from "./navOpcoes.js";
+import { useEscada } from "./useEscada.js";
+import useTecnicoCarteira from "./useTecnicoCarteira.js";
+import HubOpcoes from "./HubOpcoes.jsx";
+import ObjetivoAtivo from "./ObjetivoAtivo.jsx";
+import EscadaObjetivo from "./EscadaObjetivo.jsx";
+import ConfirmarEstrutura from "./ConfirmarEstrutura.jsx";
+import MatrizVencimentos from "./MatrizVencimentos.jsx";
+import { reduzido, transicaoTela } from "./fluxoEstilo.js";
+import { opcoesEscadaTxt } from "../copy.js";
 // Fase 27 (27-02): `finance.js` é módulo PURO — zero import de `App.jsx` —,
 // então o isolamento do ADR-027 continua intacto (o guardião proíbe importar
 // `App.jsx`, não `finance.js`). `qtyLivre` é a FONTE ÚNICA da subtração
@@ -90,8 +107,8 @@ import SecaoAnalisar from "./SecaoAnalisar.jsx";
 // carimbo de frescor. A frase-ponte `duasLeiturasIntro` sai de uso nesta
 // tela — a negação de hierarquia entre os dois motores passa a morar em
 // `curadoriaSubtitulo` (Plano 39-02), dentro da própria aba Recomendadas.
-import AbaOportunidades from "./AbaOportunidades.jsx";
-import AbaRecomendadas from "./AbaRecomendadas.jsx";
+// Fase 48 (2026-10-05): AbaOportunidades/AbaRecomendadas deixam de ser montadas aqui
+// (UI-SPEC "nada se perde": Oportunidades = cards do hub; Destacadas = escada).
 // Fase 33 (33-03): `SecaoSetups` é o job 5 ("gerenciar/criar setups
 // salvos") — a listagem "SETUPS GRAVADOS" + a porta "CRIAR UM SETUP", que só
 // envolve o `CriarSetup.jsx` já existente (D-01, não renomeado). `CriarSetup`/
@@ -112,7 +129,7 @@ import SecaoComparar from "./SecaoComparar.jsx";
 // abrindo um bottom sheet local com `SecaoVigias` dentro. `WorkspaceHeader`
 // (Fase 34-01, header fixo do modo workspace) DEIXA de ser importado: sem
 // hub/workspace, não há mais "voltar ao hub" — só trocar de aba.
-import { VigiasBadge, VigiasSheet } from "./VigiasSheet.jsx";
+import { VigiasSheet } from "./VigiasSheet.jsx";
 // Fase 38 (38-05): módulo terceiro, nenhum import de App.jsx — isolamento
 // ADR-027 intacto. `ConceitoSheet` é a MESMA folha global que App.jsx monta,
 // mas instanciada aqui com estado LOCAL (D-08, KB-02) — o dado atravessa o
@@ -320,18 +337,21 @@ export default function OpcoesScreen({ ctx }) {
   // carteira (P-2, cenário E: vendeu tudo → cai pro vazio de sempre).
   // Restaurar dispara de novo só o `opcoesTecnico` grátis acima, nunca
   // `mcpLeitura` — nenhum clique novo, nenhum custo novo.
-  const [ticker, setTicker] = useState(() => tickerInicialOpcoes(ctx && ctx.opcoesMemoria, carteira));
-  // Fase 39 (39-04, D-01): estado único de navegação — substitui `subaba`
-  // (Fase 28-02) e `abaWorkspace` (Fase 34-03). Nasce na aba pedida por um
-  // deep-link one-shot (`ctx.opcoesAbaInicial`, Plano 39-02), validado contra
-  // a allowlist (T-39-14: valor fora dela nunca é aceito, sempre cai para
-  // "oportunidades"); sem pedido, nasce em "oportunidades" — é a lista de
-  // graça que a aba já abria antes desta fase.
-  // Fase 40 (ESTADO-01, D-03): precedência resolvida no PRÓPRIO inicializador
-  // lazy (nunca por useEffect depois do primeiro paint, D-05/"sem salto") —
-  // deep-link SEMPRE vence a memória lembrada; sem deep-link, usa a aba
-  // lembrada da sessão; sem os dois, "oportunidades".
-  const [abaOpcoes, setAbaOpcoes] = useState(() => abaInicialOpcoes(ABAS_OPCOES, ctx && ctx.opcoesAbaInicial, ctx && ctx.opcoesMemoria));
+  // Fase 48 (2026-10-05), caminho B: `ticker` (acima) e `abaOpcoes`/
+  // `oportunidadeAberta` (abaixo) foram absorvidos por UM estado `nav`
+  // (navOpcoes.js: nivel/ticker/objetivo/vencimento/degrauId/unidade). A
+  // precedência deep-link > memória > default continua sendo resolvida no
+  // inicializador lazy (sem salto), agora por `estadoInicialOpcoes`;
+  // `ABAS_OPCOES` segue como allowlist (T-39-14/T-48-36): valor fora dela
+  // cai no hub, `abrirTicker` só vale se o ticker está na carteira.
+  const [nav, setNav] = useState(() => estadoInicialOpcoes({
+    abas: ABAS_OPCOES,
+    abaInicial: ctx && ctx.opcoesAbaInicial,
+    abrirTicker: ctx && ctx.opcoesAbrirTicker,
+    memoria: ctx && ctx.opcoesMemoria,
+    carteira,
+  }));
+  const ticker = nav.ticker;
   // One-shot: o pedido do App.jsx só vale para o mount desta tela — limpa
   // logo em seguida para que reabrir a aba (sem novo pedido) não force
   // sempre a mesma aba (Plano 39-02, canal `ctx.goOpcoes(aba)`).
@@ -351,8 +371,8 @@ export default function OpcoesScreen({ ctx }) {
   // conta anterior — exatamente o vazamento que o cenário C do UI-SPEC
   // proíbe.
   useEffect(() => {
-    if (ctx && ctx.lembrarOpcoes) ctx.lembrarOpcoes(memoriaOpcoes(ticker, abaOpcoes));
-  }, [ticker, abaOpcoes]);
+    if (ctx && ctx.lembrarOpcoes) ctx.lembrarOpcoes(memoriaOpcoes(nav.ticker, nav.nivel === "montar" ? "montar" : "oportunidades"));
+  }, [nav.ticker, nav.nivel]);
   // Fase 39 (39-04, D-05): qual ticker do carrossel de Oportunidades está com
   // o painel de proposta aberto — local, independente do `ticker` de Montar
   // (a Leitura B' do <objective> de 39-04-PLAN.md: o painel reusa
@@ -360,7 +380,8 @@ export default function OpcoesScreen({ ctx }) {
   // aba nem de ticker "oficial").
   // Fase 45 (D-05): inicializador lazy (sem useEffect pós-paint) — abre o painel
   // do ticker pedido por "Encerrar estrutura…" só se ele estiver na carteira.
-  const [oportunidadeAberta, setOportunidadeAberta] = useState(() => abrirTickerOpcoes(ctx && ctx.opcoesAbrirTicker, carteira));
+  // Fase 48 (2026-10-05): `oportunidadeAberta` deixou de existir — o painel da
+  // estrutura aberta (PropostaDoAtivo) agora vive no nível "objetivo" do `nav`.
   // Fase 39 (39-02/39-04, D-07): sheet de Vigias — substitui o bloco fixo do
   // hub. `vigiasAberto`/`verbeteAberto` nunca ficam abertos ao mesmo tempo
   // (os dois são zIndex 86 — nunca empilhar).
@@ -413,11 +434,18 @@ export default function OpcoesScreen({ ctx }) {
   // desmonta ao trocar de ticker, então o reset é um `useEffect([ticker])`
   // DENTRO dele. Fase 39 (39-04): trocar de ativo também fecha o painel de
   // "Ver outros vencimentos" — ele é do ativo anterior.
+  // Fase 48: o reset de tese/vencimento/alvo/stop/comparar passou para o
+  // `useEffect([nav.ticker])` abaixo — cobre também a troca de ativo feita
+  // pelo hub, não só pelo seletor do Montar.
   const escolherTicker = (t) => {
-    setTicker(t === ticker ? "" : t);
+    setNav((n) => (t === n.ticker
+      ? { ...n, ticker: "" }
+      : { ...n, ticker: t, objetivo: null, vencimento: null, degrauId: null }));
+  };
+  useEffect(() => {
     setTese(""); setVencimento(""); setAlvo(""); setStop("");
     setCompararAberto(false);
-  };
+  }, [nav.ticker]);
 
   // Fase 39 (39-04): destino ÚNICO de "levar a Montar com este ticker" — do
   // card de Oportunidades (`onMontar` de `PropostaDoAtivo`), do "ver posição"
@@ -425,17 +453,16 @@ export default function OpcoesScreen({ ctx }) {
   // abaixo). MESMA guarda de sempre: `escolherTicker` é TOGGLE, e chamá-lo
   // cru com o ticker já aberto DESSELECIONARIA o ativo — o oposto de "me
   // leve até ele".
-  const irParaMontar = (t) => { if (t && t !== ticker) escolherTicker(t); setAbaOpcoes("montar"); };
+  // Fase 48: leva ao nível "montar" (Montar do zero) com o ativo já escolhido.
+  const irParaMontar = (t) => setNav((n) => irMontar(t && t !== n.ticker ? abrirAtivo(n, t) : n));
   // Fase 27: o cartão do vigia NAVEGA — nome mantido (`irParaVigia`) porque o
   // guardião de vigias trava a prop `onIr` de SecaoVigias apontando pra esta
   // função. Fase 39 (39-04, D-07): fecha o sheet antes de ir, para não
   // deixar o overlay aberto por cima do
   // destino.
   const irParaVigia = (t) => { setVigiasAberto(false); irParaMontar(t); };
-  // Fase 39 (39-04, D-05): alterna o painel inline do card tocado no
-  // carrossel de Oportunidades — tocar de novo fecha (mesmo padrão de
-  // `abertoId` em CuradoriaEstruturas.jsx).
-  const alternarOportunidade = (t) => setOportunidadeAberta((a) => (a === t ? null : t));
+  // Fase 39 (39-04, D-05): `alternarOportunidade` (painel inline do carrossel)
+  // saiu de uso na Fase 48 (2026-10-05) junto com a aba Oportunidades.
 
   // Fase 32 (32-03), Decisão A: fan-out gate+proposta por ticker sobre o
   // universo desta aba (a carteira) — mesma fonte que alimentava a tira em
@@ -660,35 +687,6 @@ export default function OpcoesScreen({ ctx }) {
     </Aviso>
   );
 
-  // Fase 39 (39-04, D-01): abaBar substitui `subabas` (Fase 28-02, Setups ×
-  // Operar) e `workspacePillRow` (Fase 34-03, Analisar/Comparar/Setups
-  // salvos) — cópia VERBATIM da régua visual que os dois já usavam (mesmos
-  // tokens, mesma métrica de 44px de alvo de toque, `aria-pressed`, sem
-  // `role="tab"`). `flexWrap: "wrap"` é NOVO aqui (Open Question 5 do
-  // 39-UI-SPEC.md): os 3 rótulos fixos somam ~333px contra ~339px úteis em
-  // 375px sem margem — wrap é a correção mínima para não vazar, e não muda
-  // nada quando os rótulos cabem. Fora de qualquer condicional de `ticker`
-  // (D-01: a barra é sempre a mesma, com ou sem ativo escolhido).
-  const abaBar = (
-    <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", margin: "10px 0 4px" }}>
-      {[
-        { id: "oportunidades", rotulo: cp.opcoesAbaOportunidades || "Oportunidades" },
-        { id: "recomendadas", rotulo: cp.opcoesAbaRecomendadas || "Destacadas" },
-        { id: "montar", rotulo: cp.opcoesAbaMontar || "Montar" },
-      ].map((a) => (
-        <button
-          key={a.id}
-          type="button"
-          onClick={() => setAbaOpcoes(a.id)}
-          aria-pressed={abaOpcoes === a.id}
-          style={{ minHeight: "44px", padding: "8px 14px", borderRadius: "11px", border: `1px solid ${abaOpcoes === a.id ? T.accent : T.borderSubtle}`, background: abaOpcoes === a.id ? T.accentTint10 : T.bgPanel, color: abaOpcoes === a.id ? T.accent : T.textSecondary, fontWeight: 700, fontSize: "13px" }}
-        >
-          {a.rotulo}
-        </button>
-      ))}
-    </div>
-  );
-
   // ------------------------------------------- Fase 27: SEUS VIGIAS (27-02) --
   // Duas fontes, dois custos, e a diferença é deliberada:
   //  · `vigias` — o ÍNDICE local da conta. Custo ZERO, sai no mount. Traz o
@@ -714,99 +712,245 @@ export default function OpcoesScreen({ ctx }) {
   // ticker sem posição, e esse é um estado real a exibir, não um erro.
   const posicaoSelecionada = ticker ? carteira.find((p) => p.t === ticker) : null;
 
-  return (
-    <section>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "10px" }}>
-        <h1 style={{ fontSize: "22px", fontWeight: 800, margin: "0 0 4px" }}>{cp.tituloOpcoes || "Opções"}</h1>
-        {/* Fase 39 (39-02/39-04, D-07, SC#2): badge com contador — visível
-            nas 3 abas, abre o sheet de Vigias. Fecha a folha de conceito
-            antes de abrir (os dois são zIndex 86 — nunca empilhar). */}
-        <VigiasBadge
-          n={listaDeVigias.length}
-          medido={!!(vigias.dados || vigiasVivos.dados)}
-          onAbrir={() => { setVerbeteAberto(null); setVigiasAberto(true); }}
-          cp={cp}
-        />
-      </div>
-      <p style={{ fontSize: "13px", color: T.textSecondary, margin: "0 0 14px", lineHeight: 1.5 }}>
-        {cp.subtituloOpcoes || ""}
-      </p>
-      {/* Fase 38 (38-05, KB-02): o link "saiba mais" fixo do topo (D-07/D-08)
-          é REMOVIDO nesta fase (Fase 39, D-13) — cada aba ganha seu próprio
-          ⓘ contextual (`infoDaAba`, acima), substituindo este único link
-          global. Histórico preservado: o portão era
-          `ctx.didatica.ligada && verbeteDoCatalogo(ctx.kbCatalogo, ANCORAS_KB.opcoes)`,
-          o mesmo que `abrirSaibaMais` usa agora. */}
-      {abaBar}
+  // ---------------------------------------- Fase 48 (2026-10-05): CAMINHO B --
+  // Dados e derivações do fluxo em profundidade. Nenhuma aritmética financeira
+  // aqui: tudo vem pronto do backend (escada/matriz) ou da carteira; a única
+  // chamada paga (matriz) sai de `abrirMatriz`, só de clique (ADR-027).
+  const mode = ctx && ctx.operador ? "operador" : "estudo";
+  const nivelRef = useRef(null);
+  const nivelAnterior = useRef(nav.nivel);
+  // Foco no título ao trocar de nível (UI-SPEC, acessibilidade): não rouba o
+  // foco na montagem inicial.
+  useEffect(() => {
+    if (nivelAnterior.current === nav.nivel) return;
+    nivelAnterior.current = nav.nivel;
+    const el = nivelRef.current && nivelRef.current.querySelector("h1, h2");
+    if (el && typeof el.focus === "function") el.focus();
+  }, [nav.nivel]);
 
-      {/* ============================================ ABA 1: OPORTUNIDADES ==
-          * Fase 39 (39-04, D-02): motor COM gate de liquidez — ex-Bloco A do
-          * componente job-to-be-done da Fase 33-02, hoje dissolvido nesta
-          * aba própria (ver o comentário do import, topo do arquivo). */}
-      {abaOpcoes === "oportunidades" ? (
-        <>
-          {carteira.length === 0 ? avisoCarteiraVazia : null}
-          <AbaOportunidades
-            opcoesPorTicker={opcoesPorTicker}
-            carregando={opcoesPorTickerCarregando}
-            carteira={carteira}
-            // quick 260928-u0h: mesmo predicado de `pos_op_aberta` (servidor) e mesma
-            // fonte de `PropostaDoAtivo` — separa encerramento de oportunidade nova.
-            optionPositions={(ctx && ctx.data && ctx.data.optionPositions) || []}
-            cp={cp}
-            onAbrir={alternarOportunidade}
-            abertoTicker={oportunidadeAberta}
-            infoBotao={infoDaAba(cp.opcoesAbaOportunidades || "Oportunidades")}
-          />
-          {/* Fase 39 (39-04, D-05, fork 1 — Leitura B' do <objective> de
-              39-04-PLAN.md): painel inline da proposta pronta do motor,
-              abaixo do carrossel — substitui a sub-aba "Operar" dissolvida.
-              Mesmo aceite/fechamento de sempre (useAceiteLastreado). */}
-          {oportunidadeAberta ? (
+  const nivelDaEscada = nav.nivel === "objetivo" || nav.nivel === "escada" || nav.nivel === "confirmar";
+  const { escada, recarregarEscada, matriz, verMatriz, leituraCelula, lerCelula } = useEscada(store, {
+    ticker: nav.ticker, objetivo: nav.objetivo, vencimento: nav.vencimento, ativo: nivelDaEscada,
+  });
+  // Cards do hub: fan-out de custo zero, só enquanto o hub está na tela.
+  const tecnicoPorTicker = useTecnicoCarteira(store, nav.nivel === "hub" ? tickersEmCarteira : []);
+
+  // HubOpcoes lê `pos.ticker`; as posições da carteira trazem `t`.
+  const carteiraHub = carteira.map((p) => ({ ...p, ticker: p.t }));
+  const optionPositionsAll = (ctx && ctx.data && ctx.data.optionPositions) || [];
+  const myOptionPositions = optionPositionsAll.filter((o) => o && o.underlying === nav.ticker);
+  // Estrutura aberta por ativo (rodapé do card): só os símbolos das pernas
+  // abertas, sem nome inventado — a estrutura em si é do motor.
+  const estruturaPorTicker = {};
+  optionPositionsAll.forEach((o) => {
+    if (!o || !o.underlying) return;
+    const e = estruturaPorTicker[o.underlying] || (estruturaPorTicker[o.underlying] = { estrutura: { nome: "" } });
+    e.estrutura.nome = e.estrutura.nome ? e.estrutura.nome + " + " + (o.id || "—") : String(o.id || "—");
+  });
+
+  const mercadoAberto = (ctx && ctx.mercado && !ctx.mercado.erro && typeof ctx.mercado.aberto === "boolean")
+    ? ctx.mercado.aberto : null;
+  const situacaoHub = (frescor && frescor.medido === true)
+    ? (frescor.bloqueia ? "atrasado" : (pregoesAtras ? "fim_pregao" : "em_dia"))
+    : (mercadoAberto === false ? "fim_pregao" : null);
+  const frescorHub = {
+    fonte, pregao, situacao: situacaoHub, mercadoAberto,
+    atrasado: !!(frescor && frescor.bloqueia === true),
+  };
+
+  // Folha local de verbete (KB) acionada pelos termos clicáveis dos componentes novos.
+  const abrirVerbeteLocal = (cid) => {
+    if (!(ctx && ctx.didatica && ctx.didatica.ligada && verbeteDoCatalogo(ctx.kbCatalogo, cid))) return;
+    setVigiasAberto(false);
+    setVerbeteAberto({ cid, trilha: [] });
+  };
+
+  // Leitura (custo zero) de uma célula da matriz sem degrau selecionável.
+  const [leituraSel, setLeituraSel] = useState(null); // {vencimento, id}
+  useEffect(() => { setLeituraSel(null); }, [nav.ticker, nav.objetivo]);
+
+  const idDe = (d) => (d && d.id != null ? d.id : d && d.nome);
+  const degrausAtuais = (escada.dados && Array.isArray(escada.dados.degraus)) ? escada.dados.degraus : [];
+  const degrauEscolhido = degrausAtuais.find((d) => idDe(d) === nav.degrauId) || null;
+  const vencimentoDaEscada = nav.vencimento || (escada.dados && escada.dados.vencimento) || null;
+  const leitDegrau = (leituraSel && leituraCelula.dados && leituraCelula.dados.estado === "ok")
+    ? leituraCelula.dados.degrau : null;
+  let escadaExibida = escada;
+  if (leituraSel && leituraCelula.carregando) escadaExibida = { ...escada, carregando: true };
+  else if (leituraSel && leituraCelula.erro) escadaExibida = { ...escada, erro: leituraCelula.erro };
+  else if (leitDegrau) escadaExibida = { ...escada, dados: { ...escada.dados, degraus: [leitDegrau] } };
+  const degrauIdExibido = leitDegrau ? idDe(leitDegrau) : nav.degrauId;
+  const vencimentoExibido = leituraSel ? leituraSel.vencimento : nav.vencimento;
+  const celulaSelecionada = leituraSel
+    ? { vencimento: leituraSel.vencimento, id: leituraSel.id }
+    : (nav.degrauId ? { vencimento: vencimentoDaEscada, id: nav.degrauId } : null);
+
+  // Matriz: ABERTA enquanto há resposta, consulta em curso ou erro que não seja
+  // cota (cota esgotada volta ao botão desabilitado com o horário).
+  const matrizAberta = !!(matriz.dados || matriz.carregando || (matriz.erro && matriz.erro.code !== "mcp_cota"));
+  // ÚNICO disparo da consulta paga: handler de clique (custo declarado antes, em `comparar.rotulo`).
+  const abrirMatriz = () => verMatriz({
+    expirations: (escada.dados && escada.dados.comparar && escada.dados.comparar.vencimentos) || [],
+  });
+  const aoSelecionarCelula = (celula, venc) => {
+    const sel = selecaoDaCelula({ id: celula && celula.id, vencimento: venc }, { [vencimentoDaEscada]: degrausAtuais });
+    if (!sel.somenteLeitura) {
+      setLeituraSel(null);
+      setNav((n) => escolherDegrau(n, sel.degrauId));
+      return;
+    }
+    setLeituraSel({ vencimento: venc, id: celula && celula.id });
+    const linhas = (matriz.dados && matriz.dados.matriz && matriz.dados.matriz[nav.objetivo]) || [];
+    const linha = linhas.find((l) => l && l.vencimento === venc);
+    const indice = linha && Array.isArray(linha.celulas) ? linha.celulas.indexOf(celula) : -1;
+    lerCelula(celula, {
+      objetivo: nav.objetivo, vencimento: venc, indice: indice >= 0 ? indice : undefined,
+      precoObjeto: matriz.dados && matriz.dados.precoObjeto,
+      vencimentosExecutaveis: ((escada.dados && escada.dados.vencimentos) || []).map((v) => v && v.iso).filter(Boolean),
+    });
+  };
+
+  return (
+    <section ref={nivelRef}>
+      {/* Fase 48 (2026-10-05), caminho B: a aba passa a ser um fluxo em
+          profundidade (hub -> objetivo -> escada -> confirmar, + montar),
+          num estado único (`nav`, navOpcoes.js). A barra de 3 sub-abas e o
+          badge de Vigias deixam de ser superfícies de mesmo nível: Vigias
+          viram a seção Atenção do hub (+ "ver todos" no sheet abaixo) e o
+          Montar de antes vira o nível "montar" ("Montar do zero"). O
+          contêiner abaixo recebe o foco no título ao trocar de nível. */}
+      <div style={transicaoTela(reduzido())}>
+      {nav.nivel === "hub" ? (
+        <HubOpcoes
+          cp={cp}
+          mode={mode}
+          carteira={carteiraHub}
+          opcoesPorTicker={estruturaPorTicker}
+          tecnicoPorTicker={tecnicoPorTicker}
+          vigiasLista={listaDeVigias}
+          vigiasComEstado={temEstadoDosVigias}
+          carregandoVigias={!!vigiasVivos.carregando}
+          onAtualizarVigias={atualizarVigias}
+          custoAtualizar={CUSTO_DA_ACAO.listarVigias}
+          onVerTodosVigias={() => { setVerbeteAberto(null); setVigiasAberto(true); }}
+          onAbrirAtivo={(t) => setNav((n) => abrirAtivo(n, t))}
+          onIrCarteira={() => { if (ctx && ctx.goCarteira) ctx.goCarteira(); }}
+          frescor={frescorHub}
+          didatica={ctx && ctx.didatica}
+          A={ctx && ctx.A}
+          kbCatalogo={ctx && ctx.kbCatalogo}
+          onAbrirVerbete={abrirVerbeteLocal}
+        />
+      ) : null}
+
+      {nav.nivel === "objetivo" ? (
+        <ObjetivoAtivo
+          cp={cp}
+          mode={mode}
+          ticker={nav.ticker}
+          escada={escada}
+          estruturaAberta={myOptionPositions.length > 0 ? (
             <PropostaDoAtivo
-              ticker={oportunidadeAberta}
-              posicao={carteira.find((p) => p.t === oportunidadeAberta) || null}
+              ticker={nav.ticker}
+              posicao={carteira.find((p) => p.t === nav.ticker) || null}
               cp={cp}
               ctx={ctx}
               opcoesPorTicker={opcoesPorTicker}
               opcoesPorTickerCarregando={opcoesPorTickerCarregando}
-              onMontar={() => irParaMontar(oportunidadeAberta)}
+              onMontar={() => setNav((n) => irMontar(n))}
             />
           ) : null}
-        </>
+          onEscolher={(id) => setNav((n) => escolherObjetivo(n, id))}
+          onMontarDoZero={() => setNav((n) => irMontar(n))}
+          onVoltar={() => setNav((n) => voltar(n))}
+          didatica={ctx && ctx.didatica}
+          A={ctx && ctx.A}
+          kbCatalogo={ctx && ctx.kbCatalogo}
+          onAbrirVerbete={abrirVerbeteLocal}
+          onTentarDeNovo={recarregarEscada}
+          onIrCarteira={() => { if (ctx && ctx.goCarteira) ctx.goCarteira(); }}
+        />
       ) : null}
 
-      {/* ============================================= ABA 2: RECOMENDADAS ==
-          * Fase 39 (39-04, D-03/D-05): motor SEM gate de liquidez — ex-Bloco
-          * B do mesmo componente da Fase 33-02, execução inline (a sub-aba
-          * "Operar" dissolvida não deixa buraco: Recomendadas já executava
-          * por dentro do próprio card, CuradoriaEstruturas.jsx). */}
-      {abaOpcoes === "recomendadas" ? (
-        <>
-          {carteira.length === 0 ? avisoCarteiraVazia : null}
-          <AbaRecomendadas
-            curadoria={ctx && ctx.curadoria}
-            onAbrir={irParaMontar}
-            onExecutar={(cand, o) => ctx.A.executarCandidatoCurado(cand, o)}
-            onNarrar={() => ctx.curadoria.narrar(ctx.data && ctx.data.config)}
-            onRecarregar={ctx && ctx.curadoria && ctx.curadoria.recarregar}
-            operador={!!(ctx && ctx.operador)}
-            palette={palette}
-            cp={cp}
-            infoBotao={infoDaAba(cp.opcoesAbaRecomendadas || "Destacadas")}
-          />
-        </>
+      {nav.nivel === "escada" ? (
+        <EscadaObjetivo
+          cp={cp}
+          mode={mode}
+          ticker={nav.ticker}
+          objetivo={nav.objetivo}
+          escada={escadaExibida}
+          degrauId={degrauIdExibido}
+          vencimento={vencimentoExibido}
+          unidade={nav.unidade}
+          onEscolherVencimento={(iso) => { setLeituraSel(null); setNav((n) => escolherVencimento(n, iso)); }}
+          onEscolherDegrau={(id) => { setLeituraSel(null); setNav((n) => escolherDegrau(n, id)); }}
+          onTrocarUnidade={(u) => setNav((n) => trocarUnidade(n, u))}
+          onEscolher={() => setNav((n) => irConfirmar(n))}
+          onVoltar={() => { setLeituraSel(null); setNav((n) => voltar(n)); }}
+          comparar={{
+            aberto: matrizAberta,
+            matriz,
+            onAbrir: abrirMatriz,
+          }}
+          renderMatriz={() => (
+            <MatrizVencimentos
+              cp={cp}
+              mode={mode}
+              objetivo={nav.objetivo}
+              matriz={matriz}
+              selecionado={celulaSelecionada}
+              onSelecionar={aoSelecionarCelula}
+              onTentarDeNovo={abrirMatriz}
+            />
+          )}
+          didatica={ctx && ctx.didatica}
+          A={ctx && ctx.A}
+          kbCatalogo={ctx && ctx.kbCatalogo}
+          onAbrirVerbete={abrirVerbeteLocal}
+          onTentarDeNovo={recarregarEscada}
+        />
       ) : null}
 
-      {/* ===================================================== ABA 3: MONTAR =
+      {nav.nivel === "confirmar" ? (
+        <ConfirmarEstrutura
+          cp={cp}
+          mode={mode}
+          operador={!!(ctx && ctx.operador)}
+          ticker={nav.ticker}
+          degrau={degrauEscolhido}
+          onExecutar={(cand, o) => ctx.A.executarCandidatoCurado(cand, o)}
+          onConcluido={() => setNav({ ...estadoInicialOpcoes({ abas: ABAS_OPCOES, carteira }), nivel: "hub" })}
+          onVoltar={() => setNav((n) => voltar(n))}
+          onCriarVigia={podeCriarSetup ? () => setNav((n) => irMontar(n)) : null}
+          didatica={ctx && ctx.didatica}
+          A={ctx && ctx.A}
+          kbCatalogo={ctx && ctx.kbCatalogo}
+          onAbrirVerbete={abrirVerbeteLocal}
+        />
+      ) : null}
+      </div>
+
+      {/* ===================================================== NÍVEL: MONTAR =
           * Fase 39 (39-04, D-04): fusão do antigo hub-com-ticker (o topo do
           * modo workspace, Fase 34-02) com o job 3 (Analisar, sempre
           * presente) + o link inline de Comparar (D-06) + Setups salvos
-          * (fork 2 do objective de 39-04-PLAN.md). Sem o header/pill row
-          * fixos do modo workspace (Fase 34): não há mais "voltar ao hub",
-          * só trocar de aba pela `abaBar` acima. */}
-      {abaOpcoes === "montar" ? (
+          * (fork 2 do objective de 39-04-PLAN.md).
+          * Fase 48 (2026-10-05): vira o nível "montar" ("Montar do zero"),
+          * mesmo conteúdo e mesmos contratos; "‹ voltar" sobe um nível. */}
+      {nav.nivel === "montar" ? (
         <>
+          <button
+            type="button"
+            onClick={() => setNav((n) => voltar(n))}
+            style={{ ...BOTAO, border: "none", color: T.accent, paddingLeft: 0 }}
+          >
+            {opcoesEscadaTxt(mode, "voltar")}
+          </button>
+          <div style={{ fontSize: "14px", color: T.textSecondary }}>{opcoesEscadaTxt(mode, "aviso_virtual")}</div>
+          <h1 tabIndex={-1} style={{ fontSize: "22px", fontWeight: 800, margin: "8px 0 4px" }}>{cp.tituloOpcoes || "Opções"}</h1>
+          <p style={{ fontSize: "13px", color: T.textSecondary, margin: "0 0 14px", lineHeight: 1.5 }}>
+            {cp.subtituloOpcoes || ""}
+          </p>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <Kicker>{cp.opcoesMontarTitulo || "MONTAR UMA ESTRUTURA"}</Kicker>
             {infoDaAba(cp.opcoesAbaMontar || "Montar")}

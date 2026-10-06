@@ -63,9 +63,13 @@ export function useEscada(store, { ticker, objetivo, vencimento, ativo } = {}) {
     dispararMatriz(() => store.mcpEscadaMatriz({ ticker, expirations }));
   }, [store, ticker, dispararMatriz]);
 
-  const lerCelula = useCallback((celula, { objetivo: obj, vencimento: venc } = {}) => {
+  // Fase 48 (48-10): repassa `indice` (posição da célula na linha, escolhe o
+  // degrau certo no backend), `precoObjeto` da matriz e `vencimentosExecutaveis`
+  // — a rota os aceita e, sem eles, caía em indice 0 (rótulo de degrau errado).
+  const lerCelula = useCallback((celula, { objetivo: obj, vencimento: venc, indice, precoObjeto, vencimentosExecutaveis } = {}) => {
     dispararLeitura(() => store.opcoesEscadaLeitura({
       ticker, objetivo: obj, vencimento: venc, pernas: celula && celula.pernas,
+      indice, precoObjeto, vencimentosExecutaveis,
     }));
   }, [store, ticker, dispararLeitura]);
 
