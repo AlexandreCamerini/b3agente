@@ -295,6 +295,13 @@ def test_reconciliacao_por_que_importa_fixa():
     assert skill_ref.RECONCILIACAO_POR_QUE_IMPORTA == "sinal técnico e histórico medido são coisas diferentes"
 
 
+def test_reconciliacao_por_que_importa_rotulo_fixo():
+    # Fase 47 (2026-10-06, DIDA-02): rótulo do botão sr-only da cláusula tocável.
+    v = skill_ref.RECONCILIACAO_POR_QUE_IMPORTA_ROTULO
+    assert v == "a expectativa matemática"
+    assert "garant" not in v.lower() and "lucro" not in v.lower()
+
+
 # --- Fase 44 (ESTR-06): ESTRUTURA_POSICAO -----------------------------------
 import re as _re
 

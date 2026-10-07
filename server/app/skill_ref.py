@@ -526,7 +526,13 @@ RECONCILIACAO_ELEGIBILIDADE = {
 # função, é o mesmo padrão de `PRINCIPIOS`/frase única do módulo. O front
 # nunca compõe esta frase a partir de outra coisa; ela vem pronta de aqui,
 # como QUALQUER texto desta camada (regra da casa, didatica-boris/SKILL.md).
+# REVERSÃO DELIBERADA (2026-10-06, Fase 47, DIDA-02): o toque passa a abrir
+# setorId="expectativa" → conceito "expectativa-matematica" (antes "analise" →
+# "confluencia"); a frase não muda.
 RECONCILIACAO_POR_QUE_IMPORTA = "sinal técnico e histórico medido são coisas diferentes"
+# Rótulo do botão sr-only ("O que é a expectativa matemática?") da cláusula
+# tocável. Espelho byte a byte em web/src/copy.js (reconciliacaoPorQueImportaRotulo).
+RECONCILIACAO_POR_QUE_IMPORTA_ROTULO = "a expectativa matemática"
 
 
 def reconciliacao_elegibilidade_txt(modo: str, estado: str, n=None, janela: str = "", exp_r=None) -> str:

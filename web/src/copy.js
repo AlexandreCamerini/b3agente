@@ -2746,6 +2746,8 @@ export function reconciliacaoTxt(mode, estado, vals) {
 // Fixa, sem interpolação, só Estudo (D-11/D-12) — HistoricoPill anexa isto
 // como cláusula TOCÁVEL, nunca a compõe/parafraseia.
 export const reconciliacaoPorQueImporta = "sinal técnico e histórico medido são coisas diferentes";
+// Espelho byte a byte de skill_ref.RECONCILIACAO_POR_QUE_IMPORTA_ROTULO (Fase 47, DIDA-02).
+export const reconciliacaoPorQueImportaRotulo = "a expectativa matemática";
 
 // Espelho de `skill_ref.entrada_auto_txt`: falha FECHADA — só `estado ===
 // "disponivel"` libera a frase positiva; qualquer outro valor cai em
