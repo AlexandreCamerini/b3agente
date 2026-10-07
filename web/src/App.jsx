@@ -6,7 +6,7 @@ import { testServer, describeRuntimeConfig, getApiBase, PROD_BASE } from "./api.
 import { createChart, ColorType, CrosshairMode, LineStyle } from "lightweight-charts";
 import { sampleTechnicals } from "./demo.js";
 import { DISCLAIMERS, TERMO_OPERADOR_VERSAO, TERMO_DESCOBERTO_VERSAO } from "./disclaimers.js";
-import { copyFor, retornoAcumuladoTxt, curvaEvolucaoTxt, historicoTxt, entradaAutoTxt, reconciliacaoTxt, reconciliacaoPorQueImporta, estruturaCardTxt, cartaoPosicaoTxt, cartaoDidaticaTxt } from "./copy.js";
+import { copyFor, retornoAcumuladoTxt, curvaEvolucaoTxt, historicoTxt, entradaAutoTxt, reconciliacaoTxt, reconciliacaoPorQueImporta, reconciliacaoPorQueImportaRotulo, estruturaCardTxt, cartaoPosicaoTxt, cartaoDidaticaTxt } from "./copy.js";
 import { tickersComPernas, tickersSoComPernas, assinaturaEstrutura, estadoLeitura, mostraAvisoSemStop, mostraRR, valorRR, criarFilaLeituras, tipoPillTravada, chipVencimento, ddmmDeIso, tomDoEstado, dominioRegua, posRegua, sinalResultado, kickerResultadoSoAcoes, ancoraRotulo, estadoPrincipalV6, linhasResultadoV6, chipsMetaV6, rsSinalNbsp, fonteValorCabecalho, pctCapitalTexto, flipDuracaoMs, prefereMovimentoReduzido, faceInicial, pontoDoIndice, indiceNomeado, zonaVisual, rotulosSemColisao, colunasDaGrade, rsNbsp, nomeEmpresaCard, sigPosicaoLeitura, situacaoLeituraPlano } from "./estruturaCard.js";
 import { varsCartaoV6, ALFA_ZONA_V6, ALFA_ZONA_MEIO_V6 } from "./cartaoV6Cores.js"; // 2026-10-01: cores do design v6 ESCOPADAS ao card (CSS vars no wrapper); não toca T/PALETTE
 // Fase 41 (TELAS-01): registro único das 8 telas que o assistente conhece —
@@ -7895,6 +7895,11 @@ function HistoricoPill({ historico, elegivel, aposentado, operador, hojeYmd, com
   const fato = microtexto
     ? reconciliacaoTxt(modoJS, estado, { n: nJanela, janela: janelaRef, expR: expRJanela })
     : null;
+  // Fase 47 (2026-10-06, DIDA-02): números do caso para o conceito
+  // expectativa-matematica; `estado` aqui é o do HISTÓRICO e sobrepõe o do
+  // timing só nesta folha (o conceito filtra parágrafos por estado); null
+  // nunca vira 0 — conceitos._valores descarta e o parágrafo cai.
+  const dadosExpectativa = { ...(dados || {}), n: nJanela, janela: janelaRef, expR: expRJanela, estado };
   return (
     <span style={{ display: "inline-flex", alignItems: microtexto ? "flex-start" : "center", gap: SP[2], flexWrap: "wrap" }}>
       {/* Fase 42 (CHIP-01): o pill deixa de ter receita própria de
@@ -7905,11 +7910,12 @@ function HistoricoPill({ historico, elegivel, aposentado, operador, hojeYmd, com
       {microtexto && fato && (
         <span style={{ fontSize: "12px", fontWeight: 400, lineHeight: 1.4, color: T.textSecondary, flex: "1 1 auto", minWidth: "0" }}>
           {fato}
-          {/* D-12: Operador não recebe a cláusula — fato curto basta */}
+          {/* D-12: Operador não recebe a cláusula — fato curto basta.
+              Fase 47: destino do toque = expectativa-matematica (antes confluencia) */}
           {!operador && (
             <>
               {" — "}
-              <SetorAlvo setorId="analise" rotulo="a confluência" A={A} didatica={didatica} dados={dados} style={{ display: "inline" }}>
+              <SetorAlvo setorId="expectativa" rotulo={reconciliacaoPorQueImportaRotulo} A={A} didatica={didatica} dados={dadosExpectativa} style={{ display: "inline" }}>
                 <span style={SUBLINHADO}>{reconciliacaoPorQueImporta}</span>
               </SetorAlvo>
             </>

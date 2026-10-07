@@ -6,7 +6,7 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
-import { COPY, copyFor, reconciliacaoTxt, reconciliacaoPorQueImporta } from "../src/copy.js";
+import { COPY, copyFor, reconciliacaoTxt, reconciliacaoPorQueImporta, reconciliacaoPorQueImportaRotulo } from "../src/copy.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 
@@ -193,11 +193,36 @@ ok('corpo de HistoricoPill contém reconciliacaoTxt(modoJS, estado, { n: nJanela
 ok('gate "!microtexto && !compacto &&" no bloco de números',
   semComentariosHistoricoPill.includes("!microtexto && !compacto &&"));
 
-ok('gate "!operador &&" antes de setorId="analise"', (() => {
+// REVERSÃO DELIBERADA (2026-10-06, Fase 47, DIDA-02): a cláusula passa a abrir
+// expectativa-matematica (antes "analise"/confluencia); o gate do Operador segue travado.
+ok('gate "!operador &&" antes de setorId="expectativa"', (() => {
   const idxOperadorGate = semComentariosHistoricoPill.indexOf("!operador &&");
-  const idxSetorAnalise = semComentariosHistoricoPill.indexOf('setorId="analise"');
-  return idxOperadorGate > 0 && idxSetorAnalise > idxOperadorGate;
+  const idxSetor = semComentariosHistoricoPill.indexOf('setorId="expectativa"');
+  return idxOperadorGate > 0 && idxSetor > idxOperadorGate;
 })());
+
+ok('HistoricoPill não abre mais setorId="analise"', !semComentariosHistoricoPill.includes('setorId="analise"'));
+ok("rotulo={reconciliacaoPorQueImportaRotulo} no SetorAlvo da cláusula",
+  semComentariosHistoricoPill.includes("rotulo={reconciliacaoPorQueImportaRotulo}"));
+ok("dados={dadosExpectativa} no SetorAlvo da cláusula",
+  semComentariosHistoricoPill.includes("dados={dadosExpectativa}"));
+ok("dadosExpectativa inclui n, janela, expR e estado do histórico",
+  /const dadosExpectativa = \{.*n: nJanela, janela: janelaRef, expR: expRJanela, estado \}/.test(semComentariosHistoricoPill));
+ok('anel/linha de chips preservados: App.jsx ainda contém setorId="analise"', appSrc.includes('setorId="analise"'));
+ok('App.jsx não contém o literal "a expectativa matemática"', !appSrc.includes("a expectativa matemática"));
+
+// paridade do rótulo (skill_ref.py <-> copy.js)
+const mRot = skillRefSrc.match(/^RECONCILIACAO_POR_QUE_IMPORTA_ROTULO = "([^"]*)"/m);
+ok("RECONCILIACAO_POR_QUE_IMPORTA_ROTULO encontrado em skill_ref.py", !!mRot);
+ok("reconciliacaoPorQueImportaRotulo (js) igual ao valor Python", !!mRot && reconciliacaoPorQueImportaRotulo === mRot[1],
+  `js="${reconciliacaoPorQueImportaRotulo}"`);
+
+// cadeia do toque: setorId="expectativa" -> SETORES -> CONCEITOS -> verbete KB
+const conceitosSrc = readFileSync(fileURLToPath(new URL("../../server/app/conceitos.py", import.meta.url)), "utf8");
+const kbSrc = readFileSync(fileURLToPath(new URL("../../server/app/kb.py", import.meta.url)), "utf8");
+ok('conceitos.py: SETORES "expectativa" -> "expectativa-matematica"', conceitosSrc.includes('"expectativa": "expectativa-matematica"'));
+ok('conceitos.py: CONCEITOS tem "expectativa-matematica": {', conceitosSrc.includes('"expectativa-matematica": {'));
+ok('kb.py: verbete "id": "expectativa-matematica"', kbSrc.includes('"id": "expectativa-matematica"'));
 
 ok("{reconciliacaoPorQueImporta} dentro do SetorAlvo (corpo de HistoricoPill)",
   semComentariosHistoricoPill.includes("{reconciliacaoPorQueImporta}"));
