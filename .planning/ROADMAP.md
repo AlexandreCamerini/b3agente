@@ -419,6 +419,16 @@ Plans:
 2. A cláusula tocável do microtexto abre o verbete (não `confluencia`); paridade `skill_ref.py`↔`copy.js` verde.
 
 **Modelo:** Sonnet.
+**Plans:** 2 plans
+
+Plans:
+**Wave 1**
+
+- [ ] 47-01-PLAN.md — DIDA-01: TEXTO_EXPECTATIVA + conceito `expectativa-matematica` (números do histórico: n/janela/expR/estado; ilustração por constantes) + verbete KB com o mesmo texto, 2 modos + setor `expectativa` (onda 1)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [ ] 47-02-PLAN.md — DIDA-02: rótulo em skill_ref ↔ copy.js + HistoricoPill abre `expectativa` (não `analise`→`confluencia`) + guardiões reconciliados e cadeia App.jsx→SETORES→conceito travada (onda 2)
 
 ### Phase 48: Opções, caminho B — redesenho da aba Opções
 
