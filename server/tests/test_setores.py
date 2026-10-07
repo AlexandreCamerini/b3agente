@@ -150,3 +150,17 @@ def test_setores_opcoes_onda2_registrados_e_passam_da_validacao(cli):
             assert r.status_code != 400 or "Setor" not in str(r.json())
         finally:
             app.dependency_overrides.pop(require_user, None)
+
+
+def test_setor_expectativa_registrado_e_passa_da_validacao(cli):
+    """Fase 47 (2026-10-06, DIDA-02): setor `expectativa` na allowlist do /api/assistente."""
+    s = conceitos.setores()
+    assert s["expectativa"] == "expectativa-matematica"
+    app.dependency_overrides[require_user] = lambda: {"id": "u-setor-exp"}
+    try:
+        r = cli.post("/api/assistente", json={
+            "tela": "setor:expectativa", "pergunta": "o que é isto?",
+        })
+        assert r.status_code != 400 or "Setor" not in str(r.json())
+    finally:
+        app.dependency_overrides.pop(require_user, None)

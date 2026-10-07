@@ -111,6 +111,59 @@ TEXTO_OPC = {
     },
 }
 
+# Fase 47 (2026-10-06, DIDA-01): fonte única do texto genérico de expectativa
+# matemática × taxa de acerto; kb.py reusa — mesmo texto, dois modos. A
+# ilustração sai das constantes abaixo (nunca de literal solto nem da IA) e é
+# rotulada como ilustração. Fica DEPOIS de ROTULOS: test_vocabulario_espelho lê
+# o primeiro bloco "educacional" do arquivo.
+_ILUSTRACAO_EXPECTATIVA = (
+    {"acerto": 0.40, "ganho": 3, "perda": 1},
+    {"acerto": 0.70, "ganho": 1, "perda": 4},
+)
+
+
+def _expectativa_ilustrada(acerto: float, ganho: float, perda: float) -> float:
+    """Expectativa em R por operação: acerto*ganho − (1−acerto)*perda."""
+    return round(acerto * ganho - (1 - acerto) * perda, 2)
+
+
+def _r_br(v: float, casas: int) -> str:
+    """Resultado em R com sinal explícito (+ / − U+2212), vírgula decimal —
+    mesma convenção de `skill_ref.reconciliacao_elegibilidade_txt`."""
+    return ("+" if v >= 0 else "\u2212") + f"{abs(v):.{casas}f}".replace(".", ",") + "R"
+
+
+def _frase_ilustracao(it: dict) -> str:
+    a = int(round(it["acerto"] * 100))
+    r = _expectativa_ilustrada(it["acerto"], it["ganho"], it["perda"])
+    return (f"{a}% de acerto com ganho médio de {it['ganho']}R e perda média de "
+            f"{it['perda']}R dá {_r_br(r, 1)} por operação")
+
+
+def _texto_expectativa() -> dict:
+    f1, f2 = (_frase_ilustracao(i) for i in _ILUSTRACAO_EXPECTATIVA)
+    return {
+        "educacional": (
+            "Expectativa matemática é o resultado médio esperado por operação: o ganho médio "
+            "vezes a frequência de acertos, menos a perda média vezes a frequência de erros, "
+            "medido em R (múltiplos do risco assumido). A taxa de acerto sozinha não diz se há "
+            "vantagem: o que pesa é quanto se ganha quando se acerta e quanto se perde quando "
+            "se erra. Custos e slippage reduzem a expectativa. Com poucas ocorrências, a média "
+            "oscila demais e não permite concluir. "
+            f"Ilustração, não resultado do seu histórico: {f1}; {f2} "
+            "(acerta mais e perde). Resultado médio passado não é previsão nem promessa para "
+            "a próxima operação."
+        ),
+        "operador": (
+            "Expectativa = ganho médio × acerto − perda média × erro, em R. Taxa de acerto "
+            "sozinha não mede vantagem; custos e slippage descontam. Amostra pequena não "
+            f"conclui. Ilustração: {f1}; {f2}."
+        ),
+    }
+
+
+TEXTO_EXPECTATIVA = _texto_expectativa()
+
 
 # --- Catálogo ---------------------------------------------------------------
 # `campos` é ALLOWLIST, não documentação: só estas chaves de `dados` entram na
@@ -521,6 +574,39 @@ CONCEITOS = {
         ],
         "veja": [],
     },
+
+    # ------------------------------------------------------ Fase 47 (2026-10-06, DIDA-01)
+    "expectativa-matematica": {
+        "titulo": {"educacional": "Expectativa matemática × taxa de acerto",
+                   "operador": "Expectativa × taxa de acerto"},
+        "campos": ("n", "janela", "expR", "estado"),
+        "naoAcontece": [
+            "O app não envia ordem nenhuma: o dinheiro é virtual e a análise é uma simulação.",
+            "Resultado médio medido no passado não é previsão nem promessa para a próxima operação.",
+        ],
+        "oQueE": [
+            TEXTO_EXPECTATIVA,
+            (("elegivel", "inelegivel"),
+             "No histórico medido deste padrão, na janela {janela}, foram {n} ocorrências, "
+             "com resultado médio de {expR} por ocorrência."),
+        ],
+        "oQueAcontece": [
+            (("elegivel",),
+             "Resultado médio positivo é o que o app chama de vantagem medida. Ainda é o passado "
+             "de {n} ocorrências: a próxima pode perder, e os custos reduzem a vantagem."),
+            (("inelegivel",),
+             "Resultado médio zero ou negativo: mesmo acertando parte das vezes, os ganhos não "
+             "cobriram as perdas nessa janela — por isso não há vantagem medida."),
+            (("insuficiente",),
+             "Não há dados suficientes para concluir. A amostra deste padrão ainda é pequena "
+             "demais para medir vantagem."),
+            (("nunca_medido",),
+             "Não há dados suficientes para concluir. Este padrão ainda não tem histórico medido."),
+            (("aposentado",),
+             "Sem vantagem medida em 15 anos de histórico: o padrão foi aposentado."),
+        ],
+        "veja": ["r", "confluencia"],
+    },
 }
 
 
@@ -587,6 +673,13 @@ def _num_abs(v) -> Optional[str]:
     return _num(abs(float(v)))
 
 
+def _exp_r(v) -> Optional[str]:
+    """Fase 47: resultado médio em R por ocorrência, com sinal; só número real."""
+    if not isinstance(v, (int, float)) or isinstance(v, bool):
+        return None
+    return _r_br(float(v), 3)
+
+
 _FORMATADORES = {"entrada": _num, "stop": _num, "distancia": _num, "alvo": _num,
                  "precoAtual": _num, "riscoPorAcao": _num_positivo,
                  "distanciaEmR": _emr, "excedenteEmR": _emr,
@@ -597,7 +690,9 @@ _FORMATADORES = {"entrada": _num, "stop": _num, "distancia": _num, "alvo": _num,
                  "perdaTotal": _num, "perdaAcao": _num, "qtd": _volume_milhar,
                  # onda 2: collar (put protetora reusa os da onda 1).
                  "strikePut": _num, "strikeCall": _num, "liquido": _num_abs,
-                 "ganhoTotal": _num}
+                 "ganhoTotal": _num,
+                 # Fase 47 (2026-10-06): expectativa medida (R) e tamanho da amostra.
+                 "expR": _exp_r, "n": _volume_milhar}
 
 
 def _constantes() -> dict:
@@ -716,6 +811,9 @@ SETORES = {
     # 2026-10-05 (Fase 48, onda 2): termos dos objetivos.
     "opc_put_protetora": "opc-put-protetora",
     "opc_collar": "opc-collar",
+    # 2026-10-06 (Fase 47, DIDA-02): cláusula tocável do microtexto de reconciliação
+    # (HistoricoPill) — antes abria 'analise' → confluencia.
+    "expectativa": "expectativa-matematica",
 }
 
 
