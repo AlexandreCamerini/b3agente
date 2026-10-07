@@ -95,3 +95,23 @@ def test_conceitos_antigos_inalterados_pelo_formatador_novo():
                           "qtd": 300, "venc": "20/11", "estado": "pago"})
     assert "R$ 255,00" in _tudo(c) and "300" in _tudo(c)
     assert conceitos.montar("confluencia", "educacional", None)["id"] == "confluencia"
+
+
+def test_verbete_kb_mesma_fonte_do_conceito():
+    v = kb.verbete(CID)
+    assert v is not None
+    assert v["familia"] == "plano_risco"
+    assert v["texto"] is conceitos.TEXTO_EXPECTATIVA
+    assert v["texto"]["educacional"] and v["texto"]["operador"]
+
+
+def test_kb_veja_existe_e_ids_unicos():
+    ids = [v["id"] for v in kb.catalogo()]
+    assert len(ids) == len(set(ids))
+    for r in kb.verbete(CID)["veja"]:
+        assert r in ids, r
+
+
+def test_kb_busca_encontra_expectativa():
+    res = kb.buscar("qual a diferença entre taxa de acerto e expectativa matemática?")
+    assert CID in [r["id"] for r in res]

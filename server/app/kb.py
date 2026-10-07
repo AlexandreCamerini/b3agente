@@ -1098,6 +1098,18 @@ _PLANO_RISCO_EXTRA = [
         },
         "veja": ["stop", "gatilho"],
     },
+    # Fase 47 (2026-10-06, DIDA-01): texto = conceitos.TEXTO_EXPECTATIVA — mesmo
+    # texto, dois modos (conceito com os números do caso vive em conceitos.py).
+    {
+        "id": "expectativa-matematica",
+        "titulo": _titulo("Expectativa matemática × taxa de acerto",
+                          "Expectativa × taxa de acerto"),
+        "termos": ("expectativa matemática", "expectativa matematica", "taxa de acerto",
+                   "vantagem estatística", "vantagem estatistica", "vantagem medida",
+                   "expectancy", "win rate"),
+        "texto": conceitos.TEXTO_EXPECTATIVA,
+        "veja": ["r", "risco-rr", "confluencia"],
+    },
 ]
 
 
