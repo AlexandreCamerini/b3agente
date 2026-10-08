@@ -50,7 +50,7 @@ import { BUILD_ID } from "./version.js";
 // carimbo no console: prova de qual build está rodando (device/web)
 try { console.log("[b3] build", BUILD_ID); } catch { /* noop */ }
 import { canAddTicker, canAnalyze, erroDeLimiteWatchlist, limiteDeWatchlist } from "./plan.js";
-import { portfolioMetrics, dayReturnPct, equityCurve, markPrice, sizingPlano, RR_MIN_TXT, historicoEstado, historicoDesatualizado, benchmarkSerie, concentracaoMaxima, qtyLivre, resumoOperacao, setupOperavel, metaDeEntrada, faixaDeLiquidez } from "./finance.js";
+import { portfolioMetrics, dayReturnPct, equityCurve, pctDesdeBase, markPrice, sizingPlano, RR_MIN_TXT, historicoEstado, historicoDesatualizado, benchmarkSerie, concentracaoMaxima, qtyLivre, resumoOperacao, setupOperavel, metaDeEntrada, faixaDeLiquidez } from "./finance.js";
 import * as notify from "./notify.js";
 import { track, setAnalyticsUser, flush as flushAnalytics } from "./analytics.js"; // qa/47 (Fase 2)
 import Boris from "./pet/Boris.jsx";
@@ -2090,6 +2090,15 @@ function CapitalCurve({ ctx }) {
   const series = ec.curvaCompleta;
   const up = retAcum == null ? (series.length > 1 ? series[series.length - 1] >= series[0] : true) : retAcum >= 0;
 
+  // Escala compartilhada: a carteira também vira % desde ec.base — só assim
+  // as duas séries são comparáveis no mesmo viewBox. Transformação afim e
+  // monotônica: sem benchmark, a curva desenhada fica IDÊNTICA à de hoje
+  // (nenhuma regressão visual no caminho sem 2ª série).
+  // 2026-10-07 (quick 261007-w5t): sem base (origem inconsistente/sem_serie) não há série — antes `: 0` desenhava linha plana em 0 % como se a carteira não tivesse variado. Agora: sem linha, '—' e a frase de dados insuficientes (fraseRet).
+  const pctCarteira = pctDesdeBase(ec.curvaCompleta, ec.base); // null sem base — nunca série de 0 %
+  const temBase = pctCarteira != null;
+  const desenhaCurva = hasSeries && temBase;   // sem base: sem linha, sem Ibovespa
+
   // Plano 04-06 (FIX-C03): comparação com o Ibovespa. Busca 1x por montagem
   // (o servidor já cacheia 15min — server/app/benchmark.py); a falha NUNCA
   // contamina a leitura da carteira (T-04-19/T-04-20) — só omite a 2ª série.
@@ -2102,23 +2111,19 @@ function CapitalCurve({ ctx }) {
     let alive = true;
     setIbov(null); setIbovErro(false);
     if (!hasSeries) return () => { alive = false; };
+    if (!temBase) return () => { alive = false; };
     store.benchmarkIbov(period)
       .then((r) => { if (alive) setIbov(r); })
       .catch(() => { if (alive) setIbovErro(true); });
     return () => { alive = false; };
-  }, [period, hasSeries]);
+  }, [period, hasSeries, temBase]);
 
-  const bm = hasSeries && ibov ? benchmarkSerie(ibov.candles, ec.datas) : null;
-  // Escala compartilhada: a carteira também vira % desde ec.base — só assim
-  // as duas séries são comparáveis no mesmo viewBox. Transformação afim e
-  // monotônica: sem benchmark, a curva desenhada fica IDÊNTICA à de hoje
-  // (nenhuma regressão visual no caminho sem 2ª série).
-  const pctCarteira = ec.curvaCompleta.map((v) => (ec.base > 0 ? ((v - ec.base) / ec.base) * 100 : 0));
-
+  const bm = desenhaCurva && ibov ? benchmarkSerie(ibov.candles, ec.datas) : null;
   // polyline normalizada ao viewBox 300x92
-  const xAt = (i) => (pctCarteira.length === 1 ? 0 : (i / (pctCarteira.length - 1)) * 300);
+  const nPontos = pctCarteira ? pctCarteira.length : 0;
+  const xAt = (i) => (nPontos <= 1 ? 0 : (i / (nPontos - 1)) * 300);
   let path = "", pathAntes = "", ibovPath = "";
-  if (hasSeries) {
+  if (desenhaCurva) {
     const valores = bm ? pctCarteira.concat(bm.pct.filter((v) => v != null)) : pctCarteira;
     const min = Math.min(...valores), max = Math.max(...valores), span = max - min || 1;
     const yAt = (v) => 84 - ((v - min) / span) * 72;
@@ -2142,7 +2147,7 @@ function CapitalCurve({ ctx }) {
   const temIbov = !!(bm && ibovPath); // série do índice de fato desenhável
   const mDesdeCurva = typeof ec.baseDesde === "string" && ec.baseDesde.match(/^(\d{4})-(\d{2})-(\d{2})/);
   const desdeCurva = mDesdeCurva ? `${mDesdeCurva[3]}/${mDesdeCurva[2]}/${mDesdeCurva[1]}` : "";
-  const diffIbov = temIbov && bm.retAcum != null ? retAcum - bm.retAcum : null;
+  const diffIbov = temIbov && retAcum != null && bm.retAcum != null ? retAcum - bm.retAcum : null;
 
   const stat = (label, value, color) => (
     <div style={{ flex: 1 }}>
@@ -2186,7 +2191,7 @@ function CapitalCurve({ ctx }) {
             </linearGradient>
           </defs>
           <line x1="0" y1="84" x2="300" y2="84" stroke={P.chartGrid} strokeWidth="1" />
-          {hasSeries
+          {desenhaCurva
             ? (<>
                 {/* z-order: Ibovespa por baixo, carteira sempre por cima em qualquer cruzamento */}
                 {temIbov && <path d={ibovPath} fill="none" stroke={P.textDim} strokeWidth="1.5" strokeDasharray="3 3" />}
@@ -2196,8 +2201,12 @@ function CapitalCurve({ ctx }) {
                 <path d={path} fill="none" stroke={up ? P.positive : P.negative} strokeWidth="2" />
                 {k > 0 && <line x1={xAt(k)} x2={xAt(k)} y1="8" y2="84" stroke={P.chartGrid} strokeWidth="1" />}
               </>)
-            : <path d="M0,72 C60,66 110,58 150,52 C200,45 250,40 300,30" fill="none" stroke={P.textFaint} strokeWidth="2" strokeOpacity="0.35" strokeDasharray="4 4" />}
+            : hasSeries ? null : <path d="M0,72 C60,66 110,58 150,52 C200,45 250,40 300,30" fill="none" stroke={P.textFaint} strokeWidth="2" strokeOpacity="0.35" strokeDasharray="4 4" />}
         </svg>
+        {/* quick 261007-w5t: sem base não há curva; o texto acessível é a frase de dados insuficientes (fraseRet) abaixo. */}
+        {hasSeries && !temBase && (
+          <div aria-hidden style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: MONO, fontSize: "14px", fontWeight: 700, color: T.textFaint }}>—</div>
+        )}
       </div>
       {/* quick 261006-qre: alternativa textual do trecho pontilhado (só com janela reiniciada e data válida) */}
       {hasSeries && k > 0 && desdeCurva && (

@@ -113,7 +113,8 @@ ok("App.jsx: não existe (ec.retAcum || 0)", !/\(ec\.retAcum \|\| 0\)/.test(app)
   const i0 = app.indexOf("function CapitalCurve(");
   const i1 = app.indexOf("\nfunction ", i0 + 10);
   const cc = app.slice(i0, i1);
-  ok("qre CapitalCurve: ec.curvaCompleta.map", /ec\.curvaCompleta\.map/.test(cc));
+  // 2026-10-07 (quick 261007-w5t): a curva continua vindo de ec.curvaCompleta (intenção da qre preservada), agora via pctDesdeBase (null sem base, nunca série de 0 %); a alternativa no regex só reconhece a nova forma.
+  ok("qre CapitalCurve: ec.curvaCompleta.map", /ec\.curvaCompleta\.map|pctDesdeBase\(ec\.curvaCompleta, ec\.base\)/.test(cc));
   ok("qre CapitalCurve: ec.inicioNaCurvaCompleta", /ec\.inicioNaCurvaCompleta/.test(cc));
   ok("qre CapitalCurve: curvaEvolucaoTxt(", /curvaEvolucaoTxt\(/.test(cc));
   ok("qre CapitalCurve: Ibovespa segue na janela", /benchmarkSerie\(ibov\.candles, ec\.datas\)/.test(cc));
