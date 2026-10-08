@@ -1,4 +1,4 @@
-import { useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo, createContext, useContext } from "react";
+import { useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo, useId, createContext, useContext } from "react";
 import { store, isNative, auth } from "./persistence.js";
 import { hasSession } from "./sync.js"; // BLOCO 2: welcome exibe estado da sessão salva
 import { defaultLlmPrompts } from "./catalog.js";
@@ -37,6 +37,9 @@ import OpcoesScreen from "./opcoes/OpcoesScreen.jsx";
 // web/src/opcoes/CuradoriaEstruturas.jsx, que já os importa diretamente —
 // removidos (IN-01, 32-REVIEW.md, quick 260916-cod, 2026-09-16).
 import { executarCandidato } from "./opcoes/executarCandidato.js";
+// Onda H (2026-10-08, quick 261008-oos): geometria de eixo + legenda numerada comuns aos gráficos de payoff.
+import { montarGeometria, PLOT_H, MARC_R, MARC_LINHA_H, MB_EIXO } from "./opcoes/payoffEixos.js";
+import { useLarguraMedida, LegendaMarcadores } from "./opcoes/PayoffPrimitivas.jsx";
 // Fase 32 (32-02): os três componentes cross-posição saíram de App.jsx para
 // módulos de web/src/opcoes/ (ADR-027 Emenda 3) — OpcoesScreen.jsx não pode
 // importar App.jsx, e App.jsx não pode importar OpcoesScreen.jsx (ciclo); um
@@ -5523,45 +5526,82 @@ function TermosTocaveis({ didatica, ctx }) {
 function PayoffOperador({ e, modo }) {
   const c = e && e.cenarios;
   const pf = c ? c.payoff : null;
+  const refPlot = useRef(null);
+  const largura = useLarguraMedida(refPlot, 280);
+  const uid = String(useId()).replace(/[^A-Za-z0-9_-]/g, "");
   if (!pf || !Array.isArray(pf.pontos) || pf.pontos.length < 2) return null;
-  // Único cálculo permitido: LAYOUT (valor -> % do desenho). Nunca altera nem
-  // deriva um número financeiro exibido.
-  const xDoGrafico = (v) => Math.min(100, Math.max(0, ((v - pf.xMin) / ((pf.xMax - pf.xMin) || 1)) * 100));
-  const yDoGrafico = (v) => 100 - (10 + ((v - pf.yMin) / ((pf.yMax - pf.yMin) || 1)) * 80);
+  // Onda H (2026-10-08): eixo Y/X e marcadores numerados em px reais (largura medida),
+  // plot de PLOT_H px. Único cálculo permitido: LAYOUT (valor -> px). Nunca altera nem
+  // deriva um número financeiro exibido. Rótulos são HTML: o SVG fica sem texto.
+  // k ausente = estrutura sem teto (mesma regra do aria "payoff_aria_sem_teto"): sem tick de máximo.
   const rotuloTxt = { fontSize: TIPO_CARD.rotulo, fontWeight: 400, color: T.textSecondary };
-  const xBe = c.be != null ? xDoGrafico(c.be) : null;
-  const xK = c.k != null ? xDoGrafico(c.k) : null;
-  const xHoje = c.hoje != null ? xDoGrafico(c.hoje) : null;
+  const marcadores = [
+    c.hoje != null ? { preco: c.hoje, rotulo: cartaoPosicaoTxt(modo, "leg_hoje", { v: price(c.hoje) }) } : null,
+    c.be != null ? { preco: c.be, rotulo: cartaoPosicaoTxt(modo, "leg_be", { v: price(c.be) }) } : null,
+    c.k != null ? { preco: c.k, rotulo: cartaoPosicaoTxt(modo, "leg_k", { v: price(c.k) }) } : null,
+  ].filter((x) => x != null);
+  const geo = montarGeometria({ largura, x0: pf.xMin, x1: pf.xMax, yMin: pf.yMin, yMax: pf.yMax, marcadores, semTeto: c.k == null });
+  const xDoGrafico = geo.sx;
+  const yDoGrafico = (v) => geo.sy(v) - geo.topo;
   const yZero = yDoGrafico(0);
-  const linhaV = (x, cor) => (
-    <line x1={x} x2={x} y1={0} y2={100} stroke={cor} strokeWidth={2} strokeDasharray="4 3" vectorEffect="non-scaling-stroke" />
-  );
+  const pts = pf.pontos.map((q) => [xDoGrafico(q.preco), yDoGrafico(q.resultado)]);
+  const dArea = "M" + pts[0][0].toFixed(1) + " " + yZero.toFixed(1) + " "
+    + pts.map((q) => "L" + q[0].toFixed(1) + " " + q[1].toFixed(1)).join(" ")
+    + " L" + pts[pts.length - 1][0].toFixed(1) + " " + yZero.toFixed(1) + " Z";
+  const idPos = "pf-p-" + uid;
+  const idNeg = "pf-n-" + uid;
+  const idHach = "pf-h-" + uid;
+  const ancoraX = { start: "0", middle: "-50%", end: "-100%" };
+  const monoRot = { ...rotuloTxt, fontFamily: MONO, fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" };
   return (
     <div style={{ background: T.bgCard, border: `1px solid ${T.borderSubtle}`, borderRadius: "10px", padding: `${SP[3]}px`, display: "flex", flexDirection: "column", gap: `${SP[2]}px` }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: `${SP[2]}px`, flexWrap: "wrap" }}>
         <span style={{ fontSize: TIPO_CARD.corpo, fontWeight: 700, color: T.textPrimary }}>{cartaoPosicaoTxt(modo, "payoff_titulo", { ddmm: c.vencimentoTexto == null ? "—" : c.vencimentoTexto })}</span>
         <span style={rotuloTxt}>{cartaoPosicaoTxt(modo, "payoff_sem_custos")}</span>
       </div>
-      <div style={{ position: "relative", height: "140px" }}>
-        <svg role="img" aria-label={pf.aria} viewBox="0 0 100 100" preserveAspectRatio="none" style={{ display: "block", width: "100%", height: "140px", background: T.bgBase, border: `1px solid ${T.borderSubtle}`, borderRadius: "10px", boxSizing: "border-box" }}>
-          {xBe != null && <rect x={0} y={0} width={xBe} height={100} fill={T.negative} opacity={0.12} />}
-          {xBe != null && <rect x={xBe} y={0} width={100 - xBe} height={100} fill={T.positive} opacity={0.1} />}
-          <line x1={0} x2={100} y1={yZero} y2={yZero} stroke={T.textMuted} strokeWidth={1} vectorEffect="non-scaling-stroke" />
-          {xK != null && linhaV(xK, T.positive)}
-          {xHoje != null && linhaV(xHoje, T.accent)}
-          <polyline fill="none" stroke={T.textPrimary} strokeWidth={2.5} vectorEffect="non-scaling-stroke" strokeLinejoin="round"
-            points={pf.pontos.map((q) => xDoGrafico(q.preco).toFixed(2) + "," + yDoGrafico(q.resultado).toFixed(2)).join(" ")} />
-        </svg>
-        {xBe != null && (
-          <div aria-hidden style={{ position: "absolute", left: xBe + "%", top: yZero + "%", width: "10px", height: "10px", boxSizing: "border-box", background: T.textPrimary, transform: "translate(-50%,-50%) rotate(45deg)" }} />
-        )}
+      <div ref={refPlot} style={{ position: "relative", width: "100%", minWidth: 0 }}>
+        <div style={{ position: "relative", height: geo.topo + geo.plotH }}>
+          <div aria-hidden style={{ position: "absolute", zIndex: 1, left: 0, top: 0, width: "100%", height: geo.topo }}>
+            {geo.marcadores.map((m, i) => (
+              <div key={i} style={{ position: "absolute", left: m.cx, top: 4 + m.linha * MARC_LINHA_H, width: MARC_R * 2, height: MARC_R * 2, borderRadius: "50%", background: T.accent, color: T.onAccent, fontSize: TIPO_CARD.rotulo, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", transform: "translateX(-50%)" }}>{m.n}</div>
+            ))}
+          </div>
+          {geo.ticksY.map((t) => (
+            <div key={t.chave} aria-hidden style={{ ...monoRot, position: "absolute", zIndex: 1, left: 0, width: geo.ML - 6, top: t.y, textAlign: "right", transform: "translateY(-50%)" }}>{t.rotulo}</div>
+          ))}
+          {c.k == null && (
+            <div aria-hidden style={{ ...monoRot, position: "absolute", zIndex: 1, left: 0, width: geo.ML - 6, top: geo.topo, textAlign: "right" }}>{"\u2191"}</div>
+          )}
+          <svg role="img" aria-label={pf.aria} viewBox={`0 0 ${geo.W} ${geo.plotH}`} style={{ position: "absolute", left: 0, top: geo.topo, display: "block", width: "100%", height: geo.plotH, background: T.bgBase, border: `1px solid ${T.borderSubtle}`, borderRadius: "10px", boxSizing: "border-box" }}>
+            <defs>
+              <clipPath id={idPos}><rect x={0} y={0} width={geo.W} height={Math.max(0, yZero)} /></clipPath>
+              <clipPath id={idNeg}><rect x={0} y={yZero} width={geo.W} height={Math.max(0, geo.plotH - yZero)} /></clipPath>
+              <pattern id={idHach} width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+                <line x1="0" y1="0" x2="0" y2="7" style={{ stroke: T.negative }} strokeWidth="2" />
+              </pattern>
+            </defs>
+            <path d={dArea} clipPath={`url(#${idPos})`} style={{ fill: T.positive }} fillOpacity={0.1} />
+            <path d={dArea} clipPath={`url(#${idNeg})`} style={{ fill: T.negative }} fillOpacity={0.12} />
+            <path d={dArea} clipPath={`url(#${idNeg})`} fill={`url(#${idHach})`} />
+            <line x1={geo.ML} x2={geo.W} y1={yZero} y2={yZero} style={{ stroke: T.textMuted }} strokeWidth={1} vectorEffect="non-scaling-stroke" />
+            {geo.marcadores.map((m, i) => (
+              <line key={i} x1={m.x} x2={m.x} y1={0} y2={geo.plotH} style={{ stroke: T.textSecondary }} strokeWidth={1.5} strokeDasharray="4 3" vectorEffect="non-scaling-stroke" />
+            ))}
+            <polyline fill="none" style={{ stroke: T.textPrimary }} strokeWidth={2.5} vectorEffect="non-scaling-stroke" strokeLinejoin="round"
+              points={pts.map((q) => q[0].toFixed(2) + "," + q[1].toFixed(2)).join(" ")} />
+          </svg>
+          {c.be != null && (
+            <div aria-hidden style={{ position: "absolute", left: xDoGrafico(c.be), top: geo.topo + yZero, width: "10px", height: "10px", boxSizing: "border-box", background: T.textPrimary, transform: "translate(-50%,-50%) rotate(45deg)" }} />
+          )}
+        </div>
+        <div aria-hidden style={{ position: "relative", height: MB_EIXO }}>
+          {geo.ticksX.map((t, i) => (
+            <div key={i} style={{ ...monoRot, position: "absolute", top: 0, left: t.x, transform: `translateX(${ancoraX[t.ancora]})` }}>{price(t.valor)}</div>
+          ))}
+        </div>
       </div>
-      <div style={{ ...rotuloTxt, display: "flex", flexWrap: "wrap", gap: `${SP[1]}px ${SP[3]}px`, fontFamily: MONO, fontVariantNumeric: "tabular-nums" }}>
-        {c.hoje != null && <span>{cartaoPosicaoTxt(modo, "leg_hoje", { v: price(c.hoje) })}</span>}
-        {c.be != null && <span>{cartaoPosicaoTxt(modo, "leg_be", { v: price(c.be) })}</span>}
-        {c.k != null && <span>{cartaoPosicaoTxt(modo, "leg_k", { v: price(c.k) })}</span>}
-        <span>{cartaoPosicaoTxt(modo, "leg_eixo", { lo: price(pf.xMin), hi: price(pf.xMax) })}</span>
-      </div>
+      <LegendaMarcadores itens={geo.marcadores} />
+      <div style={rotuloTxt}>{cartaoPosicaoTxt(modo, "leg_eixo", { lo: price(pf.xMin), hi: price(pf.xMax) })}</div>
     </div>
   );
 }
