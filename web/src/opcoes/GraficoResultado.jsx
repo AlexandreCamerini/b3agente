@@ -6,16 +6,21 @@
  * plotados) é geometria, não resultado. Perda e ganho têm o mesmo peso visual
  * (mesma opacidade de preenchimento); cor nunca é a única pista (sinal "−",
  * rótulo "perde", número em R$). O gráfico redesenha sem animação.
+ *
+ * Onda H (2026-10-08, quick 261008-oos): eixos, marcadores e legenda vêm da
+ * linguagem comum (payoffEixos.js + PayoffPrimitivas.jsx). O SVG mede a própria
+ * largura (viewBox = px reais), o eixo Y tem até 3 ticks em coluna dimensionada,
+ * o PM vira marcador numerado 6 (o backend fixa 1-5; decisão H-D4) e nenhum
+ * texto de marcador cai sobre a área plotada. A legenda diz cada conceito uma
+ * vez (a frase do backend já traz o preço).
  */
-import { useEffect, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { opcoesEscadaTxt } from "../copy.js";
 import TermoOpcoes from "./TermoOpcoes.jsx";
 import { T, FOCO, TIPO, MONO, ALVO_MIN } from "./fluxoEstilo.js";
+import { montarGeometria, afastarPontos, alturaTopo, PLOT_H, MB_EIXO, MARC_R } from "./payoffEixos.js";
+import { useLarguraMedida, EixoY, EixoX, MarcadoresVerticais, BadgeNumero } from "./PayoffPrimitivas.jsx";
 
-const W = 340;
-const H = 214;
-const PAD_X = 12;
-const PAD_Y = 16;
 const OPACIDADE = 0.2; // a MESMA para ganho e perda
 
 const ehNum = (v) => typeof v === "number" && isFinite(v);
@@ -63,6 +68,9 @@ export default function GraficoResultado({
   const g = degrau && degrau.grafico ? degrau.grafico : null;
   const pontos = g && Array.isArray(g.pontos) ? g.pontos : [];
   const [idx, setIdx] = useState(() => indiceInicial(pontos, g && g.hoje));
+  const uid = String(useId()).replace(/[^A-Za-z0-9_-]/g, "");
+  const refPlot = useRef(null);
+  const largura = useLarguraMedida(refPlot, 340);
   const chave = degrau ? String(degrau.id) + "|" + String(degrau.nome) + "|" + String(degrau.vencimento) + "|" + pontos.length : "";
   useEffect(() => { setIdx(indiceInicial(pontos, g && g.hoje)); /* eslint-disable-next-line */ }, [chave]);
 
@@ -94,7 +102,7 @@ export default function GraficoResultado({
       <section style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
         {cabecalho}
         <div style={{
-          width: "100%", aspectRatio: `${W} / ${H}`, display: "flex", alignItems: "center", justifyContent: "center",
+          width: "100%", height: alturaTopo(1) + PLOT_H + MB_EIXO + "px", display: "flex", alignItems: "center", justifyContent: "center",
           padding: "16px", boxSizing: "border-box", borderRadius: "12px", background: T.bgPanel,
           border: `1px solid ${T.borderSubtle}`, color: T.textSecondary, ...TIPO.corpo, textAlign: "center",
         }}>
@@ -104,7 +112,7 @@ export default function GraficoResultado({
     );
   }
 
-  // Escala do DESENHO (não é conta financeira).
+  // Escala do DESENHO (não é conta financeira): min/max dos valores plotados + 0.
   const valores = [];
   for (const p of pontos) {
     if (p.soAcoes && ehNum(p.soAcoes[u])) valores.push(p.soAcoes[u]);
@@ -113,11 +121,20 @@ export default function GraficoResultado({
   valores.push(0);
   const yMin = Math.min(...valores);
   const yMax = Math.max(...valores);
-  const dx = g.xMax - g.xMin;
-  const dy = yMax - yMin;
-  const X = (preco) => PAD_X + ((preco - g.xMin) / (dx || 1)) * (W - 2 * PAD_X);
-  const Y = (val) => PAD_Y + ((yMax - val) / (dy || 1)) * (H - 2 * PAD_Y);
-  const y0 = Y(0);
+  const marcadoresBack = Array.isArray(g.marcadores) ? g.marcadores : [];
+  const ausentes = Array.isArray(g.ausentes) ? g.ausentes : [];
+  const semTeto = ausentes.some((a) => a && a.chave === "ganho_maximo");
+  const semPiso = ausentes.some((a) => a && a.chave === "piso") && !marcadoresBack.some((m) => m && m.chave === "perda_maxima");
+  // PM = marcador vertical numerado 6 (o backend fixa 1-5 para piso..ganho máximo).
+  const marcadoresV = ehNum(g.precoMedio) ? [{ preco: g.precoMedio, rotulo: tx("linha_preco_medio"), n: 6, comPreco: true }] : [];
+  const geo = montarGeometria({ largura, x0: g.xMin, x1: g.xMax, yMin, yMax, marcadores: marcadoresV, semTeto, semPiso });
+  const X = geo.sx;
+  const Y = geo.sy;
+  const y0 = geo.yZero;
+  const W = geo.W;
+  const H = geo.H;
+  const idPos = "opc-clip-pos-" + uid;
+  const idNeg = "opc-clip-neg-" + uid;
 
   const linha = (serie) => {
     let d = "";
@@ -140,9 +157,7 @@ export default function GraficoResultado({
     : "";
 
   const ptsOk = idx >= 0 && idx < pontos.length ? pontos[idx] : pontos[0];
-  const marcadores = Array.isArray(g.marcadores) ? g.marcadores : [];
   const legenda = Array.isArray(g.legenda) ? g.legenda : [];
-  const ausentes = Array.isArray(g.ausentes) ? g.ausentes : [];
   const tabela = Array.isArray(g.tabela) ? g.tabela : [];
   const ariaTxt = g.aria && g.aria[u] ? g.aria[u] : tx("dado_insuficiente");
   const dados = degrau.termos || null;
@@ -155,69 +170,77 @@ export default function GraficoResultado({
   else if (efeito === "igual") fraseEse = tx("ese_igual");
   else fraseEse = tx("dado_insuficiente");
 
-  const eixo = { fontSize: "12px", fontFamily: MONO.fontFamily, fill: T.textMuted };
+  const noCurva = marcadoresBack
+    .map((m) => ({ m, v: m && m.valor ? m.valor[u] : null }))
+    .filter(({ m, v }) => m && ehNum(m.preco) && ehNum(v));
+  const afast = afastarPontos(noCurva.map(({ m, v }) => ({ x: X(m.preco), y: Y(v) })), 20);
+  const fmtPreco = (v) => fmt(v);
 
   return (
     <section style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
       {cabecalho}
 
-      <svg viewBox={`0 0 ${W} ${H}`} width="100%" height="auto" role="img" aria-label={ariaTxt}
-        style={{ display: "block", width: "100%", height: "auto", borderRadius: "12px", background: T.bgPanel, border: `1px solid ${T.borderSubtle}` }}>
-        <defs>
-          <clipPath id="opc-clip-pos"><rect x="0" y="0" width={W} height={Math.max(0, y0)} /></clipPath>
-          <clipPath id="opc-clip-neg"><rect x="0" y={y0} width={W} height={Math.max(0, H - y0)} /></clipPath>
-        </defs>
-        {dArea ? (
-          <>
-            <path d={dArea} clipPath="url(#opc-clip-pos)" style={{ fill: T.positive }} fillOpacity={OPACIDADE} />
-            <path d={dArea} clipPath="url(#opc-clip-neg)" style={{ fill: T.negative }} fillOpacity={OPACIDADE} />
-          </>
-        ) : null}
-        <line x1={PAD_X} x2={W - PAD_X} y1={y0} y2={y0} style={{ stroke: T.textMuted }} strokeWidth="1" />
-        <text x={PAD_X} y={y0 - 4} style={eixo}>R$ 0</text>
-        {ehNum(g.precoMedio) ? (
-          <g>
-            <line x1={X(g.precoMedio)} x2={X(g.precoMedio)} y1={PAD_Y} y2={H - PAD_Y}
-              style={{ stroke: T.textFaint }} strokeWidth="1" strokeDasharray="1 3" />
-            <text x={X(g.precoMedio) + 4} y={H - 4} style={eixo}>{tx("linha_preco_medio")} {fmt(g.precoMedio)}</text>
-          </g>
-        ) : null}
-        {dAcoes ? <path d={dAcoes} fill="none" style={{ stroke: T.textFaint }} strokeWidth="2" strokeDasharray="6 4" /> : null}
-        {dEstrutura ? <path d={dEstrutura} fill="none" style={{ stroke: T.accent }} strokeWidth="2" /> : null}
-        <text x={PAD_X} y={H - 4} style={eixo}>{fmt(g.xMin)}</text>
-        <text x={W - PAD_X} y={H - 4} textAnchor="end" style={eixo}>{fmt(g.xMax)}</text>
-        {marcadores.map((m) => {
-          const v = m.valor ? m.valor[u] : null;
-          if (!ehNum(m.preco) || !ehNum(v)) return null;
-          return (
-            <g key={m.n} aria-hidden="true">
-              <circle cx={X(m.preco)} cy={Y(v)} r="9" style={{ fill: T.accent }} />
-              <text x={X(m.preco)} y={Y(v) + 4} textAnchor="middle" style={{ fontSize: "12px", fontWeight: 700, fill: T.onAccent }}>{m.n}</text>
-            </g>
-          );
-        })}
-      </svg>
+      <div ref={refPlot} style={{ minWidth: 0 }}>
+        <svg viewBox={`0 0 ${W} ${H}`} width="100%" height="auto" role="img" aria-label={ariaTxt}
+          style={{ display: "block", width: "100%", height: "auto", borderRadius: "12px", background: T.bgPanel, border: `1px solid ${T.borderSubtle}` }}>
+          <defs>
+            <clipPath id={idPos}><rect x="0" y="0" width={W} height={Math.max(0, y0)} /></clipPath>
+            <clipPath id={idNeg}><rect x="0" y={y0} width={W} height={Math.max(0, H - y0)} /></clipPath>
+          </defs>
+          {dArea ? (
+            <>
+              <path d={dArea} clipPath={`url(#${idPos})`} style={{ fill: T.positive }} fillOpacity={OPACIDADE} />
+              <path d={dArea} clipPath={`url(#${idNeg})`} style={{ fill: T.negative }} fillOpacity={OPACIDADE} />
+            </>
+          ) : null}
+          <EixoY geo={geo} semTeto={semTeto} semPiso={semPiso} />
+          <MarcadoresVerticais geo={geo} />
+          {dEstrutura ? <path d={dEstrutura} fill="none" style={{ stroke: T.accent }} strokeWidth="3" /> : null}
+          {dAcoes ? <path d={dAcoes} fill="none" style={{ stroke: T.textSecondary }} strokeWidth="1.5" strokeDasharray="6 4" /> : null}
+          <EixoX geo={geo} formatar={fmtPreco} />
+          {noCurva.map(({ m, v }, k) => {
+            const cx = X(m.preco);
+            const cy = Y(v) + afast[k].dy;
+            return (
+              <g key={m.n} aria-hidden="true">
+                {afast[k].dy !== 0 ? <line x1={cx} x2={cx} y1={Y(v)} y2={cy} style={{ stroke: T.textSecondary }} strokeWidth="1" /> : null}
+                <circle cx={cx} cy={cy} r={MARC_R} style={{ fill: T.accent }} />
+                <text x={cx} y={cy} textAnchor="middle" dominantBaseline="central" style={{ fontSize: "12px", fontWeight: 700, fill: T.onAccent }}>{m.n}</text>
+              </g>
+            );
+          })}
+        </svg>
+      </div>
 
       <ol style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: "8px" }}>
         {legenda.map((it) => {
           const v = it.valor ? it.valor[u] : null;
           const perde = ehNum(v) && v < 0;
+          const comValor = it.chave === "perda_maxima" || it.chave === "ganho_maximo";
           return (
             <li key={it.n} style={{ display: "flex", gap: "8px", alignItems: "flex-start", ...TIPO.corpo, color: T.textSecondary }}>
-              <span aria-hidden="true" style={{ minWidth: "24px", height: "24px", borderRadius: "999px", background: T.accent, color: T.onAccent, ...TIPO.label, display: "inline-flex", alignItems: "center", justifyContent: "center" }}>{it.n}</span>
+              <BadgeNumero n={it.n} />
               <span>
                 <span style={{ color: T.textPrimary }}>
                   <TermoOpcoes texto={it.rotulo} termos={[{ rotulo: it.rotulo, setor: it.setor, kb: it.kb }]}
                     A={A} didatica={didatica} kbCatalogo={kbCatalogo} dados={dados} onAbrirVerbete={onAbrirVerbete} />
                 </span>
-                {" "}
-                <span style={{ ...MONO, color: T.textPrimary }}>R$ {fmt(v)}</span>
-                {perde ? <span style={{ color: T.textPrimary, fontWeight: 700 }}> {"(perde)"}</span> : null}
-                {it.frase ? <span> {it.frase}</span> : null}
+                {comValor ? <span style={{ ...MONO, color: T.textPrimary }}>{" R$ " + fmt(v)}</span> : null}
+                {comValor && perde ? <span style={{ color: T.textPrimary, fontWeight: 700 }}> {"(perde)"}</span> : null}
+                {it.frase ? <span>{comValor ? " — " : " "}{it.frase}</span> : null}
               </span>
             </li>
           );
         })}
+        {ehNum(g.precoMedio) ? (
+          <li style={{ display: "flex", gap: "8px", alignItems: "flex-start", ...TIPO.corpo, color: T.textSecondary }}>
+            <BadgeNumero n={6} />
+            <span>
+              <span style={{ color: T.textPrimary }}>{tx("linha_preco_medio")}</span>
+              <span style={{ ...MONO, color: T.textPrimary }}>{" R$ " + fmt(g.precoMedio)}</span>
+            </span>
+          </li>
+        ) : null}
         {ausentes.map((a) => (
           <li key={a.chave} style={{ ...TIPO.corpo, color: T.textMuted }}>{a.texto}</li>
         ))}
