@@ -323,7 +323,7 @@ Requirements: `.planning/REQUIREMENTS.md`. Mock: https://claude.ai/artifact/JEpy
 - [x] Phase 45: Card de posição estruturada (CARD-01..06) — concluída em código 2026-09-30; validação em aparelho pendente (backend da Fase 44 ainda não em produção)
 - [x] Phase 46: Carteira v6 — card de posição com modos Estudo e Operador (CART6-01..07) (completed 2026-10-02)
 - [x] Phase 46.1: Fechamento das ressalvas da 46 (G-07, G-08, AL-01, AL-02) (completed 2026-10-06)
-- [ ] Phase 47: Didática — expectativa matemática × taxa de acerto (DIDA-01..02)
+- [x] Phase 47: Didática — expectativa matemática × taxa de acerto (DIDA-01..02) (completed 2026-10-07)
 - [x] Phase 48: Opções, caminho B — redesenho da aba Opções (hub → ativo + escada por objetivo) — numerada 48 por ordem de abertura; execução recomendada ANTES da 47 (completed 2026-10-06)
 - [x] Phase 49: Anatomia da perna — card que explica cada perna (frase, pior caso, equilíbrio, prazo, curva de payoff) e gráfico total com "sem esta perna" antes de decidir/encerrar; depende da aprovação do checkpoint 48-17 (completed 2026-10-06)
 
@@ -419,16 +419,16 @@ Plans:
 2. A cláusula tocável do microtexto abre o verbete (não `confluencia`); paridade `skill_ref.py`↔`copy.js` verde.
 
 **Modelo:** Sonnet.
-**Plans:** 2 plans
+**Plans:** 2/2 plans complete
 
 Plans:
 **Wave 1**
 
-- [ ] 47-01-PLAN.md — DIDA-01: TEXTO_EXPECTATIVA + conceito `expectativa-matematica` (números do histórico: n/janela/expR/estado; ilustração por constantes) + verbete KB com o mesmo texto, 2 modos + setor `expectativa` (onda 1)
+- [x] 47-01-PLAN.md — DIDA-01: TEXTO_EXPECTATIVA + conceito `expectativa-matematica` (números do histórico: n/janela/expR/estado; ilustração por constantes) + verbete KB com o mesmo texto, 2 modos + setor `expectativa` (onda 1)
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 47-02-PLAN.md — DIDA-02: rótulo em skill_ref ↔ copy.js + HistoricoPill abre `expectativa` (não `analise`→`confluencia`) + guardiões reconciliados e cadeia App.jsx→SETORES→conceito travada (onda 2)
+- [x] 47-02-PLAN.md — DIDA-02: rótulo em skill_ref ↔ copy.js + HistoricoPill abre `expectativa` (não `analise`→`confluencia`) + guardiões reconciliados e cadeia App.jsx→SETORES→conceito travada (onda 2)
 
 ### Phase 48: Opções, caminho B — redesenho da aba Opções
 

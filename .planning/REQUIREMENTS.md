@@ -80,10 +80,10 @@ IDs propostos na 46-UI-SPEC (Pergunta 6) e fixados no plan-phase de 2026-09-30.
 
 ### Didática (Fase 47)
 
-- [ ] **DIDA-01**: A KB ganha verbete "expectativa matemática × taxa de acerto
+- [x] **DIDA-01**: A KB ganha verbete "expectativa matemática × taxa de acerto
   (vantagem estatística)" em `kb.py`/`conceitos.py`, sem promessa de
   rentabilidade.
-- [ ] **DIDA-02**: A cláusula tocável do microtexto de reconciliação (hoje abre
+- [x] **DIDA-02**: A cláusula tocável do microtexto de reconciliação (hoje abre
   `confluencia`) passa a abrir esse verbete, com paridade `skill_ref`↔`copy.js`.
 
 ### Opções, caminho B (Fase 48)
