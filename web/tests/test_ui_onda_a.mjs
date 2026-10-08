@@ -67,8 +67,39 @@ if (nBotoes < 100) falha(`[A1] parser achou só ${nBotoes} botões — esperado 
   if (!/transform:/.test(corpo)) falha("[A1] Toggle sem transform no knob");
 }
 
+// ---------------------------------------------------------------- parte 2
+for (const nome of ["BuyModal", "SellModal", "CatalogModal", "TechnicalModal"]) {
+  const a = app.search(new RegExp(`function ${nome}\\(`));
+  if (a < 0) { falha(`[A2] ${nome} não encontrado`); continue; }
+  const prox = app.indexOf("\nfunction ", a + 10);
+  let corpo = app.slice(a, prox < 0 ? undefined : prox);
+  if (nome === "TechnicalModal") {
+    // TechnicalModal delega o invólucro ao BottomSheet (único consumidor): o contrato vive lá.
+    if (!/<BottomSheet[^>]*label=/.test(corpo)) falha("[A2] TechnicalModal não passa label ao BottomSheet");
+    const b = app.search(/function BottomSheet\(/);
+    corpo += app.slice(b, app.indexOf("\nfunction ", b + 10));
+  }
+  if (!/role="dialog"/.test(corpo)) falha(`[A2] ${nome} sem role="dialog"`);
+  if (!/aria-modal="true"|aria-modal(?![-\w])/.test(corpo)) falha(`[A2] ${nome} sem aria-modal`);
+  if (!/aria-label/.test(corpo)) falha(`[A2] ${nome} sem aria-label/labelledby`);
+  if (!/useDialogA11y\(/.test(corpo)) falha(`[A2] ${nome} não usa useDialogA11y (Esc + foco)`);
+}
+{
+  const hook = readFileSync(join(src, "useDialogA11y.js"), "utf8");
+  if (!/Escape/.test(hook)) falha("[A2] useDialogA11y sem handler de Escape");
+  if (!/\.focus\(/.test(hook)) falha("[A2] useDialogA11y não move/devolve foco");
+  if (!/removeEventListener\(\s*"keydown"/.test(hook)) falha("[A2] useDialogA11y não remove o listener keydown");
+}
+{
+  const a = app.search(/function BottomNav\(/);
+  const corpo = app.slice(a, app.indexOf("\nfunction ", a + 10));
+  if (!/aria-current/.test(corpo)) falha("[A2] BottomNav sem aria-current");
+  if (/aria-pressed/.test(corpo)) falha("[A2] BottomNav ainda usa aria-pressed");
+  if (!/<nav[^>]*aria-label="Navegação principal"/.test(corpo)) falha('[A2] BottomNav sem <nav aria-label="Navegação principal">');
+}
+
 if (falhas.length) {
   console.error(`FALHOU (${falhas.length}):\n- ` + falhas.join("\n- "));
   process.exit(1);
 }
-console.log(`ok test_ui_onda_a (${nBotoes} botões varridos)`);
+console.log(`ok test_ui_onda_a (${nBotoes} botões varridos; modais/nav)`);

@@ -12,6 +12,7 @@ import { varsCartaoV6, ALFA_ZONA_V6, ALFA_ZONA_MEIO_V6 } from "./cartaoV6Cores.j
 // Fase 41 (TELAS-01): registro único das 8 telas que o assistente conhece —
 // BottomNav/petTela leem daqui nesta plano (41-02); tourPassos/ajudaSecoes
 // passam a iterar os ids do registro na 41-02/Task 2.
+import { useDialogA11y } from "./useDialogA11y.js"; // Onda A (2026-10-08): Esc + foco + devolução nos modais
 import { defsDaBarra, telasDoTour, telasDaAjuda, telaDoAssistente } from "./telas.js";
 import { Markdown, MdInline } from "./markdown.jsx";
 import { extentOf, linePath, lastVal } from "./chartutil.js";
@@ -1070,12 +1071,12 @@ function BottomNav({ tab, setTab, cp }) {
   // copy.js via rotuloCp (D-02) — nada mudou visível aqui, só a fonte.
   const defs = defsDaBarra(cp);
   return (
-    <nav style={{ flex: "none", background: T.bgPanel, borderTop: `1px solid ${T.borderSubtle}`, paddingBottom: "env(safe-area-inset-bottom)" }}>
+    <nav aria-label="Navegação principal" style={{ flex: "none", background: T.bgPanel, borderTop: `1px solid ${T.borderSubtle}`, paddingBottom: "env(safe-area-inset-bottom)" }}>
       <div style={{ display: "flex", maxWidth: CONTENT_MAX_WIDTH, margin: "0 auto", padding: "5px 6px" }}>
         {defs.map(([id, label]) => {
           const active = tab === id;
           return (
-            <button key={id} onClick={() => setTab(id)} aria-pressed={active} aria-label={label}
+            <button key={id} onClick={() => setTab(id)} aria-current={active ? "page" : undefined} aria-label={label}
               style={{ flex: 1, minHeight: "54px", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "3px", background: "transparent", border: "none", color: active ? T.accent : T.textMuted, fontSize: "10.5px", fontWeight: active ? 700 : 600 }}>
               <NavIcon id={id} active={active} />
               {label}
@@ -1922,7 +1923,8 @@ function ChartSkeleton() {
 }
 
 // Bottom sheet arrastável (fecha ao puxar para baixo).
-function BottomSheet({ onClose, children }) {
+function BottomSheet({ onClose, label, children }) {
+  const painelRef = useDialogA11y(true, onClose);
   const [dy, setDy] = useState(0);
   const [dragging, setDragging] = useState(false);
   const startY = useRef(0);
@@ -1930,10 +1932,10 @@ function BottomSheet({ onClose, children }) {
   const onMove = (e) => { if (!dragging) return; setDy(Math.max(0, e.clientY - startY.current)); };
   const onUp = () => { if (!dragging) return; setDragging(false); if (dy > 110) onClose(); else setDy(0); };
   return (
-    <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 1000, background: "rgba(0,0,0,0.62)", display: "flex", flexDirection: "column" }}>
+    <div onClick={onClose} role="dialog" aria-modal="true" aria-label={label} style={{ position: "fixed", inset: 0, zIndex: 1000, background: "rgba(0,0,0,0.62)", display: "flex", flexDirection: "column" }}>
       <div
-        onClick={(e) => e.stopPropagation()}
-        style={{ marginTop: "auto", background: T.bgBase, borderTopLeftRadius: "20px", borderTopRightRadius: "20px", borderTop: `1px solid ${T.borderSubtle}`, maxHeight: "94vh", display: "flex", flexDirection: "column", paddingBottom: "env(safe-area-inset-bottom)", transform: `translateY(${dy}px)`, transition: dragging || REDUCE_MOTION ? "none" : "transform .22s ease" }}
+        onClick={(e) => e.stopPropagation()} ref={painelRef} tabIndex={-1}
+        style={{ outline: "none", marginTop: "auto", background: T.bgBase, borderTopLeftRadius: "20px", borderTopRightRadius: "20px", borderTop: `1px solid ${T.borderSubtle}`, maxHeight: "94vh", display: "flex", flexDirection: "column", paddingBottom: "env(safe-area-inset-bottom)", transform: `translateY(${dy}px)`, transition: dragging || REDUCE_MOTION ? "none" : "transform .22s ease" }}
       >
         <div onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp} style={{ padding: "10px 0 4px", cursor: "grab", touchAction: "none", flex: "none" }}>
           <div style={{ width: "40px", height: "4px", borderRadius: "999px", background: T.borderSubtle, margin: "0 auto" }} />
@@ -1983,7 +1985,7 @@ function TechnicalModal({ ticker, name, quote, position, onClose, period }) {
   const periods = [["1S", 5], ["1M", 22], ["3M", 66], ["1A", 252]];
 
   return (
-    <BottomSheet onClose={onClose}>
+    <BottomSheet onClose={onClose} label={"Indicadores técnicos de " + ticker}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "2px 18px 10px" }}>
         <div>
           <div style={{ display: "flex", alignItems: "baseline", gap: "9px" }}>
@@ -8646,6 +8648,7 @@ function ConfigScreen({ ctx }) {
 
 function CatalogModal({ ctx }) {
   const { data, catalogSel, setCatalogSel, addState, setAddState, A, wlQuota, catalogLimite, cp } = ctx;
+  const painelRef = useDialogA11y(true, A.closeCatalog);
   const [tk, setTk] = useState("");
   const toggle = (t) => setCatalogSel((sel) => (sel.includes(t) ? sel.filter((x) => x !== t) : [...sel, t]));
   const submit = async () => {
@@ -8656,7 +8659,7 @@ function CatalogModal({ ctx }) {
   };
   return (
     <div onClick={A.closeCatalog} style={{ position: "fixed", inset: 0, zIndex: 50, background: T.scrim, display: "flex", alignItems: "center", justifyContent: "center", padding: "18px" }}>
-      <div onClick={(e) => e.stopPropagation()} style={{ width: "100%", maxWidth: "520px", maxHeight: "82vh", display: "flex", flexDirection: "column", ...card, borderRadius: "14px" }}>
+      <div onClick={(e) => e.stopPropagation()} ref={painelRef} tabIndex={-1} role="dialog" aria-modal="true" aria-label="Editar watchlist" style={{ outline: "none", width: "100%", maxWidth: "520px", maxHeight: "82vh", display: "flex", flexDirection: "column", ...card, borderRadius: "14px" }}>
         <div style={{ padding: "16px 18px", borderBottom: `1px solid ${T.borderSubtle}` }}>
           <div style={{ fontSize: "16px", fontWeight: 700 }}>Editar watchlist</div>
           <div style={{ fontSize: "12.5px", color: T.textMuted, marginTop: "3px" }}>
@@ -8731,6 +8734,7 @@ function suggestedQty(cash, priceV, risco) {
 
 function BuyModal({ ctx }) {
   const { buyModal, quotes, data, A, setBuyModal } = ctx;
+  const painelRef = useDialogA11y(true, A.closeBuy);
   const t = buyModal.t;
   const q = quotes[t] || {};
   const name = (data.catalog.find((c) => c.t === t) || {}).n || t;
@@ -8745,7 +8749,7 @@ function BuyModal({ ctx }) {
   const statusIndisponivel = !!(ctx.mercado && ctx.mercado.erro);
   return (
     <div onClick={A.closeBuy} style={{ position: "fixed", inset: 0, zIndex: 50, background: T.scrim, display: "flex", alignItems: "center", justifyContent: "center", padding: "18px" }}>
-      <div onClick={(e) => e.stopPropagation()} style={{ width: "100%", maxWidth: "420px", ...card, borderRadius: "14px", padding: "20px" }}>
+      <div onClick={(e) => e.stopPropagation()} ref={painelRef} tabIndex={-1} role="dialog" aria-modal="true" aria-label={"Compra simulada de " + t} style={{ outline: "none", width: "100%", maxWidth: "420px", ...card, borderRadius: "14px", padding: "20px" }}>
         <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "10px" }}>
           <div>
             <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
@@ -8808,6 +8812,7 @@ function BuyModal({ ctx }) {
 // e prévia do resultado — espelha o BuyModal; o preço final é o do servidor.
 function SellModal({ ctx }) {
   const { sellModal, setSellModal, quotes, data, A } = ctx;
+  const painelRef = useDialogA11y(true, A.closeSell); // antes do `return null` (regra dos hooks)
   const t = sellModal.t;
   const pos = (data.positions || []).find((p) => p.t === t);
   if (!pos) return null;
@@ -8839,7 +8844,7 @@ function SellModal({ ctx }) {
   const statusIndisponivel = !!(ctx.mercado && ctx.mercado.erro);
   return (
     <div onClick={A.closeSell} style={{ position: "fixed", inset: 0, zIndex: 50, background: T.scrim, display: "flex", alignItems: "center", justifyContent: "center", padding: "18px" }}>
-      <div onClick={(e) => e.stopPropagation()} style={{ width: "100%", maxWidth: "420px", ...card, borderRadius: "14px", padding: "20px" }}>
+      <div onClick={(e) => e.stopPropagation()} ref={painelRef} tabIndex={-1} role="dialog" aria-modal="true" aria-label={"Venda simulada de " + t} style={{ outline: "none", width: "100%", maxWidth: "420px", ...card, borderRadius: "14px", padding: "20px" }}>
         <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "10px" }}>
           <div>
             <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
