@@ -18,7 +18,8 @@ const radarChunk = appSrc.slice(appSrc.indexOf("function RadarScreen"), appSrc.i
 ok("trecho da RadarScreen localizado", radarChunk.length > 500);
 
 // 1) campo de busca existe, acessível
-ok("campo de busca (useState busca) declarado", /const \[busca, setBusca\] = useState\(""\)/.test(radarChunk));
+// NOTA DATADA 2026-10-08 (quick 261008-1ar, Onda B): busca subiu para a memória de UI da sessão (uiMemo.js) para sobreviver à troca de aba; forma antiga segue aceita.
+ok("campo de busca (useState busca) declarado", /const \[busca, setBusca\] = (useState\(""\)|useEstadoMemorizado\(ctx\.uiMemo, "radar\.busca", ""\))/.test(radarChunk));
 ok("input de busca com aria-label", /aria-label="Buscar ticker no Radar"/.test(radarChunk));
 ok("input de busca controlado (value={busca})", /value=\{busca\}/.test(radarChunk));
 

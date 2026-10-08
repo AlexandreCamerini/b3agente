@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, useMemo, createContext, useContext } from "react";
+import { useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo, createContext, useContext } from "react";
 import { store, isNative, auth } from "./persistence.js";
 import { hasSession } from "./sync.js"; // BLOCO 2: welcome exibe estado da sessão salva
 import { defaultLlmPrompts } from "./catalog.js";
@@ -12,9 +12,10 @@ import { varsCartaoV6, ALFA_ZONA_V6, ALFA_ZONA_MEIO_V6 } from "./cartaoV6Cores.j
 // Fase 41 (TELAS-01): registro único das 8 telas que o assistente conhece —
 // BottomNav/petTela leem daqui nesta plano (41-02); tourPassos/ajudaSecoes
 // passam a iterar os ids do registro na 41-02/Task 2.
+import { useEstadoMemorizado } from "./uiMemo.js"; // Onda B (2026-10-08): estado de UI que sobrevive à troca de aba (só sessão)
 import { useDialogA11y } from "./useDialogA11y.js"; // Onda A (2026-10-08): Esc + foco + devolução nos modais
 import { defsDaBarra, telasDoTour, telasDaAjuda, telaDoAssistente } from "./telas.js";
-import { profundidade, subirNivel, reconciliarPilha, entradasOrfas, ehGestoVoltarBorda } from "./navStack.js"; // Onda B (2026-10-08): voltar do sistema
+import { profundidade, subirNivel, reconciliarPilha, entradasOrfas, ehGestoVoltarBorda, chaveDeScroll } from "./navStack.js"; // Onda B (2026-10-08): voltar do sistema
 import { Capacitor } from "@capacitor/core"; // Onda B: só getPlatform() p/ o gesto de borda no iOS
 import { Markdown, MdInline } from "./markdown.jsx";
 import { extentOf, linePath, lastVal } from "./chartutil.js";
@@ -2990,7 +2991,7 @@ function GlossarioFamilia({ grupo, aberta, onToggle, onAbrirVerbete }) {
 // interativo (D-05, nunca esconde a navegação por categoria).
 function TelaGlossario({ ctx }) {
   const cat = ctx.kbCatalogo;
-  const [busca, setBusca] = useState("");
+  const [busca, setBusca] = useEstadoMemorizado(ctx.uiMemo, "glossario.busca", "");
   const [abertas, setAbertas] = useState(() => new Set());
   const toggleFamilia = (fid) => setAbertas((prev) => {
     const next = new Set(prev);
@@ -7966,8 +7967,11 @@ function HistoricoPill({ historico, elegivel, aposentado, operador, hojeYmd, com
 function RadarScreen({ ctx }) {
   const { data, cp } = ctx;   // FASE 8B (B1): fraseologia por modo
   const period = (data.config && data.config.candlePeriod) || "1y";
-  const [st, setSt] = useState({ busy: false, res: null, error: "" });
-  const [busca, setBusca] = useState("");
+  // Onda B (2026-10-08): scan/busca/leituras sobem para a memória de UI da sessão
+  // (uiMemo) e sobrevivem à troca de aba. O `res` restaurado mantém o carimbo/fonte
+  // que ele próprio carrega (princípio 3); nada é recalculado nem inventado.
+  const [st, setSt] = useEstadoMemorizado(ctx.uiMemo, "radar.scan", { busy: false, res: null, error: "" }, (v) => ({ ...v, busy: false }));
+  const [busca, setBusca] = useEstadoMemorizado(ctx.uiMemo, "radar.busca", "");
   const [showModel, setShowModel] = useState(false);
   const [openTicker, setOpenTicker] = useState(null);
   // Fase 23 (MOTION-01): tickers já renderizados NESTA montagem da lista.
@@ -7979,7 +7983,7 @@ function RadarScreen({ ctx }) {
   const vistosRef = useRef(new Set());
   const isNovo = (t) => !vistosRef.current.has(t);
   // FASE 2 (2.1): aprofundamento IA (N1) — leituras por ativo + lote top-N
-  const [deep, setDeep] = useState({});         // ticker -> {loading,res,error,cache,disclaimer}
+  const [deep, setDeep] = useEstadoMemorizado(ctx.uiMemo, "radar.deep", {}, (d) => Object.fromEntries(Object.entries(d || {}).filter(([, x]) => x && !x.loading)));         // ticker -> {loading,res,error,cache,disclaimer}
   const [deepFor, setDeepFor] = useState(null); // ticker do modal aberto
   const [batch, setBatch] = useState({ stage: "idle", busy: false, est: null, error: "" });
   const runDeep = useCallback(async (t) => {
@@ -10307,7 +10311,20 @@ export default function App() {
     };
   }, []);
 
+  // Onda B (2026-10-08): memória de UI da sessão (Map em ref; sem disco) + scroll do
+  // <main> por chave de tela. Hooks antes dos early returns.
+  const uiMemoRef = useRef(new Map());
+  const scrollPorChaveRef = useRef(new Map());
+  const chaveScroll = chaveDeScroll(estadoNav);
+  const chaveScrollRef = useRef(chaveScroll);
+  useLayoutEffect(() => {
+    chaveScrollRef.current = chaveScroll;
+    const el = mainRef.current;
+    if (el) el.scrollTop = scrollPorChaveRef.current.get(chaveScroll) || 0;
+  }, [chaveScroll]);
+
   const ctx = {
+    uiMemo: uiMemoRef.current,
     // Onda B (2026-10-08): OpcoesScreen relata nível e registra seu "voltar".
     reportarNavOpcoes: (nivel, temTicker) => setOpcoesNav((p) => (p.nivel === nivel && p.temTicker === !!temTicker) ? p : { nivel, temTicker: !!temTicker }),
     registrarVoltarOpcoes: (fn) => { opcoesVoltarRef.current = typeof fn === "function" ? fn : null; },
@@ -10685,7 +10702,7 @@ export default function App() {
       <Ticker items={tickerItems} live={Object.keys(quotes).length > 0} />
       <Topbar patr={patr} dia={dia} caixa={data.cash} name={firstName} modeChip={cp.chipModo} mercado={mercado} cp={cp} onProfile={() => { setPerfilView("hub"); setTab("perfil"); }} />
 
-      <main ref={mainRef} style={{ position: "relative", flex: 1, minHeight: 0, overflowY: "auto", overflowX: "hidden", WebkitOverflowScrolling: "touch" }}>
+      <main ref={mainRef} onScroll={(e) => { scrollPorChaveRef.current.set(chaveScrollRef.current, e.currentTarget.scrollTop); }} style={{ position: "relative", flex: 1, minHeight: 0, overflowY: "auto", overflowX: "hidden", WebkitOverflowScrolling: "touch" }}>
         {pullY > 0 && (
           <div style={{ position: "absolute", top: "8px", left: "50%", transform: "translateX(-50%)", zIndex: 5, opacity: Math.min(1, pullY / 70), color: T.accent, fontSize: "12px", fontWeight: 700, display: "flex", alignItems: "center", gap: "7px", pointerEvents: "none" }}>
             <span className={pullY >= 70 ? "spin" : undefined} style={{ display: "inline-block" }}>↻</span>

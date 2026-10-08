@@ -69,5 +69,19 @@ for (const s of ['addEventListener("popstate"', 'removeEventListener("popstate"'
   ok(`App.jsx contém ${s}`, app.includes(s));
 for (const s of ["ctx.reportarNavOpcoes(", "ctx.registrarVoltarOpcoes("]) ok(`OpcoesScreen contém ${s}`, opc.includes(s));
 
+// ---- parte 3 (estado por tela + scroll por chave)
+const { lerMemo } = await import("../src/uiMemo.js");
+ok("lerMemo sem memo", lerMemo(undefined, "k", 7) === 7);
+ok("lerMemo memo vazio", lerMemo(new Map(), "k", 7) === 7);
+ok("lerMemo restaura", JSON.stringify(lerMemo(new Map([["k", { busy: true, res: 1 }]]), "k", null, (v) => ({ ...v, busy: false }))) === JSON.stringify({ busy: false, res: 1 }));
+ok("lerMemo restaurar que lança -> inicial", lerMemo(new Map([["k", 1]]), "k", "ini", () => { throw new Error("x"); }) === "ini");
+const memSrc = semComentario(src("uiMemo.js"));
+ok("uiMemo sem disco", !/localStorage|sessionStorage/.test(memSrc));
+for (const s of ['useEstadoMemorizado(ctx.uiMemo, "radar.busca", "")', 'useEstadoMemorizado(ctx.uiMemo, "radar.scan"', 'useEstadoMemorizado(ctx.uiMemo, "radar.deep"', 'useEstadoMemorizado(ctx.uiMemo, "glossario.busca", "")', "uiMemoRef = useRef(new Map())", "uiMemo: uiMemoRef.current", "chaveDeScroll(", "useLayoutEffect(", "scrollPorChaveRef.current.set(chaveScrollRef.current"])
+  ok(`App.jsx contém ${s}`, app.includes(s));
+ok("radar.scan restaura busy:false", /"radar\.scan"[^\n]*busy: false/.test(app));
+ok("radar.deep descarta loading", /"radar\.deep"[^\n]*!x\.loading/.test(app));
+ok("App sem storage no scroll/memo", !/(localStorage|sessionStorage)[^\n]*(scrollPorChave|uiMemo)/.test(app));
+
 if (falhas) { console.error(`${falhas} falha(s)`); process.exit(1); }
 console.log("test_ui_onda_b: ok");
