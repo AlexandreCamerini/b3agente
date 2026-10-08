@@ -8,6 +8,7 @@
 import { opcoesEscadaTxt } from "../copy.js";
 import TermoOpcoes from "./TermoOpcoes.jsx";
 import { T, FOCO, TIPO, DISPLAY, ALVO_MIN, SR_ONLY, reduzido, transicaoTela } from "./fluxoEstilo.js";
+import VoltarPadrao from "../VoltarPadrao.jsx"; // Onda B (2026-10-08): Voltar único
 
 const ehNum = (v) => typeof v === "number" && isFinite(v);
 
@@ -42,9 +43,7 @@ export default function ObjetivoAtivo({
   return (
     <section style={{ padding: "16px", display: "flex", flexDirection: "column", gap: "16px", ...transicaoTela(reduzido()) }}>
       <div>
-        <button type="button" onClick={onVoltar} {...comFoco} style={{ ...BOTAO, border: "none", color: T.accent, paddingLeft: 0 }}>
-          {tx("voltar")}
-        </button>
+        <VoltarPadrao onClick={onVoltar} rotulo={tx("voltar")} {...comFoco} />
         <div style={{ ...TIPO.corpo, color: T.textSecondary }}>{tx("aviso_virtual")}</div>
       </div>
 

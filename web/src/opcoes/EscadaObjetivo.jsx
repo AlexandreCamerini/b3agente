@@ -13,6 +13,7 @@ import GraficoResultado from "./GraficoResultado.jsx";
 import {
   T, FOCO, TIPO, MONO, DISPLAY, ALVO_MIN, CTA_MIN, SR_ONLY, reduzido, transicaoDegrau, transicaoTela,
 } from "./fluxoEstilo.js";
+import VoltarPadrao from "../VoltarPadrao.jsx"; // Onda B (2026-10-08): Voltar único
 
 const ehNum = (v) => typeof v === "number" && isFinite(v);
 const fmt = (v) =>
@@ -83,10 +84,7 @@ export default function EscadaObjetivo({
   return (
     <section style={{ padding: "16px", display: "flex", flexDirection: "column", gap: "16px", ...transicaoTela(reduzido()) }}>
       <div>
-        <button type="button" onClick={onVoltar} {...comFoco}
-          style={{ minHeight: ALVO_MIN + "px", padding: "8px 0", border: "none", background: "transparent", color: T.accent, ...TIPO.label, cursor: "pointer" }}>
-          {tx("voltar")}
-        </button>
+        <VoltarPadrao onClick={onVoltar} rotulo={tx("voltar")} {...comFoco} />
         <div style={{ ...TIPO.corpo, color: T.textSecondary }}>{tx("aviso_virtual")}</div>
       </div>
 

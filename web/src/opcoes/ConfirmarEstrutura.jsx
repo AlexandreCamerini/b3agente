@@ -14,6 +14,7 @@ import { ehRecusaLiquidezDificil } from "./ExecutarProposta.jsx";
 import { Aviso } from "./uiOpcoes.jsx";
 import TermoOpcoes from "./TermoOpcoes.jsx";
 import { T, FOCO, TIPO, MONO, DISPLAY, ALVO_MIN, CTA_MIN, reduzido, transicaoTela } from "./fluxoEstilo.js";
+import VoltarPadrao from "../VoltarPadrao.jsx"; // Onda B (2026-10-08): Voltar único
 
 const ehNum = (v) => typeof v === "number" && isFinite(v);
 // Só formatação de exibição (pt-BR, 2 casas); ausente vira "—", nunca 0.
@@ -104,9 +105,7 @@ export default function ConfirmarEstrutura({
   return (
     <section style={{ padding: "16px", display: "flex", flexDirection: "column", gap: "16px", ...transicaoTela(reduzido()) }}>
       <div>
-        <button type="button" onClick={onVoltar} {...comFoco} style={{ ...BOTAO, border: "none", color: T.accent, paddingLeft: 0 }}>
-          {tx("voltar")}
-        </button>
+        <VoltarPadrao onClick={onVoltar} rotulo={tx("voltar")} {...comFoco} />
         <div style={{ ...TIPO.corpo, color: T.textSecondary }}>{tx("aviso_virtual")}</div>
       </div>
 

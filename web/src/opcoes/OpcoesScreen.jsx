@@ -50,6 +50,8 @@ import EscadaObjetivo from "./EscadaObjetivo.jsx";
 import ConfirmarEstrutura from "./ConfirmarEstrutura.jsx";
 import MatrizVencimentos from "./MatrizVencimentos.jsx";
 import { reduzido, transicaoTela } from "./fluxoEstilo.js";
+import VoltarPadrao from "../VoltarPadrao.jsx"; // Onda B (2026-10-08): Voltar único
+const useIsoLayoutEffect = typeof window !== "undefined" ? useLayoutEffect : useEffect; // SSR dos guardiões não emite aviso
 import { profundidadeOpcoes, transicaoDe, classeDaTransicao } from "../navStack.js"; // Onda B (2026-10-08): transição entre níveis
 import { opcoesEscadaTxt } from "../copy.js";
 // Fase 27 (27-02): `finance.js` é módulo PURO — zero import de `App.jsx` —,
@@ -733,7 +735,7 @@ export default function OpcoesScreen({ ctx }) {
   // 1º mount nem sob reduced-motion (o gate em .b3 também cobre).
   const transNivelRef = useRef({ prof: profundidadeOpcoes(nav.nivel, !!nav.ticker) });
   const [classeNivel, setClasseNivel] = useState(undefined);
-  useLayoutEffect(() => {
+  useIsoLayoutEffect(() => {
     const prof = profundidadeOpcoes(nav.nivel, !!nav.ticker);
     const ant = transNivelRef.current.prof;
     transNivelRef.current = { prof };
@@ -857,9 +859,9 @@ export default function OpcoesScreen({ ctx }) {
           viram a seção Atenção do hub (+ "ver todos" no sheet abaixo) e o
           Montar de antes vira o nível "montar" ("Montar do zero"). O
           contêiner abaixo recebe o foco no título ao trocar de nível. */}
-      <div style={transicaoTela(reduzido())}>
+      {/* Onda B: key por nível — hub/objetivo/escada/confirmar são ramos exclusivos, então remontar é inócuo e reinicia a animação mesmo com a mesma classe. */}
+      <div key={nav.nivel} className={classeNivel} style={transicaoTela(reduzido())}>
       {nav.nivel === "hub" ? (
-      <div className={classeNivel}>
         <HubOpcoes
           cp={cp}
           mode={mode}
@@ -880,11 +882,9 @@ export default function OpcoesScreen({ ctx }) {
           kbCatalogo={ctx && ctx.kbCatalogo}
           onAbrirVerbete={abrirVerbeteLocal}
         />
-      </div>
       ) : null}
 
       {nav.nivel === "objetivo" ? (
-      <div className={classeNivel}>
         <ObjetivoAtivo
           cp={cp}
           mode={mode}
@@ -928,11 +928,9 @@ export default function OpcoesScreen({ ctx }) {
           onTentarDeNovo={recarregarEscada}
           onIrCarteira={() => { if (ctx && ctx.goCarteira) ctx.goCarteira(); }}
         />
-      </div>
       ) : null}
 
       {nav.nivel === "escada" ? (
-      <div className={classeNivel}>
         <EscadaObjetivo
           cp={cp}
           mode={mode}
@@ -970,11 +968,9 @@ export default function OpcoesScreen({ ctx }) {
           onAbrirVerbete={abrirVerbeteLocal}
           onTentarDeNovo={recarregarEscada}
         />
-      </div>
       ) : null}
 
       {nav.nivel === "confirmar" ? (
-      <div className={classeNivel}>
         <ConfirmarEstrutura
           cp={cp}
           mode={mode}
@@ -990,7 +986,6 @@ export default function OpcoesScreen({ ctx }) {
           kbCatalogo={ctx && ctx.kbCatalogo}
           onAbrirVerbete={abrirVerbeteLocal}
         />
-      </div>
       ) : null}
       </div>
 
@@ -1003,13 +998,7 @@ export default function OpcoesScreen({ ctx }) {
           * mesmo conteúdo e mesmos contratos; "‹ voltar" sobe um nível. */}
       {nav.nivel === "montar" ? (
         <div className={classeNivel}>
-          <button
-            type="button"
-            onClick={() => setNav((n) => voltar(n))}
-            style={{ ...BOTAO, border: "none", color: T.accent, paddingLeft: 0 }}
-          >
-            {opcoesEscadaTxt(mode, "voltar")}
-          </button>
+          <VoltarPadrao onClick={() => setNav((n) => voltar(n))} rotulo={opcoesEscadaTxt(mode, "voltar")} />
           <div style={{ fontSize: "14px", color: T.textSecondary }}>{opcoesEscadaTxt(mode, "aviso_virtual")}</div>
           <h1 tabIndex={-1} style={{ fontSize: "22px", fontWeight: 800, margin: "8px 0 4px" }}>{cp.tituloOpcoes || "Opções"}</h1>
           <p style={{ fontSize: "13px", color: T.textSecondary, margin: "0 0 14px", lineHeight: 1.5 }}>

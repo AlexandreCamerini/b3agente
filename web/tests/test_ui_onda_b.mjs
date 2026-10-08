@@ -101,10 +101,32 @@ ok("App.jsx key={chaveTela} e classeDaTransicao(", app.includes("key={chaveTela}
 ok("classe de tela via useLayoutEffect (sem mutar ref no render)", /useLayoutEffect\(\(\) => \{\s*const ant = transTelaRef\.current;/.test(app));
 ok("sheet-enter >= 4 em App.jsx", (app.match(/"sheet-enter"/g) || []).length >= 4);
 ok("sheet-enter em entendimento.jsx", semComentario(src("entendimento.jsx")).includes('"sheet-enter"'));
-ok("OpcoesScreen classeNivel >= 5 usos no JSX", (opc.match(/className=\{classeNivel\}/g) || []).length >= 5);
+ok("OpcoesScreen: classeNivel no wrapper dos 4 níveis (key por nível) e no montar", /key=\{nav\.nivel\} className=\{classeNivel\}/.test(opc) && (opc.match(/className=\{classeNivel\}/g) || []).length >= 2);
 for (const k of ["b3telaTab", "b3telaEntrar", "b3telaFade", "b3sheetEnter"]) {
   const m = app.match(new RegExp("@keyframes " + k + "\\{([^\\n]*)"));
   ok(`${k} só opacity/transform`, !!m && !/\b(left|top|width|height|margin)\s*:/.test(m[1]));
+}
+
+// ---- parte 5 (Voltar único)
+const vp = semComentario(src("VoltarPadrao.jsx"));
+ok("VoltarPadrao: 44px nas duas variantes", (vp.match(/minHeight: "44px"/g) || []).length >= 2);
+ok("VoltarPadrao: polyline do chevron", vp.includes('points="15 5 8 12 15 19"'));
+ok("BackHeader usa VoltarPadrao", app.includes("<VoltarPadrao onClick={onBack} />"));
+for (const [nome, t] of [["ObjetivoAtivo", src("opcoes", "ObjetivoAtivo.jsx")], ["EscadaObjetivo", src("opcoes", "EscadaObjetivo.jsx")], ["ConfirmarEstrutura", src("opcoes", "ConfirmarEstrutura.jsx")], ["OpcoesScreen", src("opcoes", "OpcoesScreen.jsx")], ["entendimento", src("entendimento.jsx")]]) {
+  const c = semComentario(t);
+  ok(`${nome} importa VoltarPadrao`, /import VoltarPadrao from "\.\.?\/(\.\.\/)?VoltarPadrao\.jsx"|import VoltarPadrao from "\.\.?\/VoltarPadrao\.jsx"/.test(c));
+  ok(`${nome} sem <button> de voltar artesanal`, !/<button[^>]*>\s*(\{tx\("voltar"\)\}|\{opcoesEscadaTxt\(mode, "voltar"\)\}|‹ voltar)\s*<\/button>/.test(c));
+}
+{
+  const { register } = await import("node:module");
+  register("./_jsx_loader.mjs", import.meta.url);
+  const { renderToStaticMarkup } = await import("react-dom/server");
+  const React = (await import("react")).default;
+  const VP = (await import("../src/VoltarPadrao.jsx")).default;
+  const html = renderToStaticMarkup(React.createElement(VP, { rotulo: "‹ voltar", onClick() {} }));
+  ok("SSR variante texto", html.includes("‹ voltar") && html.includes("min-height:44px"));
+  const htmlI = renderToStaticMarkup(React.createElement(VP, { onClick() {} }));
+  ok("SSR variante ícone", htmlI.includes('aria-label="Voltar"') && htmlI.includes("min-height:44px"));
 }
 
 if (falhas) { console.error(`${falhas} falha(s)`); process.exit(1); }

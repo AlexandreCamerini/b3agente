@@ -12,7 +12,8 @@ import { varsCartaoV6, ALFA_ZONA_V6, ALFA_ZONA_MEIO_V6 } from "./cartaoV6Cores.j
 // Fase 41 (TELAS-01): registro único das 8 telas que o assistente conhece —
 // BottomNav/petTela leem daqui nesta plano (41-02); tourPassos/ajudaSecoes
 // passam a iterar os ids do registro na 41-02/Task 2.
-import { useEstadoMemorizado } from "./uiMemo.js"; // Onda B (2026-10-08): estado de UI que sobrevive à troca de aba (só sessão)
+import { useEstadoMemorizado } from "./uiMemo.js";
+import VoltarPadrao from "./VoltarPadrao.jsx"; // Onda B (2026-10-08): Voltar único // Onda B (2026-10-08): estado de UI que sobrevive à troca de aba (só sessão)
 import { useDialogA11y } from "./useDialogA11y.js"; // Onda A (2026-10-08): Esc + foco + devolução nos modais
 import { defsDaBarra, telasDoTour, telasDaAjuda, telaDoAssistente } from "./telas.js";
 import { profundidade, subirNivel, reconciliarPilha, entradasOrfas, ehGestoVoltarBorda, chaveDeScroll, chaveDeTela, transicaoDe, classeDaTransicao } from "./navStack.js"; // Onda B (2026-10-08): voltar do sistema
@@ -2505,9 +2506,7 @@ function EvolucaoScreen({ ctx }) {
 function BackHeader({ title, onBack }) {
   return (
     <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "14px" }}>
-      <button onClick={onBack} aria-label="Voltar" style={{ minWidth: "44px", minHeight: "44px", display: "flex", alignItems: "center", justifyContent: "center", borderRadius: "10px", border: "none", background: "transparent", color: T.textSecondary }}>
-        <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden><polyline points="15 5 8 12 15 19" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
-      </button>
+      <VoltarPadrao onClick={onBack} />
       <div style={{ fontSize: "18px", fontWeight: 700 }}>{title}</div>
     </div>
   );

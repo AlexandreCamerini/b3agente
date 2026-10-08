@@ -25,6 +25,7 @@ import { Markdown } from "./markdown.jsx";
 // Fase 38 (38-03): ponte kb×conceito — helper puro que resolve um verbete do
 // catálogo da KB já em memória (sem fetch nenhum, ver ConceitoSheet abaixo).
 import { verbeteDoCatalogo } from "./glossario.js";
+import VoltarPadrao from "./VoltarPadrao.jsx"; // Onda B (2026-10-08): Voltar único
 import { prefereMovimentoReduzido } from "./estruturaCard.js"; // Onda B (2026-10-08): sheet-enter respeita reduced-motion
 
 const VARKEY = (k) => "--" + k.replace(/[A-Z]/g, (c) => "-" + c.toLowerCase());
@@ -226,8 +227,7 @@ export function ConceitoSheet({ cid, dados, setor, onClose, onTrocar, didatica, 
         {/* A cadeia precisa de volta: quem segue stop → R → gatilho não pode
             ter como única saída fechar tudo e recomeçar. */}
         {voltar && (
-          <button onClick={voltar} aria-label="Voltar ao conceito anterior"
-            style={{ minHeight: "36px", padding: "0 12px 0 6px", marginBottom: "6px", borderRadius: "999px", border: "none", background: "transparent", color: T.textMuted, fontSize: "12px", fontWeight: 700 }}>‹ voltar</button>
+          <VoltarPadrao onClick={voltar} rotulo="‹ voltar" ariaLabel="Voltar ao conceito anterior" style={{ marginBottom: "6px" }} />
         )}
         {/* Fase 38 (38-03): texto de erro próprio por fonte — do glossário
             não há card ancorando o número, então "o card continua válido"
