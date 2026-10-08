@@ -4,6 +4,11 @@
  * ligar/desligar chip pede nova leitura (onAlternar), nunca soma no cliente.
  * O preço do slider é hipótese do usuário, rotulada como tal. Ausência de
  * número vira travessão ou a frase do motor, nunca zero.
+ *
+ * Onda H (2026-10-08, quick 261008-oos): chip com estado explícito (ligado =
+ * preenchido com contorno de destaque; desligado = contorno apagado, amostra
+ * esmaecida), em grade de 3 colunas (até 6 itens em 2 linhas no iPhone;
+ * decisão H-D5); legenda do gráfico começa com a amostra do traço do total.
  */
 import { useId } from "react";
 import { opcoesEscadaTxt } from "../copy.js";
@@ -23,11 +28,11 @@ const comFoco = {
   onBlur: (e) => { e.currentTarget.style.outline = "none"; },
 };
 
-function Amostra({ traco }) {
+function Amostra({ traco, apagada }) {
   const d = TRACOS[traco % TRACOS.length];
   return (
-    <svg width="24" height="10" viewBox="0 0 24 10" aria-hidden="true" focusable="false">
-      <line x1="0" y1="5" x2="24" y2="5" style={{ stroke: T.accent }} strokeWidth="2" strokeDasharray={d || undefined} />
+    <svg width="16" height="10" viewBox="0 0 16 10" aria-hidden="true" focusable="false" style={{ flexShrink: 0, opacity: apagada ? 0.4 : 1 }}>
+      <line x1="0" y1="5" x2="16" y2="5" style={{ stroke: T.accent }} strokeWidth="1.5" strokeDasharray={d || undefined} />
     </svg>
   );
 }
@@ -36,13 +41,14 @@ function Chip({ ligado, onClick, traco, children }) {
   return (
     <button type="button" aria-pressed={ligado} onClick={onClick} {...comFoco}
       style={{
-        minHeight: ALVO_MIN + "px", padding: "8px 12px", borderRadius: "999px", background: "transparent",
-        border: ligado ? `2px solid ${T.accent}` : `1px solid ${T.borderSubtle}`,
-        opacity: ligado ? 1 : 0.85, color: T.textPrimary, ...TIPO.label, cursor: "pointer",
-        display: "inline-flex", alignItems: "center", gap: "8px",
+        minHeight: ALVO_MIN + "px", padding: "4px 8px", borderRadius: "999px", boxSizing: "border-box", minWidth: 0,
+        background: ligado ? T.accentTint10 : "transparent",
+        border: ligado ? `1px solid ${T.accent}` : `1px solid ${T.borderSubtle}`,
+        color: ligado ? T.textPrimary : T.textMuted, ...TIPO.label, cursor: "pointer",
+        display: "inline-flex", alignItems: "center", justifyContent: "center", gap: "6px",
       }}>
-      {traco !== null ? <Amostra traco={traco} /> : null}
-      <span>{children}</span>
+      {traco !== null ? <Amostra traco={traco} apagada={!ligado} /> : null}
+      <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{children}</span>
     </button>
   );
 }
@@ -98,7 +104,7 @@ export default function PosicaoTotal({ mode, ticker, anatomia, excluidas, onAlte
     m.chave === "strike" ? tx("anat_marcador_strike", { strike: fmt(m.preco) })
       : m.chave === "precoMedio" ? tx("anat_marcador_pm")
         : m.chave === "hoje" ? tx("anat_marcador_hoje") : tx("anat_marcador_equilibrio");
-  const marcadores = (Array.isArray(total.marcadores) ? total.marcadores : []).map((m) => ({ preco: m.preco, rotulo: rotMarc(m) }));
+  const marcadores = (Array.isArray(total.marcadores) ? total.marcadores : []).map((m) => ({ preco: m.preco, rotulo: rotMarc(m), comPreco: m.chave !== "strike" }));
   const tabela = Array.isArray(total.tabela) ? total.tabela : [];
   const pmOk = !!(acoes && ehNum(acoes.precoMedio));
 
@@ -107,7 +113,7 @@ export default function PosicaoTotal({ mode, ticker, anatomia, excluidas, onAlte
       style={{ padding: "16px", borderRadius: "18px", background: T.bgPanel, border: `1px solid ${T.borderSubtle}`, boxSizing: "border-box", display: "flex", flexDirection: "column", gap: "12px" }}>
       <h3 id={idTitulo} style={{ margin: 0, ...TIPO.titulo, color: T.textPrimary }}>{titulo}</h3>
 
-      <div role="group" aria-label={tx("anat_chips_aria")} style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
+      <div role="group" aria-label={tx("anat_chips_aria")} style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: "6px" }}>
         {pernas.map((p, k) => (
           <Chip key={p.id} ligado={!ex.includes(p.id)} traco={k % 4} onClick={() => onAlternar && onAlternar(p.id)}>
             {tx("anat_chip_perna", { tipo: String(p.tipo || "—"), strike: fmt(p.strike) })}
@@ -124,7 +130,12 @@ export default function PosicaoTotal({ mode, ticker, anatomia, excluidas, onAlte
         <>
           <GraficoAnatomia precos={precos} series={series} area={pontos} marcadores={marcadores} cursorIdx={i}
             titulo={titulo} descricao={total.aria || titulo} />
-          <div style={{ ...TIPO.label, color: T.textSecondary }}>{tx("anat_legenda_perda")} · {tx("anat_legenda_ganho")}</div>
+          <div style={{ ...TIPO.label, color: T.textSecondary, display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+            <svg width="16" height="10" viewBox="0 0 16 10" aria-hidden="true" focusable="false" style={{ flexShrink: 0 }}>
+              <line x1="0" y1="5" x2="16" y2="5" style={{ stroke: T.textPrimary }} strokeWidth="3" />
+            </svg>
+            <span>{tx("anat_tabela_total")} · {tx("anat_legenda_perda")} · {tx("anat_legenda_ganho")}</span>
+          </div>
         </>
       ) : null}
 

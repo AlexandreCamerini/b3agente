@@ -95,6 +95,7 @@ export default function AnatomiaPerna({
   const marcadores = (Array.isArray(perna.marcadores) ? perna.marcadores : []).map((m) => ({
     preco: m.preco,
     rotulo: m.chave === "strike" ? tx("anat_marcador_strike", { strike: fmt(m.preco) }) : tx("anat_marcador_equilibrio"),
+    comPreco: m.chave !== "strike",
   }));
 
   const textoConfirma = ehNum(hoje.premioAtual)
