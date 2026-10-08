@@ -83,5 +83,29 @@ ok("radar.scan restaura busy:false", /"radar\.scan"[^\n]*busy: false/.test(app))
 ok("radar.deep descarta loading", /"radar\.deep"[^\n]*!x\.loading/.test(app));
 ok("App sem storage no scroll/memo", !/(localStorage|sessionStorage)[^\n]*(scrollPorChave|uiMemo)/.test(app));
 
+// ---- parte 4 (transições)
+const css = [
+  "@keyframes b3telaTab{ from{ opacity:0; transform:translateY(8px); } to{ opacity:1; transform:translateY(0); } }",
+  ".b3 .tela-tab{ animation:b3telaTab 180ms ease-out; }",
+  "@keyframes b3telaEntrar{ from{ opacity:0; transform:translateX(16px); } to{ opacity:1; transform:translateX(0); } }",
+  ".b3 .tela-entrar{ animation:b3telaEntrar 220ms ease-out; }",
+  "@keyframes b3telaFade{ from{ opacity:0; } to{ opacity:1; } }",
+  ".b3 .tela-voltar{ animation:b3telaFade 180ms ease-out; }",
+  "@keyframes b3sheetEnter{ from{ opacity:0; transform:translateY(24px); } to{ opacity:1; transform:translateY(0); } }",
+  ".b3 .sheet-enter{ animation:b3sheetEnter 220ms ease-out; }",
+];
+for (const l of css) ok(`CSS: ${l.slice(0, 40)}`, app.includes(l));
+// W2: o regex exato dos guardiões de motion (fase20/fase23) — nenhum @media novo.
+ok("reduced-motion: exatamente 2 blocos", (app.match(/@media \(prefers-reduced-motion: reduce\)\{/g) || []).length === 2);
+ok("App.jsx key={chaveTela} e classeDaTransicao(", app.includes("key={chaveTela}") && app.includes("classeDaTransicao("));
+ok("classe de tela via useLayoutEffect (sem mutar ref no render)", /useLayoutEffect\(\(\) => \{\s*const ant = transTelaRef\.current;/.test(app));
+ok("sheet-enter >= 4 em App.jsx", (app.match(/"sheet-enter"/g) || []).length >= 4);
+ok("sheet-enter em entendimento.jsx", semComentario(src("entendimento.jsx")).includes('"sheet-enter"'));
+ok("OpcoesScreen classeNivel >= 5 usos no JSX", (opc.match(/className=\{classeNivel\}/g) || []).length >= 5);
+for (const k of ["b3telaTab", "b3telaEntrar", "b3telaFade", "b3sheetEnter"]) {
+  const m = app.match(new RegExp("@keyframes " + k + "\\{([^\\n]*)"));
+  ok(`${k} só opacity/transform`, !!m && !/\b(left|top|width|height|margin)\s*:/.test(m[1]));
+}
+
 if (falhas) { console.error(`${falhas} falha(s)`); process.exit(1); }
 console.log("test_ui_onda_b: ok");

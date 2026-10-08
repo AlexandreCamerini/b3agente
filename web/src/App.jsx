@@ -15,7 +15,7 @@ import { varsCartaoV6, ALFA_ZONA_V6, ALFA_ZONA_MEIO_V6 } from "./cartaoV6Cores.j
 import { useEstadoMemorizado } from "./uiMemo.js"; // Onda B (2026-10-08): estado de UI que sobrevive à troca de aba (só sessão)
 import { useDialogA11y } from "./useDialogA11y.js"; // Onda A (2026-10-08): Esc + foco + devolução nos modais
 import { defsDaBarra, telasDoTour, telasDaAjuda, telaDoAssistente } from "./telas.js";
-import { profundidade, subirNivel, reconciliarPilha, entradasOrfas, ehGestoVoltarBorda, chaveDeScroll } from "./navStack.js"; // Onda B (2026-10-08): voltar do sistema
+import { profundidade, subirNivel, reconciliarPilha, entradasOrfas, ehGestoVoltarBorda, chaveDeScroll, chaveDeTela, transicaoDe, classeDaTransicao } from "./navStack.js"; // Onda B (2026-10-08): voltar do sistema
 import { Capacitor } from "@capacitor/core"; // Onda B: só getPlatform() p/ o gesto de borda no iOS
 import { Markdown, MdInline } from "./markdown.jsx";
 import { extentOf, linePath, lastVal } from "./chartutil.js";
@@ -466,6 +466,15 @@ function GlobalStyle() {
       .b3 .tt-track{ animation:b3tt 52s linear infinite; }
       @keyframes b3cardEnter{ from{ opacity:0; transform:translateY(8px); } to{ opacity:1; transform:translateY(0); } }
       .b3 .card-enter{ animation:b3cardEnter 200ms ease-out; }
+      /* Onda B (2026-10-08, decisão 3): transições de tela/sheet; só opacity/transform, herdam o gate de reduced-motion de .b3 * */
+      @keyframes b3telaTab{ from{ opacity:0; transform:translateY(8px); } to{ opacity:1; transform:translateY(0); } }
+      .b3 .tela-tab{ animation:b3telaTab 180ms ease-out; }
+      @keyframes b3telaEntrar{ from{ opacity:0; transform:translateX(16px); } to{ opacity:1; transform:translateX(0); } }
+      .b3 .tela-entrar{ animation:b3telaEntrar 220ms ease-out; }
+      @keyframes b3telaFade{ from{ opacity:0; } to{ opacity:1; } }
+      .b3 .tela-voltar{ animation:b3telaFade 180ms ease-out; }
+      @keyframes b3sheetEnter{ from{ opacity:0; transform:translateY(24px); } to{ opacity:1; transform:translateY(0); } }
+      .b3 .sheet-enter{ animation:b3sheetEnter 220ms ease-out; }
       @keyframes b3valuePulse{ 0%{ transform:scale(1); } 50%{ transform:scale(1.08); } 100%{ transform:scale(1); } }
       .b3 .value-pulse{ display:inline-block; animation:b3valuePulse 120ms ease-out; }
       /* Fase 20 (MOTION-03): gate abrangente de movimento reduzido do
@@ -1945,7 +1954,7 @@ function BottomSheet({ onClose, label, children }) {
   return (
     <div onClick={onClose} role="dialog" aria-modal="true" aria-label={label} style={{ position: "fixed", inset: 0, zIndex: 1000, background: "rgba(0,0,0,0.62)", display: "flex", flexDirection: "column" }}>
       <div
-        onClick={(e) => e.stopPropagation()} ref={painelRef} tabIndex={-1}
+        onClick={(e) => e.stopPropagation()} ref={painelRef} tabIndex={-1} className={REDUCE_MOTION ? undefined : "sheet-enter"}
         style={{ outline: "none", marginTop: "auto", background: T.bgBase, borderTopLeftRadius: "20px", borderTopRightRadius: "20px", borderTop: `1px solid ${T.borderSubtle}`, maxHeight: "94vh", display: "flex", flexDirection: "column", paddingBottom: "env(safe-area-inset-bottom)", transform: `translateY(${dy}px)`, transition: dragging || REDUCE_MOTION ? "none" : "transform .22s ease" }}
       >
         <div onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp} style={{ padding: "10px 0 4px", cursor: "grab", touchAction: "none", flex: "none" }}>
@@ -8673,7 +8682,7 @@ function CatalogModal({ ctx }) {
   };
   return (
     <div onClick={A.closeCatalog} style={{ position: "fixed", inset: 0, zIndex: 50, background: T.scrim, display: "flex", alignItems: "center", justifyContent: "center", padding: "18px" }}>
-      <div onClick={(e) => e.stopPropagation()} ref={painelRef} tabIndex={-1} role="dialog" aria-modal="true" aria-label="Editar watchlist" style={{ outline: "none", width: "100%", maxWidth: "520px", maxHeight: "82vh", display: "flex", flexDirection: "column", ...card, borderRadius: "14px" }}>
+      <div onClick={(e) => e.stopPropagation()} ref={painelRef} tabIndex={-1} className={REDUCE_MOTION ? undefined : "sheet-enter"} role="dialog" aria-modal="true" aria-label="Editar watchlist" style={{ outline: "none", width: "100%", maxWidth: "520px", maxHeight: "82vh", display: "flex", flexDirection: "column", ...card, borderRadius: "14px" }}>
         <div style={{ padding: "16px 18px", borderBottom: `1px solid ${T.borderSubtle}` }}>
           <div style={{ fontSize: "16px", fontWeight: 700 }}>Editar watchlist</div>
           <div style={{ fontSize: "12.5px", color: T.textMuted, marginTop: "3px" }}>
@@ -8763,7 +8772,7 @@ function BuyModal({ ctx }) {
   const statusIndisponivel = !!(ctx.mercado && ctx.mercado.erro);
   return (
     <div onClick={A.closeBuy} style={{ position: "fixed", inset: 0, zIndex: 50, background: T.scrim, display: "flex", alignItems: "center", justifyContent: "center", padding: "18px" }}>
-      <div onClick={(e) => e.stopPropagation()} ref={painelRef} tabIndex={-1} role="dialog" aria-modal="true" aria-label={"Compra simulada de " + t} style={{ outline: "none", width: "100%", maxWidth: "420px", ...card, borderRadius: "14px", padding: "20px" }}>
+      <div onClick={(e) => e.stopPropagation()} ref={painelRef} tabIndex={-1} className={REDUCE_MOTION ? undefined : "sheet-enter"} role="dialog" aria-modal="true" aria-label={"Compra simulada de " + t} style={{ outline: "none", width: "100%", maxWidth: "420px", ...card, borderRadius: "14px", padding: "20px" }}>
         <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "10px" }}>
           <div>
             <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
@@ -8858,7 +8867,7 @@ function SellModal({ ctx }) {
   const statusIndisponivel = !!(ctx.mercado && ctx.mercado.erro);
   return (
     <div onClick={A.closeSell} style={{ position: "fixed", inset: 0, zIndex: 50, background: T.scrim, display: "flex", alignItems: "center", justifyContent: "center", padding: "18px" }}>
-      <div onClick={(e) => e.stopPropagation()} ref={painelRef} tabIndex={-1} role="dialog" aria-modal="true" aria-label={"Venda simulada de " + t} style={{ outline: "none", width: "100%", maxWidth: "420px", ...card, borderRadius: "14px", padding: "20px" }}>
+      <div onClick={(e) => e.stopPropagation()} ref={painelRef} tabIndex={-1} className={REDUCE_MOTION ? undefined : "sheet-enter"} role="dialog" aria-modal="true" aria-label={"Venda simulada de " + t} style={{ outline: "none", width: "100%", maxWidth: "420px", ...card, borderRadius: "14px", padding: "20px" }}>
         <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "10px" }}>
           <div>
             <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
@@ -10323,6 +10332,17 @@ export default function App() {
     if (el) el.scrollTop = scrollPorChaveRef.current.get(chaveScroll) || 0;
   }, [chaveScroll]);
 
+  // Onda B (2026-10-08, decisão 3): classe de transição da tela, calculada em layout
+  // effect sobre `chaveTela` (antes do paint). 1º mount e reduced-motion: sem classe.
+  const chaveTela = chaveDeTela(estadoNav);
+  const transTelaRef = useRef({ tab, prof: profNav });
+  const [classeTela, setClasseTela] = useState(undefined);
+  useLayoutEffect(() => {
+    const ant = transTelaRef.current;
+    transTelaRef.current = { tab, prof: profNav };
+    setClasseTela(REDUCE_MOTION ? undefined : classeDaTransicao(transicaoDe(ant, { tab, prof: profNav })));
+  }, [chaveTela]);
+
   const ctx = {
     uiMemo: uiMemoRef.current,
     // Onda B (2026-10-08): OpcoesScreen relata nível e registra seu "voltar".
@@ -10702,7 +10722,7 @@ export default function App() {
       <Ticker items={tickerItems} live={Object.keys(quotes).length > 0} />
       <Topbar patr={patr} dia={dia} caixa={data.cash} name={firstName} modeChip={cp.chipModo} mercado={mercado} cp={cp} onProfile={() => { setPerfilView("hub"); setTab("perfil"); }} />
 
-      <main ref={mainRef} onScroll={(e) => { scrollPorChaveRef.current.set(chaveScrollRef.current, e.currentTarget.scrollTop); }} style={{ position: "relative", flex: 1, minHeight: 0, overflowY: "auto", overflowX: "hidden", WebkitOverflowScrolling: "touch" }}>
+      <main ref={mainRef} style={{ position: "relative", flex: 1, minHeight: 0, overflowY: "auto", overflowX: "hidden", WebkitOverflowScrolling: "touch" }} onScroll={(e) => { scrollPorChaveRef.current.set(chaveScrollRef.current, e.currentTarget.scrollTop); }}>
         {pullY > 0 && (
           <div style={{ position: "absolute", top: "8px", left: "50%", transform: "translateX(-50%)", zIndex: 5, opacity: Math.min(1, pullY / 70), color: T.accent, fontSize: "12px", fontWeight: 700, display: "flex", alignItems: "center", gap: "7px", pointerEvents: "none" }}>
             <span className={pullY >= 70 ? "spin" : undefined} style={{ display: "inline-block" }}>↻</span>
@@ -10710,6 +10730,7 @@ export default function App() {
           </div>
         )}
         <div style={{ maxWidth: CONTENT_MAX_WIDTH, margin: "0 auto", padding: "24px 18px 34px", transform: pullY ? `translateY(${pullY}px)` : undefined, transition: pullY ? "none" : "transform .2s ease" }}>
+          <div key={chaveTela} className={classeTela}>
           {tab === "evolucao" && <EvolucaoScreen ctx={ctx} />}
           {tab === "mercado" && <MercadoScreen ctx={ctx} />}
           {tab === "radar" && <RadarScreen ctx={ctx} />}
@@ -10740,6 +10761,7 @@ export default function App() {
                     : perfilView === "ajuda"
                       ? (<><BackHeader title="Como funciona" onBack={() => setPerfilView("hub")} /><AjudaScreen ctx={ctx} /></>)
                       : <PerfilHub ctx={ctx} onOpen={setPerfilView} />)}
+          </div>
         </div>
       </main>
 

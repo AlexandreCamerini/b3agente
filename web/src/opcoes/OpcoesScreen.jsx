@@ -28,7 +28,7 @@
  * `escolherTicker`, a ordem grátis-antes-do-pago) continua anotado nos
  * blocos que restaram, não apagado.
  */
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useLayoutEffect, useRef } from "react";
 // Fase 40 (ESTADO-01): módulo puro (sem React, sem I/O) com a precedência
 // deep-link > memória > default (D-03) e a validação do ticker lembrado
 // contra a carteira atual (P-2) — mesmo isolamento de `finance.js` abaixo.
@@ -50,6 +50,7 @@ import EscadaObjetivo from "./EscadaObjetivo.jsx";
 import ConfirmarEstrutura from "./ConfirmarEstrutura.jsx";
 import MatrizVencimentos from "./MatrizVencimentos.jsx";
 import { reduzido, transicaoTela } from "./fluxoEstilo.js";
+import { profundidadeOpcoes, transicaoDe, classeDaTransicao } from "../navStack.js"; // Onda B (2026-10-08): transição entre níveis
 import { opcoesEscadaTxt } from "../copy.js";
 // Fase 27 (27-02): `finance.js` é módulo PURO — zero import de `App.jsx` —,
 // então o isolamento do ADR-027 continua intacto (o guardião proíbe importar
@@ -727,6 +728,17 @@ export default function OpcoesScreen({ ctx }) {
   // chamada paga (matriz) sai de `abrirMatriz`, só de clique (ADR-027).
   const mode = ctx && ctx.operador ? "operador" : "estudo";
   const nivelRef = useRef(null);
+  // Onda B (2026-10-08): classe de transição entre níveis. Calculada em layout effect
+  // (antes do paint) sobre `nav.nivel` — sem mutar ref no render; sem animação no
+  // 1º mount nem sob reduced-motion (o gate em .b3 também cobre).
+  const transNivelRef = useRef({ prof: profundidadeOpcoes(nav.nivel, !!nav.ticker) });
+  const [classeNivel, setClasseNivel] = useState(undefined);
+  useLayoutEffect(() => {
+    const prof = profundidadeOpcoes(nav.nivel, !!nav.ticker);
+    const ant = transNivelRef.current.prof;
+    transNivelRef.current = { prof };
+    setClasseNivel(reduzido() ? undefined : classeDaTransicao(transicaoDe({ tab: "opcoes", prof: ant }, { tab: "opcoes", prof })));
+  }, [nav.nivel]);
   const nivelAnterior = useRef(nav.nivel);
   // Foco no título ao trocar de nível (UI-SPEC, acessibilidade): não rouba o
   // foco na montagem inicial.
@@ -847,6 +859,7 @@ export default function OpcoesScreen({ ctx }) {
           contêiner abaixo recebe o foco no título ao trocar de nível. */}
       <div style={transicaoTela(reduzido())}>
       {nav.nivel === "hub" ? (
+      <div className={classeNivel}>
         <HubOpcoes
           cp={cp}
           mode={mode}
@@ -867,9 +880,11 @@ export default function OpcoesScreen({ ctx }) {
           kbCatalogo={ctx && ctx.kbCatalogo}
           onAbrirVerbete={abrirVerbeteLocal}
         />
+      </div>
       ) : null}
 
       {nav.nivel === "objetivo" ? (
+      <div className={classeNivel}>
         <ObjetivoAtivo
           cp={cp}
           mode={mode}
@@ -913,9 +928,11 @@ export default function OpcoesScreen({ ctx }) {
           onTentarDeNovo={recarregarEscada}
           onIrCarteira={() => { if (ctx && ctx.goCarteira) ctx.goCarteira(); }}
         />
+      </div>
       ) : null}
 
       {nav.nivel === "escada" ? (
+      <div className={classeNivel}>
         <EscadaObjetivo
           cp={cp}
           mode={mode}
@@ -953,9 +970,11 @@ export default function OpcoesScreen({ ctx }) {
           onAbrirVerbete={abrirVerbeteLocal}
           onTentarDeNovo={recarregarEscada}
         />
+      </div>
       ) : null}
 
       {nav.nivel === "confirmar" ? (
+      <div className={classeNivel}>
         <ConfirmarEstrutura
           cp={cp}
           mode={mode}
@@ -971,6 +990,7 @@ export default function OpcoesScreen({ ctx }) {
           kbCatalogo={ctx && ctx.kbCatalogo}
           onAbrirVerbete={abrirVerbeteLocal}
         />
+      </div>
       ) : null}
       </div>
 
@@ -982,7 +1002,7 @@ export default function OpcoesScreen({ ctx }) {
           * Fase 48 (2026-10-05): vira o nível "montar" ("Montar do zero"),
           * mesmo conteúdo e mesmos contratos; "‹ voltar" sobe um nível. */}
       {nav.nivel === "montar" ? (
-        <>
+        <div className={classeNivel}>
           <button
             type="button"
             onClick={() => setNav((n) => voltar(n))}
@@ -1204,7 +1224,7 @@ export default function OpcoesScreen({ ctx }) {
               />
             </div>
           )}
-        </>
+        </div>
       ) : null}
 
       {/* Fase 27 (27-05) — **A ÚNICA EXCEÇÃO AO CRITÉRIO 4, DITA NA TELA.**

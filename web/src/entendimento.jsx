@@ -25,6 +25,7 @@ import { Markdown } from "./markdown.jsx";
 // Fase 38 (38-03): ponte kb×conceito — helper puro que resolve um verbete do
 // catálogo da KB já em memória (sem fetch nenhum, ver ConceitoSheet abaixo).
 import { verbeteDoCatalogo } from "./glossario.js";
+import { prefereMovimentoReduzido } from "./estruturaCard.js"; // Onda B (2026-10-08): sheet-enter respeita reduced-motion
 
 const VARKEY = (k) => "--" + k.replace(/[A-Z]/g, (c) => "-" + c.toLowerCase());
 const TOKENS = ["textFaint", "textMuted", "textSecondary", "textPrimary", "borderSubtle",
@@ -201,6 +202,7 @@ export function ConceitoSheet({ cid, dados, setor, onClose, onTrocar, didatica, 
   // Guarda quem abriu, foca o painel da folha (o título carrega async) e devolve o foco ao fechar; Esc
   // fecha (listener removido no cleanup — T-48-47, foco nunca fica preso).
   const tituloRef = useRef(null);
+  const reduzMov = prefereMovimentoReduzido(typeof window !== "undefined" ? window : null);
   useEffect(() => {
     const anterior = typeof document !== "undefined" ? document.activeElement : null;
     if (tituloRef.current) tituloRef.current.focus();
@@ -218,7 +220,7 @@ export function ConceitoSheet({ cid, dados, setor, onClose, onTrocar, didatica, 
     // significaria queimar a estreia sem ninguém ler nada.
     <div onClick={onClose} role="dialog" aria-modal="true" aria-label="Explicação"
       style={{ position: "fixed", inset: 0, zIndex: 86, background: T.scrim, display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
-      <div onClick={(e) => e.stopPropagation()} ref={tituloRef} tabIndex={-1}
+      <div onClick={(e) => e.stopPropagation()} ref={tituloRef} tabIndex={-1} className={reduzMov ? undefined : "sheet-enter"}
         style={{ outline: "none", width: "100%", maxWidth: "520px", background: T.bgPanel, borderTop: `1px solid ${T.borderSubtle}`, borderRadius: "18px 18px 0 0", padding: "16px 18px calc(18px + env(safe-area-inset-bottom))", maxHeight: "82vh", overflowY: "auto" }}>
         <div style={{ width: "38px", height: "4px", borderRadius: "999px", background: T.borderSubtle, margin: "0 auto 12px" }} aria-hidden />
         {/* A cadeia precisa de volta: quem segue stop → R → gatilho não pode
