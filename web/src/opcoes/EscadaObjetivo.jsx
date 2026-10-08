@@ -113,7 +113,7 @@ export default function EscadaObjetivo({
                   color: ativo ? T.accent : T.textSecondary, border: `1px solid ${ativo ? T.accent : T.borderSubtle}`,
                   background: ativo ? T.accentTint10 : T.bgPanel }}>
                 <div>{v.texto}</div>
-                <div style={{ ...TIPO.corpo, color: T.textMuted }}>{tx("vencimento_dias", { dias: ehNum(v.dias) ? v.dias : "—" })}</div>
+                <div style={{ ...TIPO.corpo, color: T.textMuted }}>{tx(v.dias === 1 ? "vencimento_dia" : "vencimento_dias", { dias: ehNum(v.dias) ? v.dias : "—" })}</div>
               </button>
             );
           })}
@@ -194,7 +194,6 @@ export default function EscadaObjetivo({
               <span style={{ ...MONO }}>—</span> {tx("degrau_ausente", { motivo: a.motivo || "—" })}
             </div>
           ))}
-          {objetivo === "renda" ? <div style={{ ...TIPO.corpo, color: T.textSecondary }}>{tx("nota_sem_piso")}</div> : null}
         </div>
       ) : null}
 
