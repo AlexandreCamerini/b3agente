@@ -110,7 +110,7 @@ function CardAtivo({ cp, mode, pos, tecnico, estrutura, nVigias, onAbrir, didati
       </div>
       <div style={{ ...TIPO.label, color: T.textMuted, display: "flex", justifyContent: "space-between", gap: "8px" }}>
         <span>{rodape}</span>
-        <span>{opcoesEscadaTxt(mode, "card_vigias", { n: nVigias })}</span>
+        <span style={{ whiteSpace: "nowrap", flexShrink: 0 }}>{opcoesEscadaTxt(mode, "card_vigias", { n: nVigias })}</span>
       </div>
     </div>
   );

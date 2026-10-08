@@ -3769,7 +3769,7 @@ function AtivoCard({ vm, contexto = "watchlist", children }) {
                   <div style={{ color: T.textMuted, fontSize: "12px", marginTop: "3px" }}>{name}</div>
                 </div>
                 <div style={{ display: "flex", alignItems: "flex-start", gap: "9px" }}>
-                  <div style={{ textAlign: "right", fontFamily: MONO, minWidth: "72px" }}>
+                  <div style={{ textAlign: "right", fontFamily: MONO, minWidth: "72px", flexShrink: 0, whiteSpace: "nowrap" }}>
                     {q.price == null && !q.error && quotesLoading ? (
                       <>
                         <div className="sk" style={{ height: "18px", width: "70px", marginLeft: "auto" }} />
@@ -3816,9 +3816,9 @@ function AtivoCard({ vm, contexto = "watchlist", children }) {
 
               {/* qa/49 (v11): POSIÇÃO — resumo (em carteira · cotas · PM · resultado) */}
               {pos && (
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "12px", padding: "6px 9px", background: T.bgBase, borderRadius: "8px", marginTop: "10px" }}>
-                  <span style={{ color: T.textSecondary }}>em carteira · {pos.qty} cotas · PM {price(pos.avg)}</span>
-                  {pnl != null && <span style={{ fontFamily: MONO, fontWeight: 800, color: pnl >= 0 ? T.positive : T.negative }}>{moneySigned(pnl)} · {pct(pnlPct)}</span>}
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "8px", fontSize: "12px", padding: "6px 9px", background: T.bgBase, borderRadius: "8px", marginTop: "10px" }}>
+                  <span style={{ color: T.textSecondary, minWidth: 0 }}>em carteira · {pos.qty} cotas · PM {price(pos.avg)}</span>
+                  {pnl != null && <span style={{ fontFamily: MONO, fontWeight: 800, whiteSpace: "nowrap", flexShrink: 0, color: pnl >= 0 ? T.positive : T.negative }}>{moneySigned(pnl)} · {pct(pnlPct)}</span>}
                 </div>
               )}
 
@@ -5589,7 +5589,7 @@ function GradeConta({ e, modo }) {
             onClick={() => setAberta(aberta === cel.chave ? null : cel.chave)}
             style={{ minHeight: 48, padding: `${SP[2]}px ${SP[3]}px`, background: T.bgCard, border: "none", textAlign: "left", display: "flex", flexDirection: "column", gap: `${SP[1]}px`, overflowWrap: "anywhere" }}>
             <span style={{ fontSize: TIPO_CARD.rotulo, fontWeight: 400, color: T.textSecondary, textDecoration: "underline dotted", textDecorationColor: T.accent, textUnderlineOffset: "3px" }}>{cel.rotulo}</span>
-            <span style={{ fontFamily: MONO, fontSize: TIPO_CARD.corpo, fontWeight: 700, color: corDe(cel), fontVariantNumeric: "tabular-nums" }}>{fmt(cel)}</span>
+            <span style={{ fontFamily: MONO, fontSize: fmt(cel).length > 11 ? TIPO_CARD.rotulo : TIPO_CARD.corpo, fontWeight: 700, color: corDe(cel), fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap", flexShrink: 0 }}>{fmt(cel)}</span>
           </button>
         ))}
       </div>
