@@ -1357,6 +1357,10 @@ const REC_STYLE = {
   Vender: [T.negative, T.negativeTint10],
 };
 
+// Onda F (2026-10-08, quick 261008-e9w): decisões do MOTOR que significam "não entrar" — Operador: plano.decisao (setups.py); Estudo: veredito normalizado (kpi.py). Casamento literal com as mesmas chaves de REC_STYLE; não é heurística nova. Sob essas decisões o card não mostra anel de % nem CTA primária (veredito e chamada não podem se contradizer; nada que pareça "100% de acerto").
+const DECISOES_NAO_OPERAR = ["NÃO OPERAR", "Não operar"];
+const ehNaoOperar = (dec) => DECISOES_NAO_OPERAR.includes(dec);
+
 // RITMO-01 (Fase 43): escala 4/8pt do qa/AUDITORIA-Design-System-v1.md §3.2.
 // Card inteiro (D-14): usa SP em vez de string solta. Regra de arredondamento
 // (D-15/D-16): cada valor herdado vira o degrau MAIS PRÓXIMO; empate (diff
@@ -2390,7 +2394,7 @@ function EvolucaoScreen({ ctx }) {
                     </div>
                     <div style={{ fontSize: "12px", color: T.textMuted, marginTop: "6px", lineHeight: 1.4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.melhorSetup || "Setup técnico"}</div>
                   </div>
-                  <ConfluenceRing conf={r.confluencia} size={52} />
+                  {!ehNaoOperar(decisaoDoModo(r, operador)) && <ConfluenceRing conf={r.confluencia} size={52} />}
                 </div>
                 <div style={{ marginTop: "12px", fontSize: "12px", fontWeight: 700, color: T.accent }}>{cp.btnVerWatchlist} →</div>
               </button>
@@ -3639,7 +3643,11 @@ function AtivoCard({ vm, contexto = "watchlist", children }) {
   // Radar compartilha este AtivoCard e fica fora por escopo.
   const ehWatchlist = contexto === "watchlist";
   const s0Card = sc ? setupOperavel(sc.setups, sc.melhorSetup) : null;
-  const anel = sc ? rotuloAnel({ conf: sc.confluencia, tierLabel: tierOf(sc.confluencia)[1], lado: ladoDoMotor({ setup: s0Card, plano: sc.plano }), setup: sc.melhorSetup }, modoCard) : null;
+  // Onda F (2026-10-08): sob não operar do motor, anel nulo — some o anel E a linha
+  // "N% · Forte — lado: setup" (ambos sob `ring &&` no SinalChip). A cabeça "100% · Forte" é a
+  // própria contradição com o veredito; ring={anel}/ativo={!!anel} não mudam.
+  const naoOperar = ehNaoOperar(decM);
+  const anel = (sc && !naoOperar) ? rotuloAnel({ conf: sc.confluencia, tierLabel: tierOf(sc.confluencia)[1], lado: ladoDoMotor({ setup: s0Card, plano: sc.plano }), setup: sc.melhorSetup }, modoCard) : null;
   const alinhamento = sc ? alinhamentoDoMotor({ decisao: decM, regime: sc.regime, gatilhoAlinhado: sc.gatilhoAlinhado }) : null;
   const fundamentoCard = (sc && sc.fundamento && sc.fundamento.score) ? sc.fundamento : (fscore ? { score: fscore } : null);
 
@@ -4052,7 +4060,8 @@ function AtivoCard({ vm, contexto = "watchlist", children }) {
               {/* FASE 3 (mock v2): sem análise ainda → CTA neutro de compra (o
                   contextual pós-análise já existe acima, no bloco C1) */}
               {!hasAnalysis(an) && !an.loading && (
-                <button onClick={() => A.openBuy(t, undefined, buyMeta)} disabled={q.error || q.price == null} style={{ marginTop: "12px", width: "100%", minHeight: "44px", padding: "10px", borderRadius: "10px", ...(ehWatchlist ? { border: `1px solid ${T.accent}`, background: T.accent, color: T.onAccent, fontWeight: 800, opacity: (q.error || q.price == null) ? 0.6 : 1 } : { border: `1px solid ${T.borderSubtle}`, background: T.bgBase, color: T.textSecondary, fontWeight: 700 }), fontSize: "13px" }}>{cp.btnComprar}…</button>
+                /* Onda F (2026-10-08): sob não operar do motor, a CTA cai para o estilo secundário (mesmo do Radar); texto e ação não mudam. */
+                <button onClick={() => A.openBuy(t, undefined, buyMeta)} disabled={q.error || q.price == null} style={{ marginTop: "12px", width: "100%", minHeight: "44px", padding: "10px", borderRadius: "10px", ...((ehWatchlist && !naoOperar) ? { border: `1px solid ${T.accent}`, background: T.accent, color: T.onAccent, fontWeight: 800, opacity: (q.error || q.price == null) ? 0.6 : 1 } : { border: `1px solid ${T.borderSubtle}`, background: T.bgBase, color: T.textSecondary, fontWeight: 700 }), fontSize: "13px" }}>{cp.btnComprar}…</button>
               )}
               {expanded && hasAnalysis(an) && (
                 <div style={{ marginTop: "11px", paddingTop: "12px", borderTop: `1px solid ${T.borderSubtle}` }}>
