@@ -50,7 +50,7 @@ export default function BorisIntro({ onConversar, onDepois }) {
           <div style={{ fontSize: "18px", fontWeight: 800, marginTop: "6px", letterSpacing: "-0.01em" }}>
             Este é o <span style={IA_GRAD}>Boris</span>
           </div>
-          <div style={{ fontSize: "12.5px", color: T.textFaint, marginTop: "2px" }}>
+          <div style={{ fontSize: "13px", color: T.textFaint, marginTop: "2px" }}>
             O assistente do Boris+ nesta tela e em todas as outras
           </div>
         </div>
@@ -58,7 +58,7 @@ export default function BorisIntro({ onConversar, onDepois }) {
         {/* 1) O que ele NÃO faz — primeiro, sempre primeiro. */}
         <div style={{ display: "flex", gap: "10px", marginBottom: "14px" }}>
           <span aria-hidden style={{ fontSize: "16px", lineHeight: 1.4, flex: "none" }}>🚫</span>
-          <p style={{ margin: 0, fontSize: "12.5px", color: T.textSecondary, lineHeight: 1.6 }}>
+          <p style={{ margin: 0, fontSize: "13px", color: T.textSecondary, lineHeight: 1.6 }}>
             O Boris <b>não recomenda</b> compra ou venda e <b>não envia ordem</b> para
             corretora nenhuma — a carteira é <b>simulada</b>. Nada do que ele diz é
             recomendação de investimento nem promessa de resultado.
@@ -68,7 +68,7 @@ export default function BorisIntro({ onConversar, onDepois }) {
         {/* 2) O que ele sabe — a base de conhecimento (F2), em uma frase. */}
         <div style={{ display: "flex", gap: "10px", marginBottom: "14px" }}>
           <span aria-hidden style={{ fontSize: "16px", lineHeight: 1.4, flex: "none" }}>📚</span>
-          <p style={{ margin: 0, fontSize: "12.5px", color: T.textSecondary, lineHeight: 1.6 }}>
+          <p style={{ margin: 0, fontSize: "13px", color: T.textSecondary, lineHeight: 1.6 }}>
             Ele conhece indicadores, estrutura de preço, modelos, setups e o
             vocabulário da B3 — a mesma base de estudo que o app usa para
             explicar cada tela.
@@ -78,7 +78,7 @@ export default function BorisIntro({ onConversar, onDepois }) {
         {/* 3) Como chamá-lo — o FAB, presente em toda tela. */}
         <div style={{ display: "flex", gap: "10px", marginBottom: "20px" }}>
           <span aria-hidden style={{ fontSize: "16px", lineHeight: 1.4, flex: "none" }}>🦉</span>
-          <p style={{ margin: 0, fontSize: "12.5px", color: T.textSecondary, lineHeight: 1.6 }}>
+          <p style={{ margin: 0, fontSize: "13px", color: T.textSecondary, lineHeight: 1.6 }}>
             Para chamá-lo, toque na coruja flutuante — ela fica disponível em
             qualquer tela do Estudo, a qualquer momento.
           </p>

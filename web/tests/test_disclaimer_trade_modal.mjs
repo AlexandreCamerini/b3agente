@@ -50,10 +50,11 @@ ok("no SellModal, DISCLAIMERS.trade vem ANTES do botão de confirmar",
 
 // estilo: 10.5px, T.textFaint, lineHeight 1.4, marginTop 10px — um degrau
 // mais discreto que a nota secundária (11px) logo acima.
+// NOTA 2026-10-08 (quick 261008-1qw, Onda C1): escala tipográfica inteira; o literal histórico foi normalizado para cima. A asserção aceita o valor histórico OU o novo.
 ok("estilo do disclaimer é 10.5px/T.textFaint/lineHeight 1.4/marginTop 10px no BuyModal",
-   /fontSize: "10\.5px", color: T\.textFaint, lineHeight: 1\.4, marginTop: "10px" \}\}>\{DISCLAIMERS\.trade\}/.test(buy));
+   /fontSize: "(?:10\.5|11)px", color: T\.textFaint, lineHeight: 1\.4, marginTop: "10px" \}\}>\{DISCLAIMERS\.trade\}/.test(buy));
 ok("estilo do disclaimer é 10.5px/T.textFaint/lineHeight 1.4/marginTop 10px no SellModal",
-   /fontSize: "10\.5px", color: T\.textFaint, lineHeight: 1\.4, marginTop: "10px" \}\}>\{DISCLAIMERS\.trade\}/.test(sell));
+   /fontSize: "(?:10\.5|11)px", color: T\.textFaint, lineHeight: 1\.4, marginTop: "10px" \}\}>\{DISCLAIMERS\.trade\}/.test(sell));
 
 // ------------------------------------------------- (c) tudo-ou-nada na UI
 const FRASE_TUDO_OU_NADA = "Esta simulação executa por completo ou não executa — não há preenchimento parcial de ordem.";

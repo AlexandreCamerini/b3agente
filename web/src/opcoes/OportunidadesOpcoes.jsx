@@ -87,8 +87,8 @@ function CartaoProposta({ p, pr, cp, onAbrir, abertoTicker }) {
       {/* manchete do motor, verbatim — guardrail CVM (CLAUDE.md);
           nunca truncada com reticências: cortar reescreveria a
           afirmação do motor. */}
-      <div style={{ fontSize: "12.5px", fontWeight: 700, color: cor, marginTop: "4px", whiteSpace: "normal" }}>{pr.manchete}</div>
-      <div style={{ fontSize: "10.5px", color: T.textFaint, marginTop: "6px" }}>{cp.tiraOpcoesVerDetalhe}</div>
+      <div style={{ fontSize: "13px", fontWeight: 700, color: cor, marginTop: "4px", whiteSpace: "normal" }}>{pr.manchete}</div>
+      <div style={{ fontSize: "11px", color: T.textFaint, marginTop: "6px" }}>{cp.tiraOpcoesVerDetalhe}</div>
     </button>
   );
 }
@@ -101,7 +101,7 @@ export default function OportunidadesOpcoes({ propostas, carregando, positions, 
       {abertas.length > 0 && (
         <div style={{ marginBottom: "14px" }}>
           <div style={{ fontSize: "10px", fontWeight: 800, letterSpacing: "0.04em", color: T.textFaint, marginBottom: "4px" }}>{cp.tiraOpcoesAbertasTitulo}</div>
-          <div style={{ fontSize: "11.5px", color: T.textMuted, marginBottom: "8px", lineHeight: 1.4 }}>{cp.tiraOpcoesAbertasSubtitulo}</div>
+          <div style={{ fontSize: "12px", color: T.textMuted, marginBottom: "8px", lineHeight: 1.4 }}>{cp.tiraOpcoesAbertasSubtitulo}</div>
           <div style={trilho}>
             {abertas.map(({ p, pr }) => (
               <CartaoProposta key={p.t} p={p} pr={pr} cp={cp} onAbrir={onAbrir} abertoTicker={abertoTicker} />
@@ -119,7 +119,7 @@ export default function OportunidadesOpcoes({ propostas, carregando, positions, 
           gate) — os dois blocos cross-carteira passam a conviver na mesma
           tela, então o eyebrow sozinho não basta mais para dizer qual é
           qual. Mesma métrica de CuradoriaEstruturas.jsx:142. */}
-      <div style={{ fontSize: "11.5px", color: T.textMuted, marginBottom: "8px", lineHeight: 1.4 }}>{cp.tiraOpcoesSubtitulo}</div>
+      <div style={{ fontSize: "12px", color: T.textMuted, marginBottom: "8px", lineHeight: 1.4 }}>{cp.tiraOpcoesSubtitulo}</div>
       {novas.length > 0 && (
         <div style={trilho}>
           {novas.map(({ p, pr }) => (
@@ -145,7 +145,7 @@ export default function OportunidadesOpcoes({ propostas, carregando, positions, 
           <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
             {semProposta.map((item) => (
               <li key={item.p.t} style={{ padding: "8px 0", borderTop: `1px solid ${T.borderFaint}` }}>
-                <div style={{ fontFamily: MONO, fontWeight: 800, fontSize: "12.5px", color: T.textPrimary }}>{item.p.t}</div>
+                <div style={{ fontFamily: MONO, fontWeight: 800, fontSize: "13px", color: T.textPrimary }}>{item.p.t}</div>
                 <div style={{ fontSize: "12px", color: T.textSecondary, lineHeight: 1.5, marginTop: "2px" }}>{fraseDoMotivo(cp.tiraOpcoesMotivo, item.motivo)}</div>
               </li>
             ))}

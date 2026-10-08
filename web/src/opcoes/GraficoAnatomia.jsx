@@ -82,7 +82,7 @@ export default function GraficoAnatomia({ precos, series, area, marcadores, curs
     }
   }
 
-  const eixo = { fontSize: "11.5px", fontFamily: MONO.fontFamily, fill: T.textSecondary };
+  const eixo = { fontSize: "12px", fontFamily: MONO.fontFamily, fill: T.textSecondary };
   const meio = lista[Math.floor(lista.length / 2)];
   const cursorOk = Number.isInteger(cursorIdx) && cursorIdx >= 0 && cursorIdx < lista.length
     && Array.isArray(area) && ehNum(area[cursorIdx]);

@@ -67,7 +67,7 @@ const CAMPO = {
   borderRadius: "10px", border: `1px solid ${T.borderSubtle}`,
   background: T.bgBase, color: T.textPrimary, fontSize: "14px",
 };
-const ROTULO = { display: "block", fontSize: "12.5px", color: T.textSecondary, margin: "12px 0 4px" };
+const ROTULO = { display: "block", fontSize: "13px", color: T.textSecondary, margin: "12px 0 4px" };
 const AJUDA = { fontSize: "11px", color: T.textMuted, marginTop: "4px", lineHeight: 1.45 };
 const BOTAO = {
   minHeight: "44px", padding: "10px 14px", borderRadius: "11px",
@@ -148,7 +148,7 @@ export default function SecaoComparar({
                 pronto do orquestrador, derivado dos vencimentos que a leitura
                 já trouxe, sem consultar nada: descobrir o preço depois de
                 pagar não é aviso, é recibo. */}
-            <div style={{ fontSize: "12.5px", color: T.textSecondary, lineHeight: 1.5 }}>
+            <div style={{ fontSize: "13px", color: T.textSecondary, lineHeight: 1.5 }}>
               {(cp.opcoesCustoChamadas || ((n) => String(n)))(chamadasPrevistas)}
             </div>
             {/* Fase 27 (27-02): a COMPOSIÇÃO do custo saiu de

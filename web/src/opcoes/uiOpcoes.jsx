@@ -51,7 +51,7 @@ export function Kicker({ children }) {
 
 export function Aviso({ children, tom }) {
   return (
-    <div style={{ border: `1px solid ${tom === "forte" ? T.negative : T.borderSubtle}`, borderRadius: "12px", padding: "12px", background: T.bgPanel, color: T.textSecondary, fontSize: "12.5px", whiteSpace: "pre-wrap", lineHeight: 1.5 }}>
+    <div style={{ border: `1px solid ${tom === "forte" ? T.negative : T.borderSubtle}`, borderRadius: "12px", padding: "12px", background: T.bgPanel, color: T.textSecondary, fontSize: "13px", whiteSpace: "pre-wrap", lineHeight: 1.5 }}>
       {children}
     </div>
   );
@@ -63,8 +63,8 @@ export function Aviso({ children, tom }) {
 export function Linha({ rotulo, valor }) {
   return (
     <div style={{ display: "flex", justifyContent: "space-between", gap: "12px", padding: "7px 0", borderBottom: `1px solid ${T.borderFaint}` }}>
-      <span style={{ fontSize: "12.5px", color: T.textSecondary }}>{rotulo}</span>
-      <span style={{ fontSize: "12.5px", color: T.textPrimary, fontVariantNumeric: "tabular-nums" }}>{valor}</span>
+      <span style={{ fontSize: "13px", color: T.textSecondary }}>{rotulo}</span>
+      <span style={{ fontSize: "13px", color: T.textPrimary, fontVariantNumeric: "tabular-nums" }}>{valor}</span>
     </div>
   );
 }
@@ -99,8 +99,8 @@ export function RazaoGanhoPerda({ razao, cp }) {
         <Linha rotulo={rotulo} valor={formatarRazao(razao)} />
       ) : (
         <div style={{ padding: "7px 0", borderBottom: `1px solid ${T.borderFaint}` }}>
-          <div style={{ fontSize: "12.5px", color: T.textSecondary }}>{rotulo}</div>
-          <div style={{ fontSize: "12.5px", color: T.textPrimary, marginTop: "3px", whiteSpace: "pre-wrap", lineHeight: 1.45 }}>
+          <div style={{ fontSize: "13px", color: T.textSecondary }}>{rotulo}</div>
+          <div style={{ fontSize: "13px", color: T.textPrimary, marginTop: "3px", whiteSpace: "pre-wrap", lineHeight: 1.45 }}>
             {formatarRazao(razao)}
           </div>
         </div>
@@ -161,7 +161,7 @@ export function RecusaCobrada({ erro, cp }) {
   // Discreta de propósito: é informação de contabilidade, não alarme. Quem
   // precisa agir sobre a recusa lê a mensagem do serviço, acima.
   return (
-    <div style={{ marginTop: "6px", fontSize: "11.5px", color: T.textMuted, lineHeight: 1.5 }}>
+    <div style={{ marginTop: "6px", fontSize: "12px", color: T.textMuted, lineHeight: 1.5 }}>
       {(cp || {}).opcoesRecusaCobrada
         || "Esta tentativa consumiu uma chamada da sua cota do dia."}
     </div>
@@ -182,7 +182,7 @@ export function RecusaCobrada({ erro, cp }) {
 // até o Plano 04 deletar o arquivo (D-02/D-03 do 39-CONTEXT.md).
 export function CarimboFrescor({ at, source, cp }) {
   return (
-    <div style={{ fontSize: "10.5px", color: T.textFaint, margin: "0 0 6px", lineHeight: 1.4 }}>
+    <div style={{ fontSize: "11px", color: T.textFaint, margin: "0 0 6px", lineHeight: 1.4 }}>
       {at
         ? (cp.opcoesConsultadoEmRotulo || "Consultado") + ": " + at +
           (source ? " · " + (cp.opcoesFonteRotulo || "Fonte") + ": " + source : "")
@@ -204,12 +204,12 @@ export function DetalheInfo({ rotulo, children }) {
         type="button"
         onClick={() => setAberto((v) => !v)}
         aria-expanded={aberto}
-        style={{ minHeight: "44px", background: "transparent", border: "none", padding: 0, color: T.textMuted, fontWeight: 700, fontSize: "11.5px", textAlign: "left" }}
+        style={{ minHeight: "44px", background: "transparent", border: "none", padding: 0, color: T.textMuted, fontWeight: 700, fontSize: "12px", textAlign: "left" }}
       >
         {"ⓘ " + (rotulo || "")}
       </button>
       {aberto && (
-        <div style={{ fontSize: "11.5px", color: T.textMuted, lineHeight: 1.5, whiteSpace: "pre-wrap" }}>
+        <div style={{ fontSize: "12px", color: T.textMuted, lineHeight: 1.5, whiteSpace: "pre-wrap" }}>
           {children}
         </div>
       )}

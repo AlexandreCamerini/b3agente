@@ -113,7 +113,7 @@ export default function SetupChart({ ctx, grafico, palette, cp }) {
       <div style={{ fontSize: "13px", fontWeight: 700, color: T.textPrimary }}>
         {c.opcoesGraficoTitulo || "Disparos do setup"} · {g.name || "—"}
       </div>
-      <div style={{ fontSize: "11.5px", color: T.textMuted, marginTop: "2px" }}>
+      <div style={{ fontSize: "12px", color: T.textMuted, marginTop: "2px" }}>
         {(c.opcoesPregaoRotulo || "Pregão") + ": " + (g.pregao || g.trading_date || "—")}
         {" · " + (c.opcoesDisparosRotulo || "Disparos") + ": " + disparosTotal}
         {disparosTotal > MAX_LINHAS
@@ -121,7 +121,7 @@ export default function SetupChart({ ctx, grafico, palette, cp }) {
           : ""}
       </div>
       {legenda.length > 0 && (
-        <div style={{ fontSize: "11.5px", color: T.textSecondary, marginTop: "4px" }}>
+        <div style={{ fontSize: "12px", color: T.textSecondary, marginTop: "4px" }}>
           {/* NOME REAL da série, nunca o rótulo do slot do PriceChart. */}
           {"Linhas: " + legenda.join(" · ")}
         </div>
@@ -136,13 +136,13 @@ export default function SetupChart({ ctx, grafico, palette, cp }) {
       <div style={{ border: `1px solid ${T.borderSubtle}`, borderRadius: "12px", padding: "12px", background: T.bgPanel }}>
         {cabecalho}
         {disparos.length === 0 ? (
-          <div style={{ fontSize: "12.5px", color: T.textMuted }}>
+          <div style={{ fontSize: "13px", color: T.textMuted }}>
             Nenhum disparo com preço de fechamento neste período.
           </div>
         ) : (
           <ul style={{ margin: 0, padding: 0, listStyle: "none" }}>
             {disparos.map((l, i) => (
-              <li key={l.title + "-" + i} style={{ display: "flex", justifyContent: "space-between", gap: "10px", minHeight: "32px", alignItems: "center", fontSize: "12.5px", color: T.textSecondary, borderBottom: `1px solid ${T.borderFaint}` }}>
+              <li key={l.title + "-" + i} style={{ display: "flex", justifyContent: "space-between", gap: "10px", minHeight: "32px", alignItems: "center", fontSize: "13px", color: T.textSecondary, borderBottom: `1px solid ${T.borderFaint}` }}>
                 <span>{l.title}</span>
                 <span style={{ fontVariantNumeric: "tabular-nums", color: T.textPrimary }}>{l.price.toFixed(2)}</span>
               </li>

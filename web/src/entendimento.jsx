@@ -139,7 +139,7 @@ export function AssistenteBox({ cid, dados, setor, tela }) {
   if (!aberto) {
     return (
       <button onClick={() => setAberto(true)}
-        style={{ width: "100%", minHeight: "44px", marginBottom: "10px", borderRadius: "11px", border: `1px dashed ${T.borderSubtle}`, background: "transparent", color: T.textMuted, fontWeight: 700, fontSize: "12.5px" }}>
+        style={{ width: "100%", minHeight: "44px", marginBottom: "10px", borderRadius: "11px", border: `1px dashed ${T.borderSubtle}`, background: "transparent", color: T.textMuted, fontWeight: 700, fontSize: "13px" }}>
         Ainda com dúvida? Pergunte à IA sobre estes números
       </button>
     );
@@ -151,7 +151,7 @@ export function AssistenteBox({ cid, dados, setor, tela }) {
         placeholder="Ex.: por que o gatilho está nesse preço e não em outro?"
         style={{ width: "100%", boxSizing: "border-box", padding: "10px", borderRadius: "9px", border: `1px solid ${T.borderSubtle}`, background: T.bgPanel, color: T.textPrimary, fontSize: "13px", resize: "vertical" }} />
       <button onClick={perguntar} disabled={busy || !q.trim()}
-        style={{ width: "100%", minHeight: "40px", marginTop: "8px", borderRadius: "9px", border: "none", background: busy || !q.trim() ? T.bgPanel : T.accentTint10, color: busy || !q.trim() ? T.textFaint : T.accent, fontWeight: 800, fontSize: "12.5px" }}>
+        style={{ width: "100%", minHeight: "40px", marginTop: "8px", borderRadius: "9px", border: "none", background: busy || !q.trim() ? T.bgPanel : T.accentTint10, color: busy || !q.trim() ? T.textFaint : T.accent, fontWeight: 800, fontSize: "13px" }}>
         {busy ? "pensando…" : "Perguntar"}
       </button>
       {erro && (
@@ -238,13 +238,13 @@ export function ConceitoSheet({ cid, dados, setor, onClose, onTrocar, didatica, 
         {c && fonte !== "kb" && (
           <>
             <h2 style={{ margin: "0 0 4px", fontSize: "18px", fontWeight: 800, color: T.textPrimary }}>{c.titulo}</h2>
-            <div style={{ fontSize: "10.5px", color: T.textFaint, marginBottom: "12px" }}>Explicação com os números deste ativo, agora.</div>
+            <div style={{ fontSize: "11px", color: T.textFaint, marginBottom: "12px" }}>Explicação com os números deste ativo, agora.</div>
             {CONCEITO_BLOCOS.map(([chave, rotulo]) => (
               (c[chave] || []).length > 0 && (
                 <div key={chave} style={{ marginBottom: "14px" }}>
                   <div style={{ fontSize: "10px", fontWeight: 800, letterSpacing: "0.08em", color: chave === "naoAcontece" ? T.negative : T.accent, marginBottom: "6px" }}>{rotulo}</div>
                   {c[chave].map((p, i) => (
-                    <p key={i} style={{ margin: "0 0 8px", fontSize: "13.5px", lineHeight: 1.6, color: T.textSecondary }}>{p}</p>
+                    <p key={i} style={{ margin: "0 0 8px", fontSize: "14px", lineHeight: 1.6, color: T.textSecondary }}>{p}</p>
                   ))}
                 </div>
               )
@@ -260,7 +260,7 @@ export function ConceitoSheet({ cid, dados, setor, onClose, onTrocar, didatica, 
                   if (!alvo) return null;
                   return (
                     <button key={vid} onClick={() => onTrocar(vid)}
-                      style={{ fontSize: "11.5px", padding: "8px 12px", minHeight: "36px", borderRadius: "999px", border: `1px solid ${T.borderSubtle}`, background: T.bgBase, color: T.textSecondary, fontWeight: 700 }}>
+                      style={{ fontSize: "12px", padding: "8px 12px", minHeight: "36px", borderRadius: "999px", border: `1px solid ${T.borderSubtle}`, background: T.bgBase, color: T.textSecondary, fontWeight: 700 }}>
                       {alvo.titulo} →
                     </button>
                   );
@@ -283,8 +283,8 @@ export function ConceitoSheet({ cid, dados, setor, onClose, onTrocar, didatica, 
         {c && fonte === "kb" && (
           <>
             <h2 style={{ margin: "0 0 4px", fontSize: "18px", fontWeight: 800, color: T.textPrimary }}>{c.titulo}</h2>
-            <div style={{ fontSize: "10.5px", color: T.textFaint, marginBottom: "12px" }}>Verbete do glossário — explicação geral, sem números de nenhum ativo.</div>
-            <p style={{ margin: "0 0 8px", fontSize: "13.5px", lineHeight: 1.6, color: T.textSecondary }}>{c.texto}</p>
+            <div style={{ fontSize: "11px", color: T.textFaint, marginBottom: "12px" }}>Verbete do glossário — explicação geral, sem números de nenhum ativo.</div>
+            <p style={{ margin: "0 0 8px", fontSize: "14px", lineHeight: 1.6, color: T.textSecondary }}>{c.texto}</p>
             {(c.veja || []).length > 0 && (
               <div style={{ display: "flex", flexWrap: "wrap", gap: "7px", margin: "2px 0 14px" }}>
                 {c.veja.map((vid) => {
@@ -292,7 +292,7 @@ export function ConceitoSheet({ cid, dados, setor, onClose, onTrocar, didatica, 
                   if (!alvo) return null;
                   return (
                     <button key={vid} onClick={() => onTrocar(vid)}
-                      style={{ fontSize: "11.5px", padding: "8px 12px", minHeight: "36px", borderRadius: "999px", border: `1px solid ${T.borderSubtle}`, background: T.bgBase, color: T.textSecondary, fontWeight: 700 }}>
+                      style={{ fontSize: "12px", padding: "8px 12px", minHeight: "36px", borderRadius: "999px", border: `1px solid ${T.borderSubtle}`, background: T.bgBase, color: T.textSecondary, fontWeight: 700 }}>
                       {alvo.titulo} →
                     </button>
                   );

@@ -148,7 +148,8 @@ ok("TravaPill contorno: transparent + border negative + 700", /background: "tran
 }
 for (const [nome, corpo] of [["CardPosicaoEstruturada", cardE], ["ReguaFaixa", reguaE]]) {
   // Fase 46 (D-15, 2026-09-30): CardPosicaoEstruturada usa TIPO_CARD.*; ReguaFaixa (legada) mantém px literais.
-  ok(`${nome}: fontSize sempre string px permitida`, (corpo.match(/fontSize:\s*[^,}]+/g) || []).every((f) => /fontSize:\s*("(10\.5|11\.5|13|16)px"|TAM_TOTAL_ESTRUTURA \+ "px"|TIPO_CARD\.(titulo|corpo|rotulo))/.test(f)) && !/fontSize:\s*\d/.test(corpo));
+  // NOTA 2026-10-08 (quick 261008-1qw, Onda C1): escala tipográfica inteira; o literal histórico foi normalizado para cima. A asserção aceita o valor histórico OU o novo.
+  ok(`${nome}: fontSize sempre string px permitida`, (corpo.match(/fontSize:\s*[^,}]+/g) || []).every((f) => /fontSize:\s*("(10\.5|11\.5|10|11|12|13|16)px"|TAM_TOTAL_ESTRUTURA \+ "px"|TIPO_CARD\.(titulo|corpo|rotulo))/.test(f)) && !/fontSize:\s*\d/.test(corpo));
   ok(`${nome}: sem fontWeight 600/800`, !/fontWeight:\s*(600|800)/.test(corpo));
   ok(`${nome}: sem hex literal`, !/#[0-9a-fA-F]{3,6}\b/.test(corpo));
   ok(`${nome}: sem linear-gradient`, !/linear-gradient/.test(corpo));

@@ -578,7 +578,7 @@ export default function OpcoesScreen({ ctx }) {
   const cabecalho = (
     <div style={{ border: `1px solid ${T.borderSubtle}`, borderRadius: "14px", padding: "12px 14px", background: T.bgPanel }}>
       <div style={{ display: "flex", flexWrap: "wrap", gap: "10px", alignItems: "baseline", justifyContent: "space-between" }}>
-        <div style={{ fontSize: "12.5px", color: T.textSecondary }}>
+        <div style={{ fontSize: "13px", color: T.textSecondary }}>
           {(cp.opcoesPregaoRotulo || "Pregão") + ": "}
           <strong style={{ color: T.textPrimary, fontVariantNumeric: "tabular-nums" }}>{pregao || "—"}</strong>
         </div>
@@ -591,7 +591,7 @@ export default function OpcoesScreen({ ctx }) {
           {(cp.opcoesFonteRotulo || "Fonte") + ": " + (fonte || "—")}
         </div>
         {chip ? (
-          <span style={{ fontSize: "11.5px", fontWeight: 700, color: T.textSecondary, border: `1px solid ${T.borderSubtle}`, borderRadius: "999px", padding: "3px 9px" }}>
+          <span style={{ fontSize: "12px", fontWeight: 700, color: T.textSecondary, border: `1px solid ${T.borderSubtle}`, borderRadius: "999px", padding: "3px 9px" }}>
             {chip}
           </span>
         ) : null}
@@ -605,7 +605,7 @@ export default function OpcoesScreen({ ctx }) {
           explicar um número que ninguém está vendo é ruído. Mesmo tom
           discreto do rodapé das lacunas (24-11) — é informação, não erro. */}
       {distancia && cp.opcoesAtrasoAjuda ? (
-        <div style={{ marginTop: "6px", fontSize: "11.5px", color: T.textMuted, lineHeight: 1.5 }}>
+        <div style={{ marginTop: "6px", fontSize: "12px", color: T.textMuted, lineHeight: 1.5 }}>
           {cp.opcoesAtrasoAjuda}
         </div>
       ) : null}
@@ -644,7 +644,7 @@ export default function OpcoesScreen({ ctx }) {
           existente, não reabertura de condição de render. */}
       <Kicker>{(cp.opcoesLeituraTitulo || "LEITURA DO ATIVO") + " · " + (cp.opcoesPasso1de2 || "Passo 1 de 2")}</Kicker>
       <div style={CAIXA}>
-        <div style={{ fontSize: "12.5px", color: T.textSecondary, lineHeight: 1.5 }}>
+        <div style={{ fontSize: "13px", color: T.textSecondary, lineHeight: 1.5 }}>
           {cp.opcoesLeituraConvite || ""}
         </div>
         {/* O custo vai DENTRO do controle, na segunda linha do próprio botão —
@@ -1237,7 +1237,7 @@ export default function OpcoesScreen({ ctx }) {
           ticker, quem fica em Oportunidades pagaria sem nunca ver o aviso
           (regressão da Fase 27-05). Sem condição de render: o custo existe
           mesmo quando o serviço não respondeu. */}
-      <p style={{ marginTop: "20px", fontSize: "11.5px", color: T.textMuted, lineHeight: 1.55 }}>
+      <p style={{ marginTop: "20px", fontSize: "12px", color: T.textMuted, lineHeight: 1.55 }}>
         {cp.opcoesDisclaimer || ""}
       </p>
       <DetalheInfo rotulo={cp.opcoesCustoFrescorRotulo || "custo desta aba"}>
@@ -1389,7 +1389,7 @@ function PropostaDoAtivo({
       <button
         type="button"
         onClick={onMontar}
-        style={{ marginTop: "10px", display: "block", background: "transparent", border: "none", padding: 0, color: T.accent, fontWeight: 700, fontSize: "11.5px", minHeight: "44px" }}
+        style={{ marginTop: "10px", display: "block", background: "transparent", border: "none", padding: 0, color: T.accent, fontWeight: 700, fontSize: "12px", minHeight: "44px" }}
       >
         {(cp.opcoesMontarNoAtivo || ((t) => "Montar com " + t))(ticker)}
       </button>
@@ -1424,7 +1424,7 @@ function LastroDoAtivo({ pos, cp }) {
   const travadas = (ehNum(pos && pos.qtyTravada) && pos.qtyTravada > 0) ? pos.qtyTravada : null;
   return (
     <div style={{ ...CAIXA, marginTop: "10px" }}>
-      <div style={{ fontSize: "12.5px", color: T.textPrimary, lineHeight: 1.5, whiteSpace: "pre-wrap" }}>
+      <div style={{ fontSize: "13px", color: T.textPrimary, lineHeight: 1.5, whiteSpace: "pre-wrap" }}>
         {ehNum(livres)
           ? (c.opcoesLastroLivre || ((l, k) => l + " livre(s) · " + k + " contrato(s)"))(livres, contratos)
           : "— " + (c.opcoesLastroSemDado || "")}
@@ -1518,7 +1518,7 @@ function LeituraInterna({ tecnico, cp }) {
       ) : t.erro ? (
         <>
           <Aviso tom="forte">{(t.erro && t.erro.message) || "—"}</Aviso>
-          <div style={{ fontSize: "11.5px", color: T.textMuted, marginTop: "6px", lineHeight: 1.5, whiteSpace: "pre-wrap" }}>
+          <div style={{ fontSize: "12px", color: T.textMuted, marginTop: "6px", lineHeight: 1.5, whiteSpace: "pre-wrap" }}>
             {c.opcoesInternaErro || ""}
           </div>
         </>
@@ -1551,7 +1551,7 @@ function LeituraInterna({ tecnico, cp }) {
             {temRegua ? (
               <ReguaRegime regua={dados.regua} cp={cp} />
             ) : (
-              <div style={{ fontSize: "11.5px", color: T.textMuted, marginTop: "8px", lineHeight: 1.5, whiteSpace: "pre-wrap" }}>
+              <div style={{ fontSize: "12px", color: T.textMuted, marginTop: "8px", lineHeight: 1.5, whiteSpace: "pre-wrap" }}>
                 {c.opcoesReguaSemDados || ""}
                 {motivoDaRegua ? "\n" + motivoDaRegua : ""}
               </div>
@@ -1561,13 +1561,13 @@ function LeituraInterna({ tecnico, cp }) {
           {/* Ressalva, NÃO erro: o valor acima continua valendo. O que ela diz
               é em que janela ele se apoiou — esconder o número seria pior. */}
           {tend.confiavel === false ? (
-            <div style={{ fontSize: "11.5px", color: T.textMuted, marginTop: "6px", lineHeight: 1.5, whiteSpace: "pre-wrap" }}>
+            <div style={{ fontSize: "12px", color: T.textMuted, marginTop: "6px", lineHeight: 1.5, whiteSpace: "pre-wrap" }}>
               {c.opcoesRegimeNaoConfiavel || ""}
             </div>
           ) : null}
 
           {motivos.map((m, i) => (
-            <div key={i} style={{ fontSize: "11.5px", color: T.textMuted, marginTop: "4px", lineHeight: 1.5, whiteSpace: "pre-wrap" }}>
+            <div key={i} style={{ fontSize: "12px", color: T.textMuted, marginTop: "4px", lineHeight: 1.5, whiteSpace: "pre-wrap" }}>
               {m}
             </div>
           ))}
@@ -1576,7 +1576,7 @@ function LeituraInterna({ tecnico, cp }) {
               série. Fonte ausente vira travessão dentro da própria frase — um
               nome de fonte por default é a mentira que o cabeçalho da aba já
               corrigiu uma vez ("Fonte: —"). */}
-          <div style={{ fontSize: "11.5px", color: T.textMuted, marginTop: "6px", lineHeight: 1.5 }}>
+          <div style={{ fontSize: "12px", color: T.textMuted, marginTop: "6px", lineHeight: 1.5 }}>
             {(c.opcoesInternaCarimbo || ((a, f) => "Pregão: " + (a || "—") + " · fonte: " + (f || "—")))(
               carimbo.asOf, carimbo.source)}
           </div>

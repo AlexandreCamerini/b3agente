@@ -83,7 +83,7 @@ export default function CandidatoOpcao({ p, r, cp, operador, busy, onAceitar, on
       {/* manchete do motor, verbatim — guardrail CVM (CLAUDE.md); nunca
           truncada com reticências: cortar reescreveria a afirmação do
           motor. */}
-      <div style={{ fontSize: "12.5px", fontWeight: 700, color: cor, marginTop: "4px", whiteSpace: "normal" }}>{p.manchete}</div>
+      <div style={{ fontSize: "13px", fontWeight: 700, color: cor, marginTop: "4px", whiteSpace: "normal" }}>{p.manchete}</div>
       <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", marginTop: "10px" }}>
         {(p.chips || []).map((c) => (
           <ChipDaProposta key={c.k} c={c} p={p} ticker={r.ticker} onVerbeteLiquidez={onVerbeteLiquidez} />
@@ -137,7 +137,7 @@ export default function CandidatoOpcao({ p, r, cp, operador, busy, onAceitar, on
           type="button"
           onClick={() => onAceitar(p)}
           disabled={busy || degradado}
-          style={{ marginTop: "12px", width: "100%", minHeight: "44px", borderRadius: "9px", border: `1px solid ${T.accent}`, background: T.accentTint, color: T.accent, fontWeight: 800, fontSize: "12.5px" }}
+          style={{ marginTop: "12px", width: "100%", minHeight: "44px", borderRadius: "9px", border: `1px solid ${T.accent}`, background: T.accentTint, color: T.accent, fontWeight: 800, fontSize: "13px" }}
         >
           {degradado
             ? cp.propostaIndisponivelDegradada

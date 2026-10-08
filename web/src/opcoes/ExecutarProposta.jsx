@@ -127,7 +127,7 @@ export default function ExecutarProposta({ dados, operador, onExecutar, cp }) {
       ) : (
         <>
           {recusaLiquidez && (
-            <label style={{ display: "flex", alignItems: "flex-start", gap: "8px", marginTop: "8px", fontSize: "11.5px", color: T.textSecondary, lineHeight: 1.5 }}>
+            <label style={{ display: "flex", alignItems: "flex-start", gap: "8px", marginTop: "8px", fontSize: "12px", color: T.textSecondary, lineHeight: 1.5 }}>
               <input
                 type="checkbox"
                 checked={atual.aceite === true}
@@ -138,7 +138,7 @@ export default function ExecutarProposta({ dados, operador, onExecutar, cp }) {
             </label>
           )}
           {!recusaLiquidez && atual.erro && (
-            <div style={{ marginTop: "8px", padding: "9px 10px", borderRadius: "8px", border: `1px solid ${T.warn}`, fontSize: "11.5px", color: T.warn, lineHeight: 1.5 }}>
+            <div style={{ marginTop: "8px", padding: "9px 10px", borderRadius: "8px", border: `1px solid ${T.warn}`, fontSize: "12px", color: T.warn, lineHeight: 1.5 }}>
               {atual.erro}
             </div>
           )}

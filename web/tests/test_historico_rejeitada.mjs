@@ -36,8 +36,9 @@ ok("bloco data.history.map localizado", linhaHistorico.length > 0);
 ok("HistoricoScreen contém h.status === \"rejeitada\" (condição SEMPRE ===, nunca !== \"executada\")",
    linhaHistorico.includes('h.status === "rejeitada"') && !linhaHistorico.includes('h.status !== "executada"'));
 ok("badge literal REJEITADA presente", linhaHistorico.includes("REJEITADA"));
+// NOTA 2026-10-08 (quick 261008-1qw, Onda C1): escala tipográfica inteira; o literal histórico foi normalizado para cima. A asserção aceita o valor histórico OU o novo.
 ok("badge REJEITADA usa T.warn (mesma forma do ordemPendentePill)",
-   /\{rejeitada && <span style=\{\{ padding: "3px 9px", borderRadius: "999px", fontSize: "10\.5px", fontWeight: 800, color: T\.warn, background: "color-mix\(in srgb, " \+ T\.warn \+ " 14%, transparent\)" \}\}>REJEITADA<\/span>\}/.test(linhaHistorico));
+   /\{rejeitada && <span style=\{\{ padding: "3px 9px", borderRadius: "999px", fontSize: "(?:10\.5|11)px", fontWeight: 800, color: T\.warn, background: "color-mix\(in srgb, " \+ T\.warn \+ " 14%, transparent\)" \}\}>REJEITADA<\/span>\}/.test(linhaHistorico));
 // T.negative segue existindo no bloco para o ramo EXECUTADO (venda vermelha,
 // PnL negativo) — o que a pill/resultado NUNCA podem fazer é usar T.negative
 // especificamente quando rejeitada === true.

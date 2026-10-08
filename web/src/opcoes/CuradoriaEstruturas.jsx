@@ -179,9 +179,9 @@ export default function CuradoriaEstruturas({ top, meta, carregando, erro, concl
         <div style={{ fontSize: "10px", fontWeight: 800, letterSpacing: "0.04em", color: T.textFaint }}>{cp.curadoriaTitulo}</div>
         {infoBotao || null}
       </div>
-      <div style={{ fontSize: "11.5px", color: T.textMuted, marginBottom: "8px", lineHeight: 1.4 }}>{cp.curadoriaSubtitulo}</div>
+      <div style={{ fontSize: "12px", color: T.textMuted, marginBottom: "8px", lineHeight: 1.4 }}>{cp.curadoriaSubtitulo}</div>
       {resumoVarredura && (
-        <div style={{ fontSize: "10.5px", color: T.textFaint, marginBottom: "8px", lineHeight: 1.5 }}>
+        <div style={{ fontSize: "11px", color: T.textFaint, marginBottom: "8px", lineHeight: 1.5 }}>
           {cp.curadoriaVarreduraRotulo}: {resumoVarredura} · até {tetoVencimentosTxt} vencimentos por posição
         </div>
       )}
@@ -212,12 +212,12 @@ export default function CuradoriaEstruturas({ top, meta, carregando, erro, concl
                 {/* manchete do motor, verbatim — guardrail CVM (CLAUDE.md);
                     nunca truncada/concatenada: cortar reescreveria a
                     afirmação do motor. */}
-                <div style={{ fontSize: "12.5px", fontWeight: 700, color: T.textPrimary, marginTop: "4px", whiteSpace: "normal" }}>{cand.manchete}</div>
+                <div style={{ fontSize: "13px", fontWeight: 700, color: T.textPrimary, marginTop: "4px", whiteSpace: "normal" }}>{cand.manchete}</div>
                 {/* Fase 39 (NAV-01, D-14): a posição no ranking substitui o
                     score bruto ("Pontuação de curadoria: 0,02") — a única
                     forma de comunicar ordem agora é o lugar na lista. */}
-                <div style={{ fontSize: "10.5px", color: T.textFaint, marginTop: "6px" }}>{cp.curadoriaPosicaoRotulo ? cp.curadoriaPosicaoRotulo(cand.posicaoNoRanking, top.length) : ""}</div>
-                <div style={{ fontSize: "10.5px", color: T.textFaint, marginTop: "2px" }}>{money(cand.premioTotal)} · {cand.diasParaVencimento}d · {cand.liquidez && cand.liquidez.faixa}</div>
+                <div style={{ fontSize: "11px", color: T.textFaint, marginTop: "6px" }}>{cp.curadoriaPosicaoRotulo ? cp.curadoriaPosicaoRotulo(cand.posicaoNoRanking, top.length) : ""}</div>
+                <div style={{ fontSize: "11px", color: T.textFaint, marginTop: "2px" }}>{money(cand.premioTotal)} · {cand.diasParaVencimento}d · {cand.liquidez && cand.liquidez.faixa}</div>
               </button>
           ))}
         </div>
@@ -278,7 +278,7 @@ export default function CuradoriaEstruturas({ top, meta, carregando, erro, concl
           {operador && (
             <>
               {liquidezDificil && !liquidezSemAviso && (
-                <label style={{ display: "flex", alignItems: "flex-start", gap: "8px", marginTop: "10px", fontSize: "11.5px", color: T.textSecondary, lineHeight: 1.5 }}>
+                <label style={{ display: "flex", alignItems: "flex-start", gap: "8px", marginTop: "10px", fontSize: "12px", color: T.textSecondary, lineHeight: 1.5 }}>
                   <input type="checkbox" checked={consentido} onChange={(e) => setLiquidezOk((s) => ({ ...s, [idAberto]: e.target.checked }))} style={{ marginTop: "2px" }} />
                   <span>{item.liquidez.aviso} {cp.curadoriaLiquidezConsentir}</span>
                 </label>
@@ -287,12 +287,12 @@ export default function CuradoriaEstruturas({ top, meta, carregando, erro, concl
                   consentimento que o usuário não leu (T-J5L-04) — mesmo
                   texto de useAceiteLastreado ao lado. */}
               {liquidezSemAviso && (
-                <div style={{ marginTop: "10px", fontSize: "11.5px", color: T.warn, lineHeight: 1.5 }}>
+                <div style={{ marginTop: "10px", fontSize: "12px", color: T.warn, lineHeight: 1.5 }}>
                   Não foi possível confirmar a liquidez desta operação — tente novamente.
                 </div>
               )}
               {execAtual.erro && (
-                <div style={{ marginTop: "10px", padding: "9px 10px", borderRadius: "8px", background: "color-mix(in srgb, " + T.warn + " 12%, transparent)", border: `1px solid ${T.warn}`, fontSize: "11.5px", color: T.warn, lineHeight: 1.5 }}>
+                <div style={{ marginTop: "10px", padding: "9px 10px", borderRadius: "8px", background: "color-mix(in srgb, " + T.warn + " 12%, transparent)", border: `1px solid ${T.warn}`, fontSize: "12px", color: T.warn, lineHeight: 1.5 }}>
                   {execAtual.erro}
                 </div>
               )}
@@ -320,7 +320,7 @@ export default function CuradoriaEstruturas({ top, meta, carregando, erro, concl
           <button
             type="button"
             onClick={() => onAbrir(item.ticker)}
-            style={{ marginTop: "10px", display: "block", background: "transparent", border: "none", padding: 0, color: T.accent, fontWeight: 700, fontSize: "11.5px", textDecoration: "none" }}
+            style={{ marginTop: "10px", display: "block", background: "transparent", border: "none", padding: 0, color: T.accent, fontWeight: 700, fontSize: "12px", textDecoration: "none" }}
           >
             {cp.curadoriaVerPosicao}
           </button>
@@ -397,7 +397,7 @@ export default function CuradoriaEstruturas({ top, meta, carregando, erro, concl
           type="button"
           onClick={onNarrar}
           disabled={narrando}
-          style={{ marginTop: "8px", minHeight: "44px", width: "100%", padding: "10px", borderRadius: "10px", border: `1px solid ${T.borderSubtle}`, background: "transparent", color: T.accent, fontWeight: 700, fontSize: "12.5px" }}
+          style={{ marginTop: "8px", minHeight: "44px", width: "100%", padding: "10px", borderRadius: "10px", border: `1px solid ${T.borderSubtle}`, background: "transparent", color: T.accent, fontWeight: 700, fontSize: "13px" }}
         >
           {narrando ? cp.curadoriaNarrando : cp.curadoriaNarrarCta}
         </button>
@@ -409,16 +409,16 @@ export default function CuradoriaEstruturas({ top, meta, carregando, erro, concl
         <div style={{ marginTop: "8px", padding: "11px 12px", borderRadius: "10px", background: T.bgCard, border: `1px solid ${T.borderFaint}` }}>
           <div style={{ fontSize: "10px", fontWeight: 800, letterSpacing: "0.04em", color: T.textFaint, marginBottom: "4px" }}>{cp.curadoriaIaRotulo}</div>
           <div style={{ fontSize: "12px", color: T.textSecondary, lineHeight: 1.5, whiteSpace: "pre-wrap" }}>{narrativa.texto}</div>
-          <div style={{ fontSize: "10.5px", color: T.textFaint, marginTop: "6px", fontStyle: "italic" }}>{cp.curadoriaIaRessalva}</div>
+          <div style={{ fontSize: "11px", color: T.textFaint, marginTop: "6px", fontStyle: "italic" }}>{cp.curadoriaIaRessalva}</div>
         </div>
       )}
       {/* Erros de narração são ESTADO (texto, sem CTA) — nunca apagam os
           itens determinísticos acima. */}
       {erroNarrativa === "cota" && (
-        <div style={{ marginTop: "8px", fontSize: "11.5px", color: T.textFaint, lineHeight: 1.5 }}>{cp.curadoriaCotaEsgotada}</div>
+        <div style={{ marginTop: "8px", fontSize: "12px", color: T.textFaint, lineHeight: 1.5 }}>{cp.curadoriaCotaEsgotada}</div>
       )}
       {erroNarrativa === "erro" && (
-        <div style={{ marginTop: "8px", fontSize: "11.5px", color: T.textFaint, lineHeight: 1.5 }}>{cp.curadoriaErroNarrar}</div>
+        <div style={{ marginTop: "8px", fontSize: "12px", color: T.textFaint, lineHeight: 1.5 }}>{cp.curadoriaErroNarrar}</div>
       )}
     </div>
   );

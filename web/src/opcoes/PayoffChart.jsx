@@ -221,12 +221,12 @@ export default function PayoffChart({ estrutura, emReais, cp, palette, dominio, 
       <div style={{ fontSize: "13px", fontWeight: 700, color: T.textPrimary }}>
         {nome}{vencimento ? " · " + vencimento : ""}
       </div>
-      <div style={{ fontSize: "11.5px", color: T.textSecondary, marginTop: "3px", fontVariantNumeric: "tabular-nums" }}>
+      <div style={{ fontSize: "12px", color: T.textSecondary, marginTop: "3px", fontVariantNumeric: "tabular-nums" }}>
         {(c.opcoesPorAcaoRotulo || "por ação") + ": custo " + fmt(e.net_cost)
           + " · ganho máx. " + ganhoTxt + " · perda máx. " + perdaTxt}
       </div>
       {emReais ? (
-        <div style={{ fontSize: "11.5px", color: T.textSecondary, marginTop: "2px", fontVariantNumeric: "tabular-nums" }}>
+        <div style={{ fontSize: "12px", color: T.textSecondary, marginTop: "2px", fontVariantNumeric: "tabular-nums" }}>
           {/* Exibição pura: as três cifras chegaram multiplicadas do backend. */}
           {(c.opcoesEmReaisRotulo || "em reais") + ": custo " + moeda(emReais.custoLiquido)
             + " · ganho máx. " + (ganhoIlimitado ? (c.opcoesGanhoIlimitado || "sem teto") : moeda(emReais.ganhoMaximo))
@@ -235,7 +235,7 @@ export default function PayoffChart({ estrutura, emReais, cp, palette, dominio, 
       ) : null}
       {/* Bloco de PREÇO, deliberadamente separado do bloco acima: o empate é
           preço do ativo, não dinheiro da posição (D-24.2). */}
-      <div style={{ fontSize: "11.5px", color: T.textSecondary, marginTop: "2px", fontVariantNumeric: "tabular-nums" }}>
+      <div style={{ fontSize: "12px", color: T.textSecondary, marginTop: "2px", fontVariantNumeric: "tabular-nums" }}>
         {(c.opcoesBreakevenRotulo || "Breakeven") + ": "
           + (breakevens.length ? breakevens.map((b) => fmt(b)).join(" · ") : "—")}
       </div>
@@ -254,11 +254,11 @@ export default function PayoffChart({ estrutura, emReais, cp, palette, dominio, 
             <ErroDoMcp erro={valorHoje.erro} cp={cp} />
           ) : valorHoje.dados ? (
             <>
-              <div style={{ fontSize: "11.5px", color: T.textSecondary, marginTop: "2px", fontVariantNumeric: "tabular-nums" }}>
+              <div style={{ fontSize: "12px", color: T.textSecondary, marginTop: "2px", fontVariantNumeric: "tabular-nums" }}>
                 {(c.opcoesPorAcaoRotulo || "por ação") + ": " + moeda(valorHoje.dados.porAcao)}
               </div>
               {ehNum(valorHoje.dados.emReais) ? (
-                <div style={{ fontSize: "11.5px", color: T.textSecondary, marginTop: "2px", fontVariantNumeric: "tabular-nums" }}>
+                <div style={{ fontSize: "12px", color: T.textSecondary, marginTop: "2px", fontVariantNumeric: "tabular-nums" }}>
                   {(c.opcoesEmReaisRotulo || "em reais") + ": " + moeda(valorHoje.dados.emReais)}
                 </div>
               ) : null}
@@ -291,7 +291,7 @@ export default function PayoffChart({ estrutura, emReais, cp, palette, dominio, 
   // estrutura sem avaliá-la ponto a ponto).
   if (!desenho) {
     return caixa(
-      <div style={{ fontSize: "12.5px", color: T.textMuted, whiteSpace: "pre-wrap", lineHeight: 1.5 }}>
+      <div style={{ fontSize: "13px", color: T.textMuted, whiteSpace: "pre-wrap", lineHeight: 1.5 }}>
         {c.opcoesSemEstrutura || "O serviço não mandou os pontos da curva desta estrutura."}
       </div>,
     );

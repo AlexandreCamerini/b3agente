@@ -81,7 +81,7 @@ const CAIXA = {
   padding: "12px 14px", background: T.bgPanel,
 };
 const AJUDA = { fontSize: "11px", color: T.textMuted, marginTop: "6px", lineHeight: 1.45 };
-const ROTULO = { display: "block", fontSize: "12.5px", color: T.textSecondary, margin: "0 0 4px" };
+const ROTULO = { display: "block", fontSize: "13px", color: T.textSecondary, margin: "0 0 4px" };
 const CAMPO_TEXTO = {
   width: "100%", boxSizing: "border-box", minHeight: "88px", padding: "10px",
   borderRadius: "10px", border: `1px solid ${T.borderSubtle}`,
@@ -100,7 +100,7 @@ const CRU = {
 
 function Aviso({ children, tom }) {
   return (
-    <div style={{ border: `1px solid ${tom === "forte" ? T.negative : T.borderSubtle}`, borderRadius: "12px", padding: "12px", background: T.bgPanel, color: T.textSecondary, fontSize: "12.5px", whiteSpace: "pre-wrap", lineHeight: 1.5 }}>
+    <div style={{ border: `1px solid ${tom === "forte" ? T.negative : T.borderSubtle}`, borderRadius: "12px", padding: "12px", background: T.bgPanel, color: T.textSecondary, fontSize: "13px", whiteSpace: "pre-wrap", lineHeight: 1.5 }}>
       {children}
     </div>
   );
@@ -109,8 +109,8 @@ function Aviso({ children, tom }) {
 function Linha({ rotulo, valor }) {
   return (
     <div style={{ display: "flex", justifyContent: "space-between", gap: "12px", padding: "7px 0", borderBottom: `1px solid ${T.borderFaint}` }}>
-      <span style={{ fontSize: "12.5px", color: T.textSecondary }}>{rotulo}</span>
-      <span style={{ fontSize: "12.5px", color: T.textPrimary, fontVariantNumeric: "tabular-nums" }}>{valor}</span>
+      <span style={{ fontSize: "13px", color: T.textSecondary }}>{rotulo}</span>
+      <span style={{ fontSize: "13px", color: T.textPrimary, fontVariantNumeric: "tabular-nums" }}>{valor}</span>
     </div>
   );
 }
@@ -252,7 +252,7 @@ function RecusaCobradaNaCriacao({ erro, cp }) {
   // Discreta: é contabilidade, não alarme. Quem precisa agir lê a mensagem
   // do serviço, logo acima.
   return (
-    <div style={{ marginTop: "6px", fontSize: "11.5px", color: T.textMuted, lineHeight: 1.5 }}>
+    <div style={{ marginTop: "6px", fontSize: "12px", color: T.textMuted, lineHeight: 1.5 }}>
       {(cp || {}).opcoesRecusaCobrada
         || "Esta tentativa consumiu uma chamada da sua cota do dia."}
     </div>
@@ -368,7 +368,7 @@ function Ensaio({ dados, cp, custos, onConfirmar }) {
       {condicoes.length ? (
         <ul style={{ margin: "10px 0 0", padding: 0, listStyle: "none" }}>
           {condicoes.map((cond, i) => (
-            <li key={i} style={{ fontSize: "12.5px", color: T.textSecondary, padding: "4px 0", borderBottom: `1px solid ${T.borderFaint}`, wordBreak: "break-word" }}>
+            <li key={i} style={{ fontSize: "13px", color: T.textSecondary, padding: "4px 0", borderBottom: `1px solid ${T.borderFaint}`, wordBreak: "break-word" }}>
               {condicaoEmTexto(cond)}
             </li>
           ))}
@@ -396,7 +396,7 @@ function Ensaio({ dados, cp, custos, onConfirmar }) {
             <Linha rotulo="Pregões avaliáveis" valor={inteiro(backtest.pregoes_avaliaveis)} />
             <Linha rotulo="Pregões sem indicador" valor={inteiro(backtest.pregoes_sem_indicador)} />
           </div>
-          <div style={{ fontSize: "12.5px", color: T.textSecondary, marginTop: "8px", lineHeight: 1.5 }}>
+          <div style={{ fontSize: "13px", color: T.textSecondary, marginTop: "8px", lineHeight: 1.5 }}>
             {(c.opcoesBacktestDisparos || ((n, p) => n + " disparo(s), " + p + " a cada 100"))(
               ehNum(backtest.disparos) ? inteiro(backtest.disparos) : null,
               ehNum(backtest.disparos_por_100_pregoes_avaliaveis)
@@ -406,7 +406,7 @@ function Ensaio({ dados, cp, custos, onConfirmar }) {
           {retornos.map(([passo, r]) => {
             const v = (r && typeof r === "object") ? r : {};
             return (
-              <div key={passo} style={{ fontSize: "12.5px", color: T.textSecondary, marginTop: "6px", lineHeight: 1.5 }}>
+              <div key={passo} style={{ fontSize: "13px", color: T.textSecondary, marginTop: "6px", lineHeight: 1.5 }}>
                 {(c.opcoesBacktestRetorno || ((p, m, md, cd) => p + ": " + m + " / " + md))(
                   passo,
                   ehNum(v.retorno_medio_pct) ? pct(v.retorno_medio_pct, 2) : null,

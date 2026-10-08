@@ -127,7 +127,7 @@ export default function ReguaRegime({ regua, cp }) {
                   display: "block",
                   textAlign: "center",
                   marginTop: "4px",
-                  fontSize: "9.5px",
+                  fontSize: "10px",
                   fontWeight: item && item.hoje ? 800 : 600,
                   color: item && item.hoje ? T.textSecondary : T.textFaint,
                   fontVariantNumeric: "tabular-nums",
@@ -143,7 +143,7 @@ export default function ReguaRegime({ regua, cp }) {
       {/* Motivo do backend, VERBATIM: série curta mostra MENOS segmentos e diz
           por quê — nunca preenche os que faltam. */}
       {regua && regua.motivo ? (
-        <div style={{ fontSize: "11.5px", color: T.textMuted, marginTop: "6px", lineHeight: 1.5, whiteSpace: "pre-wrap" }}>
+        <div style={{ fontSize: "12px", color: T.textMuted, marginTop: "6px", lineHeight: 1.5, whiteSpace: "pre-wrap" }}>
           {regua.motivo}
         </div>
       ) : null}

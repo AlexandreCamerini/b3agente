@@ -67,17 +67,17 @@ function CartaoDeVigia({ vigia, temEstado, selecionado, naCarteira, onIr, cp }) 
   //      ausência de medição não é medição de ausência — a mesma simetria que
   //      este arquivo já aplica aos setups do ticker.
   const estado = v.motivo ? (
-    <span style={{ display: "block", fontSize: "12.5px", color: T.textSecondary, marginTop: "6px", whiteSpace: "pre-wrap", lineHeight: 1.5 }}>
+    <span style={{ display: "block", fontSize: "13px", color: T.textSecondary, marginTop: "6px", whiteSpace: "pre-wrap", lineHeight: 1.5 }}>
       {v.motivo}
     </span>
   ) : temEstado ? (
-    <span style={{ display: "block", fontSize: "12.5px", color: T.textSecondary, marginTop: "6px" }}>
+    <span style={{ display: "block", fontSize: "13px", color: T.textSecondary, marginTop: "6px" }}>
       {"armado: " + (v.armed === true ? "sim" : v.armed === false ? "não" : "—")}
       {" · sequência: " + (ehNum(v.streak) ? v.streak : "—")
         + "/" + (ehNum(v.required_streak) ? v.required_streak : "—")}
     </span>
   ) : (
-    <span style={{ display: "block", fontSize: "12.5px", color: T.textMuted, marginTop: "6px", whiteSpace: "pre-wrap", lineHeight: 1.5 }}>
+    <span style={{ display: "block", fontSize: "13px", color: T.textMuted, marginTop: "6px", whiteSpace: "pre-wrap", lineHeight: 1.5 }}>
       {c.opcoesVigiasSemEstado || "—"}
     </span>
   );
@@ -103,7 +103,7 @@ function CartaoDeVigia({ vigia, temEstado, selecionado, naCarteira, onIr, cp }) 
           sendo avaliado pelo serviço. Escondê-lo repetiria o defeito desta
           fase — o vigia invisível que parece nunca ter sido gravado. */}
       {naCarteira ? null : (
-        <span style={{ display: "block", fontSize: "11.5px", color: T.textMuted, marginTop: "6px", whiteSpace: "pre-wrap", lineHeight: 1.5 }}>
+        <span style={{ display: "block", fontSize: "12px", color: T.textMuted, marginTop: "6px", whiteSpace: "pre-wrap", lineHeight: 1.5 }}>
           {c.opcoesVigiaForaDaCarteira || ""}
         </span>
       )}

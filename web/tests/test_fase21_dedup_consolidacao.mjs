@@ -171,8 +171,9 @@ ok(
   capitalCurve.includes("Sua curva começa amanhã. Volte para vê-la crescer")
 );
 
+// NOTA 2026-10-08 (quick 261008-1qw, Onda C1): escala tipográfica inteira; o literal histórico foi normalizado para cima. A asserção aceita o valor histórico OU o novo.
 const estiloPlaceholderCount = (
-  capitalCurve.match(/fontSize: "11\.5px", color: T\.textFaint, marginTop: "10px", lineHeight: 1\.5/g) || []
+  capitalCurve.match(/fontSize: "(?:11\.5|12)px", color: T\.textFaint, marginTop: "10px", lineHeight: 1\.5/g) || []
 ).length;
 ok(
   "FIX-03: os dois ramos de placeholder (poucosDias e zero) usam o MESMO objeto de estilo (>= 2 ocorrências)",

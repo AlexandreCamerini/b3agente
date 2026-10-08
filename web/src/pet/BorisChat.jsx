@@ -105,16 +105,16 @@ export default function BorisChat({ tela, snapshot, sugestoes, borisRef, falarTe
         {mensagens.length === 0 && (
           sugestoes && sugestoes.length > 0 ? (
             <div style={{ display: "flex", flexDirection: "column", gap: "8px", padding: "2px 0" }}>
-              <div style={{ fontSize: "12.5px", color: T.textFaint }}>Pergunte ao Boris sobre esta tela:</div>
+              <div style={{ fontSize: "13px", color: T.textFaint }}>Pergunte ao Boris sobre esta tela:</div>
               {sugestoes.map((p, i) => (
                 <button key={i} onClick={() => enviarAgora(p)} disabled={pensando}
-                  style={{ textAlign: "left", padding: "9px 12px", borderRadius: "12px", border: `1px solid ${T.borderSubtle}`, background: T.bgBase, color: T.textSecondary, fontSize: "12.5px", fontWeight: 600 }}>
+                  style={{ textAlign: "left", padding: "9px 12px", borderRadius: "12px", border: `1px solid ${T.borderSubtle}`, background: T.bgBase, color: T.textSecondary, fontSize: "13px", fontWeight: 600 }}>
                   {p}
                 </button>
               ))}
             </div>
           ) : (
-            <div style={{ fontSize: "12.5px", color: T.textFaint, padding: "6px 2px" }}>
+            <div style={{ fontSize: "13px", color: T.textFaint, padding: "6px 2px" }}>
               Pergunte qualquer coisa sobre esta tela — o Boris lembra o que vocês já conversaram aqui.
             </div>
           )
@@ -156,7 +156,7 @@ export default function BorisChat({ tela, snapshot, sugestoes, borisRef, falarTe
           </div>
         ))}
         {pensando && (
-          <div style={{ alignSelf: "flex-start", color: T.textMuted, fontSize: "12.5px", padding: "4px 12px" }}>
+          <div style={{ alignSelf: "flex-start", color: T.textMuted, fontSize: "13px", padding: "4px 12px" }}>
             Boris está pensando…
           </div>
         )}
@@ -185,7 +185,7 @@ export default function BorisChat({ tela, snapshot, sugestoes, borisRef, falarTe
           </button>
         )}
         <button onClick={() => enviarAgora()} disabled={pensando || !q.trim()}
-          style={{ minHeight: "40px", padding: "0 14px", borderRadius: "9px", border: "none", background: pensando || !q.trim() ? T.bgPanel : T.accentTint10, color: pensando || !q.trim() ? T.textFaint : T.accent, fontWeight: 800, fontSize: "12.5px" }}>
+          style={{ minHeight: "40px", padding: "0 14px", borderRadius: "9px", border: "none", background: pensando || !q.trim() ? T.bgPanel : T.accentTint10, color: pensando || !q.trim() ? T.textFaint : T.accent, fontWeight: 800, fontSize: "13px" }}>
           Enviar
         </button>
       </div>

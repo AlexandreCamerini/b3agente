@@ -83,11 +83,11 @@ export default function SecaoSetups({
               <div key={chave} style={{ border: `1px solid ${T.borderSubtle}`, borderRadius: "12px", padding: "12px 14px", background: T.bgPanel }}>
                 <div style={{ display: "flex", justifyContent: "space-between", gap: "10px", alignItems: "baseline" }}>
                   <div style={{ fontSize: "14px", fontWeight: 700, color: T.textPrimary }}>{s.name}</div>
-                  <div style={{ fontSize: "11.5px", color: T.textMuted }}>{"registro: " + txt(s.status)}</div>
+                  <div style={{ fontSize: "12px", color: T.textMuted }}>{"registro: " + txt(s.status)}</div>
                 </div>
 
                 {av ? (
-                  <div style={{ fontSize: "12.5px", color: T.textSecondary, marginTop: "6px" }}>
+                  <div style={{ fontSize: "13px", color: T.textSecondary, marginTop: "6px" }}>
                     {"avaliação: " + txt(av.status)}
                     {" · armado: " + (s.armed === true ? "sim" : s.armed === false ? "não" : "—")}
                     {" · sequência: " + (ehNum(s.streak) ? s.streak : "—")
@@ -96,7 +96,7 @@ export default function SecaoSetups({
                 ) : (
                   /* Sem avaliação NÃO vira "não armado": ausência de
                      leitura não é leitura negativa. */
-                  <div style={{ fontSize: "12.5px", color: T.textMuted, marginTop: "6px" }}>
+                  <div style={{ fontSize: "13px", color: T.textMuted, marginTop: "6px" }}>
                     {"sem avaliação hoje · exige "
                       + (ehNum(s.required_streak) ? s.required_streak : "—")
                       + " pregão(s) seguidos"}
@@ -106,7 +106,7 @@ export default function SecaoSetups({
                 {Array.isArray(s.conditions) && s.conditions.length > 0 ? (
                   <ul style={{ margin: "8px 0 0", padding: 0, listStyle: "none" }}>
                     {s.conditions.map((c, i) => (
-                      <li key={i} style={{ fontSize: "12.5px", color: T.textSecondary, padding: "3px 0" }}>
+                      <li key={i} style={{ fontSize: "13px", color: T.textSecondary, padding: "3px 0" }}>
                         <span aria-hidden style={{ marginRight: "6px", color: T.textFaint }}>
                           {c && c.met ? "✓" : "·"}
                         </span>
@@ -118,7 +118,7 @@ export default function SecaoSetups({
                 ) : null}
 
                 {s.backtest_na_criacao && ehNum(s.backtest_na_criacao.disparos) ? (
-                  <div style={{ fontSize: "11.5px", color: T.textMuted, marginTop: "8px" }}>
+                  <div style={{ fontSize: "12px", color: T.textMuted, marginTop: "8px" }}>
                     {"Na criação, este setup disparou " + s.backtest_na_criacao.disparos
                       + " vez(es) no histórico. Contagem passada, não expectativa."}
                   </div>

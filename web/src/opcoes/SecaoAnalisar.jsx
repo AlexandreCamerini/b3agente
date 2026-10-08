@@ -83,7 +83,7 @@ const CAMPO = {
   borderRadius: "10px", border: `1px solid ${T.borderSubtle}`,
   background: T.bgBase, color: T.textPrimary, fontSize: "14px",
 };
-const ROTULO = { display: "block", fontSize: "12.5px", color: T.textSecondary, margin: "12px 0 4px" };
+const ROTULO = { display: "block", fontSize: "13px", color: T.textSecondary, margin: "12px 0 4px" };
 const AJUDA = { fontSize: "11px", color: T.textMuted, marginTop: "4px", lineHeight: 1.45 };
 const BOTAO = {
   minHeight: "44px", padding: "10px 14px", borderRadius: "11px",
@@ -156,7 +156,7 @@ function LacunasDaLeitura({ lacunas, cp }) {
     (x) => x && x.motivo && Array.isArray(x.campos) && x.campos.length);
   if (!itens.length) return null;
   return (
-    <div style={{ fontSize: "11.5px", color: T.textMuted, marginTop: "4px", lineHeight: 1.5, whiteSpace: "pre-wrap" }}>
+    <div style={{ fontSize: "12px", color: T.textMuted, marginTop: "4px", lineHeight: 1.5, whiteSpace: "pre-wrap" }}>
       {itens.map((x, i) => (
         <div key={i} style={{ marginTop: i ? "3px" : 0 }}>
           {cp.opcoesLacuna
@@ -282,7 +282,7 @@ export default function SecaoAnalisar({
             <Linha rotulo="Faixa de 63 pregões" valor={faixa(behavior.range_63_sessions)} />
             <Linha rotulo="Variação em 21 pregões" valor={pct(behavior.change_21_sessions_pct, 1)} />
           </div>
-          <div style={{ fontSize: "11.5px", color: T.textMuted, marginTop: "6px" }}>
+          <div style={{ fontSize: "12px", color: T.textMuted, marginTop: "6px" }}>
             {"Leitura referente ao pregão de " + (behavior.trading_date || pregao || "—") + "."}
           </div>
           {/* 24-11 — o rodapé continua, e diz POR QUE os campos vazios estão
@@ -465,7 +465,7 @@ export default function SecaoAnalisar({
                   <Aviso>A cadeia deste ativo voltou sem contrato para os filtros pedidos. Nada foi estimado no lugar.</Aviso>
                 ) : cadeia.dados ? (
                   <>
-                    <div style={{ fontSize: "11.5px", color: T.textMuted }}>
+                    <div style={{ fontSize: "12px", color: T.textMuted }}>
                       {"Contratos: " + (ehNum(cadeia.dados.retornados) ? cadeia.dados.retornados : "—")
                         + " de " + (ehNum(cadeia.dados.encontrados) ? cadeia.dados.encontrados : "—")}
                     </div>
@@ -497,7 +497,7 @@ export default function SecaoAnalisar({
                   </Aviso>
                 ) : operaveis.dados ? (
                   <>
-                    <div style={{ fontSize: "11.5px", color: T.textSecondary, lineHeight: 1.5 }}>
+                    <div style={{ fontSize: "12px", color: T.textSecondary, lineHeight: 1.5 }}>
                       {(cp.opcoesCriterioOperaveis || (() => ""))(operaveis.dados.criterioAplicado)}
                     </div>
                     {operaveis.dados.criterio ? (
