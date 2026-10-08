@@ -62,5 +62,12 @@ ok("entradasOrfas (override B1)", N.entradasOrfas({ b3nav: 3 }) === 3 && N.entra
 const nsrc = semComentario(src("navStack.js"));
 ok("navStack puro", !/\bwindow\b|\bdocument\b|\bhistory\b|from "react"|^import /m.test(nsrc));
 
+// ---- parte 2 (estática)
+const app = semComentario(src("App.jsx"));
+const opc = semComentario(src("opcoes", "OpcoesScreen.jsx"));
+for (const s of ['addEventListener("popstate"', 'removeEventListener("popstate"', "history.pushState(", "history.go(-", "subirNivel(", "reconciliarPilha(", "entradasOrfas(", 'addListener("backButton"', 'getPlatform() !== "ios"', "ehGestoVoltarBorda(", "reportarNavOpcoes:", "registrarVoltarOpcoes:", "const petTela = telaDoAssistente(tab, carteiraView);", 'onBack={() => setCarteiraView("main")}'])
+  ok(`App.jsx contém ${s}`, app.includes(s));
+for (const s of ["ctx.reportarNavOpcoes(", "ctx.registrarVoltarOpcoes("]) ok(`OpcoesScreen contém ${s}`, opc.includes(s));
+
 if (falhas) { console.error(`${falhas} falha(s)`); process.exit(1); }
 console.log("test_ui_onda_b: ok");

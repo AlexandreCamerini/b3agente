@@ -14,6 +14,8 @@ import { varsCartaoV6, ALFA_ZONA_V6, ALFA_ZONA_MEIO_V6 } from "./cartaoV6Cores.j
 // passam a iterar os ids do registro na 41-02/Task 2.
 import { useDialogA11y } from "./useDialogA11y.js"; // Onda A (2026-10-08): Esc + foco + devolução nos modais
 import { defsDaBarra, telasDoTour, telasDaAjuda, telaDoAssistente } from "./telas.js";
+import { profundidade, subirNivel, reconciliarPilha, entradasOrfas, ehGestoVoltarBorda } from "./navStack.js"; // Onda B (2026-10-08): voltar do sistema
+import { Capacitor } from "@capacitor/core"; // Onda B: só getPlatform() p/ o gesto de borda no iOS
 import { Markdown, MdInline } from "./markdown.jsx";
 import { extentOf, linePath, lastVal } from "./chartutil.js";
 import OpcoesScreen from "./opcoes/OpcoesScreen.jsx";
@@ -8940,6 +8942,9 @@ export default function App() {
   const [carteiraView, setCarteiraView] = useState("main"); // main | historico | agente
   const [perfilView, setPerfilView] = useState("hub");       // hub | plano | config | ia | notificacoes | eficiencia | logs
   const navigate = (t) => { setCarteiraView("main"); setPerfilView("hub"); setTab(t); };
+  // Onda B (2026-10-08): nível das Opções relatado pelo filho (OpcoesScreen) e o "voltar" dele.
+  const [opcoesNav, setOpcoesNav] = useState({ nivel: "hub", temTicker: false });
+  const opcoesVoltarRef = useRef(null);
   // Fase 39 (NAV-01): pedido one-shot de aba inicial da tela Opções —
   // consumido e limpo pelo OpcoesScreen no mount; não é persistência (isso é
   // a Fase 40, ESTADO-01— que persiste em sessão via `opcoesMemoria` abaixo).
@@ -10210,7 +10215,102 @@ export default function App() {
     setWelcomeAuthOpen(true);
   };
 
+  // Onda B (2026-10-08) — voltar do sistema sobe UM nível. Decisão: os botões da UI
+  // seguem mudando estado direto; a history do navegador só ESPELHA a profundidade
+  // (navStack.js) e é reconciliada (pushState / history.go(-n)); `popstate` aplica
+  // subirNivel(). Raiz de aba = comportamento nativo. Sem URL no pushState (T-1ar-02).
+  // Override do orquestrador (B1): só o contador `b3nav` da history é lido, no mount,
+  // para desfazer entradas órfãs após reload (navegação pura, zero dado financeiro).
+  // Hooks ficam ANTES dos early returns do App.
+  const estadoNav = {
+    tab, carteiraView, perfilView,
+    opcoes: tab === "opcoes" ? opcoesNav : null,
+    conceito: conceitoAberto ? { trilha: (conceitoAberto.trilha || []).length } : null,
+  };
+  const profNav = profundidade(estadoNav);
+  const empurradasRef = useRef(0);
+  const ignorarPopRef = useRef(0);
+  const estadoNavRef = useRef(estadoNav);
+  estadoNavRef.current = estadoNav;
+  const aplicarSubidaRef = useRef(null);
+  aplicarSubidaRef.current = (acao) => {
+    if (acao === "conceitoVoltar") A.voltarConceito();
+    else if (acao === "conceitoFechar") A.closeConceito();
+    else if (acao === "carteiraMain") setCarteiraView("main");
+    else if (acao === "perfilHub") setPerfilView("hub");
+    else if (acao === "opcoesVoltar") { if (opcoesVoltarRef.current) opcoesVoltarRef.current(); }
+  };
+  useEffect(() => {
+    if (typeof window === "undefined" || !window.history) return;
+    const r = reconciliarPilha(empurradasRef.current, profNav);
+    if (r.tipo === "push") {
+      for (let i = 0; i < r.n; i++) window.history.pushState({ b3nav: empurradasRef.current + i + 1 }, "");
+    } else if (r.tipo === "voltar") {
+      ignorarPopRef.current += 1;
+      window.history.go(-r.n);
+    }
+    empurradasRef.current = profNav;
+  }, [profNav]);
+  useEffect(() => {
+    if (typeof window === "undefined" || !window.history) return undefined;
+    // B1: reload deixa entradas b3nav órfãs; volta à entrada raiz sem aplicar subida.
+    const orfas = entradasOrfas(window.history.state);
+    if (orfas > 0) { ignorarPopRef.current += 1; window.history.go(-orfas); }
+    const onPop = () => {
+      if (ignorarPopRef.current > 0) { ignorarPopRef.current -= 1; return; }
+      if (empurradasRef.current <= 0) return;
+      empurradasRef.current -= 1;
+      const acao = subirNivel(estadoNavRef.current);
+      if (acao && aplicarSubidaRef.current) aplicarSubidaRef.current(acao);
+      else empurradasRef.current = 0;
+    };
+    window.addEventListener("popstate", onPop);
+    // Android: backButton do Capacitor cai no MESMO popstate; na raiz sai do app (nativo).
+    let removerBack = null;
+    if (isNative) {
+      import("@capacitor/app").then(({ App: CapApp }) => {
+        CapApp.addListener("backButton", () => {
+          if (empurradasRef.current > 0) window.history.back(); else CapApp.exitApp();
+        }).then((h) => { removerBack = () => h.remove(); });
+      }).catch(() => { /* plugin ausente: segue o padrão do WebView */ });
+    }
+    return () => {
+      window.removeEventListener("popstate", onPop);
+      if (removerBack) removerBack();
+    };
+  }, []);
+  // iOS: WKWebView do Capacitor não tem swipe-back e web/ios é gitignored -> swipe de borda próprio.
+  useEffect(() => {
+    if (!isNative || Capacitor.getPlatform() !== "ios") return undefined;
+    let ini = null;
+    const onStart = (e) => {
+      ini = null;
+      if (!e.touches || e.touches.length !== 1) return;
+      const t = e.touches[0];
+      if (e.target && e.target.closest && e.target.closest("canvas, [data-sem-gesto-voltar]")) return;
+      ini = { x0: t.clientX, y0: t.clientY };
+    };
+    const onEnd = (e) => {
+      const t = e.changedTouches && e.changedTouches[0];
+      const i0 = ini; ini = null;
+      if (!i0 || !t) return;
+      if (ehGestoVoltarBorda({ ...i0, x1: t.clientX, y1: t.clientY }) && empurradasRef.current > 0) window.history.back();
+    };
+    const onCancel = () => { ini = null; };
+    document.addEventListener("touchstart", onStart, { passive: true });
+    document.addEventListener("touchend", onEnd, { passive: true });
+    document.addEventListener("touchcancel", onCancel, { passive: true });
+    return () => {
+      document.removeEventListener("touchstart", onStart);
+      document.removeEventListener("touchend", onEnd);
+      document.removeEventListener("touchcancel", onCancel);
+    };
+  }, []);
+
   const ctx = {
+    // Onda B (2026-10-08): OpcoesScreen relata nível e registra seu "voltar".
+    reportarNavOpcoes: (nivel, temTicker) => setOpcoesNav((p) => (p.nivel === nivel && p.temTicker === !!temTicker) ? p : { nivel, temTicker: !!temTicker }),
+    registrarVoltarOpcoes: (fn) => { opcoesVoltarRef.current = typeof fn === "function" ? fn : null; },
     // qa/audit-2026-08-07 (item 5): fonte ÚNICA de "estamos em Modo Operador?"
     // Novo código lê `ctx.operador`, nunca redevira de data.config.appMode.
     // FIX-C21 (2026-08-23) fechou a migração: as 10 leituras independentes

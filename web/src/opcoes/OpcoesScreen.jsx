@@ -737,6 +737,16 @@ export default function OpcoesScreen({ ctx }) {
     if (el && typeof el.focus === "function") el.focus();
   }, [nav.nivel]);
 
+  // Onda B (2026-10-08): relata nível ao App (voltar do sistema) e registra o "voltar" local.
+  useEffect(() => { if (ctx && ctx.reportarNavOpcoes) ctx.reportarNavOpcoes(nav.nivel, !!nav.ticker); }, [nav.nivel, nav.ticker]);
+  useEffect(() => {
+    if (ctx && ctx.registrarVoltarOpcoes) ctx.registrarVoltarOpcoes(() => setNav((n) => voltar(n)));
+    return () => {
+      if (ctx && ctx.registrarVoltarOpcoes) ctx.registrarVoltarOpcoes(null);
+      if (ctx && ctx.reportarNavOpcoes) ctx.reportarNavOpcoes("hub", false);
+    };
+  }, []);
+
   const nivelDaEscada = nav.nivel === "objetivo" || nav.nivel === "escada" || nav.nivel === "confirmar";
   const { escada, recarregarEscada, matriz, verMatriz, leituraCelula, lerCelula } = useEscada(store, {
     ticker: nav.ticker, objetivo: nav.objetivo, vencimento: nav.vencimento, ativo: nivelDaEscada,
