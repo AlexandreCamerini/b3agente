@@ -98,8 +98,58 @@ for (const nome of ["BuyModal", "SellModal", "CatalogModal", "TechnicalModal"]) 
   if (!/<nav[^>]*aria-label="Navegação principal"/.test(corpo)) falha('[A2] BottomNav sem <nav aria-label="Navegação principal">');
 }
 
+// ---------------------------------------------------------------- parte 3
+function objeto(nomeDecl) {
+  const a = app.indexOf(nomeDecl);
+  let j = app.indexOf("{", a), d = 0, k = j;
+  for (; k < app.length; k++) { if (app[k] === "{") d++; else if (app[k] === "}" && --d === 0) break; }
+  return app.slice(j, k + 1);
+}
+const BRAND = { green: "#34d399", red: "#f26d6d" };
+// avalia só hex literal / BRAND.x; ignora comentários de linha
+const limpa = (s) => s.replace(/\/\/[^\n]*/g, "");
+function parseTema(bloco) {
+  const o = {};
+  for (const m of limpa(bloco).matchAll(/(\w+):\s*(?:"(#[0-9a-fA-F]{6})"|BRAND\.(\w+))/g)) o[m[1]] = m[2] || BRAND[m[3]];
+  return o;
+}
+function sub(texto, nome) {
+  const a = texto.indexOf(`${nome}: {`);
+  let j = texto.indexOf("{", a), d = 0, k = j;
+  for (; k < texto.length; k++) { if (texto[k] === "{") d++; else if (texto[k] === "}" && --d === 0) break; }
+  return texto.slice(j, k + 1);
+}
+const PAL = objeto("const PALETTE = {");
+const OPR = objeto("const MODE_OPERADOR = {");
+const base = { dark: parseTema(sub(PAL, "dark")), light: parseTema(sub(PAL, "light")) };
+const opr = { dark: parseTema(sub(OPR, "dark")), light: parseTema(sub(OPR, "light")) };
+const lum = (h) => {
+  const c = [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16) / 255).map((v) => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4));
+  return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+};
+const razao = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p); return (x + 0.05) / (y + 0.05); };
+const TEXTO = ["textPrimary", "textSecondary", "textMuted", "textDim", "textFaint", "textBright", "accent", "accentSoft", "positive", "negative", "warn"];
+const temas = {
+  "claro/estudo": base.light, "claro/operador": { ...base.light, ...opr.light },
+  "escuro/estudo": base.dark, "escuro/operador": { ...base.dark, ...opr.dark },
+};
+export const razoes = {};
+for (const [nome, p] of Object.entries(temas)) {
+  for (const tk of TEXTO) {
+    if (!p[tk]) { falha(`[A3] ${nome}: token ${tk} não lido`); continue; }
+    const pior = Math.min(...["bgBase", "bgPanel", "bgCard"].map((b) => razao(p[tk], p[b])));
+    razoes[`${nome}.${tk}`] = pior;
+    if (pior < 4.5) falha(`[A3] ${nome}.${tk} ${p[tk]} = ${pior.toFixed(2)}:1 < 4,5`);
+  }
+  // texto sobre fundo de acento (CTA)
+  const ca = razao(p.onAccent, p.accent);
+  razoes[`${nome}.onAccent/accent`] = ca;
+  if (ca < 4.5) falha(`[A3] ${nome}: onAccent ${p.onAccent} sobre accent ${p.accent} = ${ca.toFixed(2)}:1 < 4,5`);
+}
+if (process.argv.includes("--razoes")) for (const [k, v] of Object.entries(razoes)) console.log(k, v.toFixed(3));
+
 if (falhas.length) {
   console.error(`FALHOU (${falhas.length}):\n- ` + falhas.join("\n- "));
   process.exit(1);
 }
-console.log(`ok test_ui_onda_a (${nBotoes} botões varridos; modais/nav)`);
+console.log(`ok test_ui_onda_a (${nBotoes} botões varridos; 4 temas; modais/nav)`);

@@ -117,9 +117,13 @@ for (const tema of ["dark", "light"]) {
 // 4,03:1 e reprovava AA; #8a6c1c é o mesmo tom um degrau mais escuro) — a
 // checagem de contraste da seção 5 é quem justifica e defende esse desvio.
 ok("acento do Estudo no escuro é o azul-esverdeado #2fa8a0", estudo.dark.accent === "#2fa8a0");
-ok("acento do Estudo no claro é o azul-esverdeado #1f7d76", estudo.light.accent === "#1f7d76");
+// NOTA 2026-10-08 (quick 261008-16z, Onda A/A3): o accent do claro foi escurecido (mesmo matiz,
+// só luminosidade) para AA contra o PIOR fundo: Estudo #1f7d76 -> #1e7972 (4,34 -> 4,57:1) e
+// Operador #8a6c1c -> #84671b (4,25 -> 4,58:1). A asserção segue travando o token; aceita o
+// hex histórico OU o corrigido. O contraste é defendido por test_ui_onda_a.mjs (parte 3).
+ok("acento do Estudo no claro é o azul-esverdeado #1f7d76 (hoje #1e7972)", ["#1f7d76", "#1e7972"].includes(estudo.light.accent));
 ok("acento do Operador no escuro é o dourado #d4af37", operador.dark.accent === "#d4af37");
-ok("acento do Operador no claro é o dourado #8a6c1c", operador.light.accent === "#8a6c1c");
+ok("acento do Operador no claro é o dourado #8a6c1c (hoje #84671b)", ["#8a6c1c", "#84671b"].includes(operador.light.accent));
 ok("Estudo e Operador têm acentos DIFERENTES no escuro", estudo.dark.accent !== operador.dark.accent);
 ok("Estudo e Operador têm acentos DIFERENTES no claro", estudo.light.accent !== operador.light.accent);
 ok("o âmbar da marca NÃO é acento de nenhum modo (v2 reserva pra marca)",

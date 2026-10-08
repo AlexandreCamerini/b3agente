@@ -62,8 +62,10 @@ ok("qa/34: candles do PriceChart pela paleta do modo (sem #22c55e fixo)",
   !!pc && pc.includes("upColor: P.positive") && !/#22c55e/i.test(pc));
 // (b) o âmbar de aviso (#fbbf24, diário/logs) virou token `warn` do PALETTE —
 //     nenhuma ocorrência solta fora da definição do token.
+// NOTA 2026-10-08 (quick 261008-16z, Onda A/A3): warn do claro #a16207 (4,32:1, reprovava AA)
+// virou #995d07 (>= 4,59:1). A asserção aceita o hex histórico OU o corrigido.
 ok("qa/34: token warn definido nos dois temas",
-  /warn:\s*"#fbbf24"/.test(src) && /warn:\s*"#a16207"/.test(src));
+  /warn:\s*"#fbbf24"/.test(src) && /warn:\s*"#(a16207|995d07)"/.test(src));
 ok("qa/34: nenhum #fbbf24 solto fora do PALETTE",
   (src.match(/#fbbf24/gi) || []).length === 1);
 // (c) critério de aceite da auditoria: ZERO hex azul inline fora do

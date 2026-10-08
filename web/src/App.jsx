@@ -102,8 +102,8 @@ const BRAND = {
 // reservado à marca em qualquer tela.
 //
 // QUAIS acentos, porém, é decisão do Alex, e ela mudou em 08/08/2026 (paleta
-// entregue hex a hex): Estudo = AZUL-ESVERDEADO (#2fa8a0 escuro / #1f7d76
-// claro), Operador = DOURADO (#d4af37 / #8a6c1c). Antes eram o azul frio e o
+// entregue hex a hex): Estudo = AZUL-ESVERDEADO (#2fa8a0 escuro / #1e7972
+// claro), Operador = DOURADO (#d4af37 / #84671b). Antes eram o azul frio e o
 // verde que o v2 sugeria. Ganho colateral: o verde deixou de acumular dois
 // papéis — era acento do Operador E sinal de compra ao mesmo tempo, então um
 // botão primário verde e um "+R$" verde diziam coisas diferentes com a mesma
@@ -159,16 +159,22 @@ const PALETTE = {
     // TEXTO em 72 lugares (valores de P&L), não só badge. Estes são os tons
     // mais próximos da marca que passam AA — mesma matiz, luminosidade menor.
     // Ver o bloco "sinal universal" no relatório da entrega.
-    accent: "#1f7d76", accentSoft: "#166861", positive: "#1c825d", negative: "#c6464c",
+    // 2026-10-08 (Onda A/A3): a medição acima valia para o par original; contra o PIOR
+    // fundo (bgBase/bgPanel/bgCard) positive/negative/accent/warn mediam 4,19/4,21/4,34/4,32:1
+    // (Operador 4,10-4,25) — reprovavam AA. Escurecidos (mesmo matiz/saturação, só
+    // luminosidade): accent #1f7d76 -> #1e7972, positive #1c825d -> #1a7956, negative
+    // #c6464c -> #c03b42, warn #a16207 -> #995d07; agora >= 4,57:1 em todos os fundos do
+    // claro. Tema escuro intocado. Guardião: test_ui_onda_a.mjs (parte 3).
+    accent: "#1e7972", accentSoft: "#166861", positive: "#1a7956", negative: "#c03b42",
     knob: "#dfe3ee", navDotIdle: "#c4cad8", confirmOkText: "#ffffff",
-    accentTint: "rgba(31,125,118,0.12)", accentTintHi: "rgba(31,125,118,0.20)", accentTint10: "rgba(31,125,118,0.10)",
-    positiveTint: "rgba(28,130,93,0.12)", positiveTint10: "rgba(28,130,93,0.10)",
-    negativeTint: "rgba(198,70,76,0.12)", negativeTint10: "rgba(198,70,76,0.10)",
+    accentTint: "rgba(30,121,114,0.12)", accentTintHi: "rgba(30,121,114,0.20)", accentTint10: "rgba(30,121,114,0.10)",
+    positiveTint: "rgba(26,121,86,0.12)", positiveTint10: "rgba(26,121,86,0.10)",
+    negativeTint: "rgba(192,59,66,0.12)", negativeTint10: "rgba(192,59,66,0.10)",
     scrim: "rgba(15,20,28,0.45)",
     shadowFab: "rgba(15,20,28,0.22)", // Fase 22 (SYS-03): mais leve que o scrim claro (0.45). Um halo preto forte sobre o bgBase quase branco lê como borrão, não como separação; o scrim é calibrado para overlay de tela cheia, não para drop-shadow de 54px. Valor de PARTIDA — a calibragem final é a checagem visual do plano 22-04.
     chartGrid: "rgba(0,0,0,0.05)", chartBorder: "rgba(0,0,0,0.10)", chartAxis: "#8a90a0", lineSubtle: "rgba(0,0,0,0.16)", onAccent: "#ffffff",
-    warn: "#a16207", // qa/34: âmbar de aviso legível sobre fundo claro
-    warnTint10: "rgba(161,98,7,0.04)", // Fase 42 (COR-01/D-03): alpha 4% — 4,68:1 nas 2 combinações (mesmo bgCard #ffffff); alternativa 3,6% = 4,70:1 registrada como DP-1 do checkpoint 42-06
+    warn: "#995d07", // qa/34: âmbar de aviso legível sobre fundo claro. 2026-10-08 (Onda A/A3): #a16207 media 4,32:1 (Operador 4,23) — #995d07 mede 4,59-4,70:1 (pior caso bgPanel/bgBase)
+    warnTint10: "rgba(153,93,7,0.04)", // Fase 42 (COR-01/D-03): alpha 4% — 4,68:1 nas 2 combinações (mesmo bgCard #ffffff); alternativa 3,6% = 4,70:1 registrada como DP-1 do checkpoint 42-06
   },
 };
 const VARKEY = (k) => "--" + k.replace(/[A-Z]/g, (c) => "-" + c.toLowerCase());
@@ -221,15 +227,17 @@ const MODE_OPERADOR = {
     // #ffffff — reprova AA (4,5) tanto como texto quanto como fundo de CTA com
     // rótulo branco, e o rótulo do botão primário tem 15px em negrito, longe do
     // limiar de "texto grande" que aceitaria 3:1. #8a6c1c é o MESMO dourado
-    // (matiz 44° preservada), só um degrau mais escuro, e passa (4,93:1). Foi o
+    // (matiz 44° preservada), só um degrau mais escuro, e passa (4,93:1 sobre o
+    // card branco — contra o pior fundo, bgPanel, eram 4,25:1; 2026-10-08, Onda A/A3:
+    // hoje #84671b, 4,58:1 no pior caso, mesmo matiz). Foi o
     // único dos quatro acentos que precisou de ajuste — os outros três entraram
     // exatamente como vieram. Mesmo critério aplicado ao positive/negative do
     // tema claro, e medido por test_brand_book_v2_tokens.mjs.
-    accent: "#8a6c1c", accentSoft: "#7d621a",
-    positive: "#1c825d", negative: "#c6464c",
-    accentTint: "rgba(138,108,28,0.12)", accentTintHi: "rgba(138,108,28,0.20)", accentTint10: "rgba(138,108,28,0.10)",
-    positiveTint: "rgba(28,130,93,0.12)", positiveTint10: "rgba(28,130,93,0.10)",
-    negativeTint: "rgba(198,70,76,0.12)", negativeTint10: "rgba(198,70,76,0.10)",
+    accent: "#84671b", accentSoft: "#7d621a",
+    positive: "#1a7956", negative: "#c03b42",
+    accentTint: "rgba(132,103,27,0.12)", accentTintHi: "rgba(132,103,27,0.20)", accentTint10: "rgba(132,103,27,0.10)",
+    positiveTint: "rgba(26,121,86,0.12)", positiveTint10: "rgba(26,121,86,0.10)",
+    negativeTint: "rgba(192,59,66,0.12)", negativeTint10: "rgba(192,59,66,0.10)",
     onAccent: "#ffffff", knob: "#dce5e1", navDotIdle: "#c8d6d0", chartAxis: "#7a8b85",
   },
 };
