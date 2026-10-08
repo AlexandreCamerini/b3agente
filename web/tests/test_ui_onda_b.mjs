@@ -53,8 +53,9 @@ ok("transicao", N.transicaoDe(null, { tab: "a", prof: 0 }) === null
   && N.transicaoDe({ tab: "a", prof: 1 }, { tab: "a", prof: 0 }) === "voltar"
   && N.transicaoDe({ tab: "a", prof: 1 }, { tab: "a", prof: 1 }) === null);
 ok("classe", N.classeDaTransicao("entrar") === "tela-entrar" && N.classeDaTransicao("x") === undefined);
+// NOTA 2026-10-08 (quick 261008-iuz, Onda G): BORDA_PX subiu 20->32, DX_MIN 60->50, DY_MAX 40->60 (gesto falhava no iPhone real). O caso 'fora da borda' passou de x0:30 para x0:40 (30 agora é borda). Demais casos seguem válidos sem mudança.
 ok("gesto", N.ehGestoVoltarBorda({ x0: 0, y0: 100, x1: 80, y1: 110 }) === true
-  && !N.ehGestoVoltarBorda({ x0: 30, y0: 100, x1: 120, y1: 100 })
+  && !N.ehGestoVoltarBorda({ x0: 40, y0: 100, x1: 120, y1: 100 })
   && !N.ehGestoVoltarBorda({ x0: 5, y0: 100, x1: 50, y1: 100 })
   && !N.ehGestoVoltarBorda({ x0: 5, y0: 100, x1: 90, y1: 160 })
   && !N.ehGestoVoltarBorda({ x0: "a" }));

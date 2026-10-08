@@ -175,7 +175,7 @@ function Pernas({ pernas, cp }) {
   if (!lista.length) return null;
   return (
     <>
-      <div style={ROLAGEM}>
+      <div data-sem-gesto-voltar style={ROLAGEM}>
         <table style={TABELA}>
           <thead>
             <tr>
@@ -211,7 +211,7 @@ function TabelaDeOpcoes({ linhas }) {
   const lista = Array.isArray(linhas) ? linhas.filter((o) => o && typeof o === "object") : [];
   if (!lista.length) return null;
   return (
-    <div style={ROLAGEM}>
+    <div data-sem-gesto-voltar style={ROLAGEM}>
       <table style={TABELA}>
         <thead>
           <tr>

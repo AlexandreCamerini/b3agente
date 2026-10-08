@@ -186,7 +186,7 @@ export default function CuradoriaEstruturas({ top, meta, carregando, erro, concl
         </div>
       )}
       {top.length > 0 && (
-        <div style={carouselTrackStyle({ gap: "10px", scrollbarWidth: "none", paddingBottom: "2px" })}>
+        <div data-sem-gesto-voltar style={carouselTrackStyle({ gap: "10px", scrollbarWidth: "none", paddingBottom: "2px" })}>
           {top.map((cand) => (
               <button
                 key={cand.idCandidato || cand.contractSymbol}

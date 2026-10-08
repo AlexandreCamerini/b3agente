@@ -6,9 +6,11 @@
 // Níveis das Opções espelham navOpcoes.NIVEIS (o teste cruza os dois).
 // Navegação pura: nenhum dado financeiro passa por aqui.
 
-export const BORDA_PX = 20;
-export const DX_MIN = 60;
-export const DY_MAX = 40;
+// Onda G (2026-10-08, quick 261008-iuz): 20/60/40 falhava no iPhone real (simulador aceitava x=8); ampliado para 32/50/60.
+// Zona maior => trilhos/sliders na borda precisam de exclusão (App.jsx closest).
+export const BORDA_PX = 32;
+export const DX_MIN = 50;
+export const DY_MAX = 60;
 
 const n0 = (v) => (Number.isFinite(Number(v)) && Number(v) > 0 ? Math.floor(Number(v)) : 0);
 

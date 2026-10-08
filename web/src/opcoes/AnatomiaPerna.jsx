@@ -214,7 +214,7 @@ export default function AnatomiaPerna({
                 style={{ minHeight: ALVO_MIN + "px", display: "flex", alignItems: "center", cursor: "pointer", ...TIPO.label, color: T.textSecondary }}>
                 {tx("anat_ver_tabela")}
               </summary>
-              <div style={{ overflowX: "auto" }}>
+              <div data-sem-gesto-voltar style={{ overflowX: "auto" }}>
                 <table style={{ width: "100%", borderCollapse: "collapse", ...TIPO.corpo, color: T.textSecondary }}>
                   <thead>
                     <tr>

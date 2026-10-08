@@ -102,7 +102,7 @@ export default function OportunidadesOpcoes({ propostas, carregando, positions, 
         <div style={{ marginBottom: "14px" }}>
           <div style={{ fontSize: "10px", fontWeight: 800, letterSpacing: "0.04em", color: T.textFaint, marginBottom: "4px" }}>{cp.tiraOpcoesAbertasTitulo}</div>
           <div style={{ fontSize: "12px", color: T.textMuted, marginBottom: "8px", lineHeight: 1.4 }}>{cp.tiraOpcoesAbertasSubtitulo}</div>
-          <div style={trilho}>
+          <div data-sem-gesto-voltar style={trilho}>
             {abertas.map(({ p, pr }) => (
               <CartaoProposta key={p.t} p={p} pr={pr} cp={cp} onAbrir={onAbrir} abertoTicker={abertoTicker} />
             ))}
@@ -121,7 +121,7 @@ export default function OportunidadesOpcoes({ propostas, carregando, positions, 
           qual. Mesma métrica de CuradoriaEstruturas.jsx:142. */}
       <div style={{ fontSize: "12px", color: T.textMuted, marginBottom: "8px", lineHeight: 1.4 }}>{cp.tiraOpcoesSubtitulo}</div>
       {novas.length > 0 && (
-        <div style={trilho}>
+        <div data-sem-gesto-voltar style={trilho}>
           {novas.map(({ p, pr }) => (
             <CartaoProposta key={p.t} p={p} pr={pr} cp={cp} onAbrir={onAbrir} abertoTicker={abertoTicker} />
           ))}

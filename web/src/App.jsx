@@ -2383,7 +2383,7 @@ function EvolucaoScreen({ ctx }) {
       {!novato && alertas.length > 0 && (
         <div>
           <div style={{ fontSize: "11px", fontWeight: 700, color: T.textFaint, letterSpacing: "0.05em", textTransform: "uppercase", marginBottom: "9px" }}>{cp.kickerSetups}</div>
-          <div style={carouselTrackStyle({ gap: "12px", scrollSnapType: "x mandatory", margin: "0 -18px", padding: "2px 18px 6px" })}>
+          <div data-sem-gesto-voltar style={carouselTrackStyle({ gap: "12px", scrollSnapType: "x mandatory", margin: "0 -18px", padding: "2px 18px 6px" })}>
             {alertas.slice(0, 8).map((r) => (
               <button key={r.ticker} onClick={() => A.go("mercado")} style={{ ...card, ...carouselItemStyle("center"), flex: "0 0 84%", maxWidth: "330px", borderLeft: `3px solid ${T.accent}`, padding: "15px 16px", textAlign: "left", cursor: "pointer" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
@@ -4181,7 +4181,7 @@ function MercadoScreen({ ctx }) {
             <div style={{ fontSize: "12px", color: T.textMuted, marginTop: "2px" }}>O backend calcula; a LLM interpreta os dados históricos.</div>
           </div>
         </div>
-        <div style={carouselTrackStyle({ gap: "8px", paddingBottom: "2px" })}>
+        <div data-sem-gesto-voltar style={carouselTrackStyle({ gap: "8px", paddingBottom: "2px" })}>
           {TECH_MODELS.map(([id, label, sub]) => (
             <button key={id} onClick={() => setAnalysisModel(id)} style={{ ...carouselItemStyle("start"), minWidth: "118px", minHeight: "48px", padding: "8px 10px", borderRadius: "12px", border: `1px solid ${analysisModel === id ? T.accent : T.borderSubtle}`, background: analysisModel === id ? T.accentTint : T.bgBase, color: analysisModel === id ? T.accent : T.textSecondary, textAlign: "left", fontWeight: 800 }}>
               <span style={{ display: "block", fontSize: "12px" }}>{label}</span>
@@ -10308,7 +10308,8 @@ export default function App() {
       ini = null;
       if (!e.touches || e.touches.length !== 1) return;
       const t = e.touches[0];
-      if (e.target && e.target.closest && e.target.closest("canvas, [data-sem-gesto-voltar]")) return;
+      // Onda G (2026-10-08): superconjunto — sliders (input range) e trilhos marcados não disparam o voltar.
+      if (e.target && e.target.closest && e.target.closest("canvas, input[type=\"range\"], [data-sem-gesto-voltar]")) return;
       ini = { x0: t.clientX, y0: t.clientY };
     };
     const onEnd = (e) => {

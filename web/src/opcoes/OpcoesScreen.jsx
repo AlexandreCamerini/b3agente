@@ -1355,7 +1355,7 @@ function PropostaDoAtivo({
               exclusivo por rodada: todos os candidatos usam o MESMO
               `aceitarCandidato` — a exclusividade é garantida pelo motor no
               backend. */}
-          <div style={carouselTrackStyle({ marginTop: "11px", gap: "10px", scrollbarWidth: "none", paddingBottom: "2px" })}>
+          <div data-sem-gesto-voltar style={carouselTrackStyle({ marginTop: "11px", gap: "10px", scrollbarWidth: "none", paddingBottom: "2px" })}>
             {candidatos.map((c) => (
               <CandidatoOpcao
                 key={c.tipo + "-" + (c.contractSymbol || "collar")}
