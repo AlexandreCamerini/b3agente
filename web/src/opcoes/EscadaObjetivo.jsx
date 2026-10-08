@@ -165,6 +165,12 @@ export default function EscadaObjetivo({
                     {cols.map((c) => {
                       const v = c.valor ? c.valor[u] : null;
                       const sem = !ehNum(c.fracao);
+                      // Onda F (2026-10-08): o backend marca ganho_maximo como "positivo" mesmo negativo e a
+                      // fracao é |v|/máx; barra verde proporcional a uma perda é manipulação visual. Só
+                      // apresentação — nenhum número é recalculado. Perda sinalizada pelo sinal "−" e pela nota, NÃO por cor de texto
+                      // (test_opcoes_caminho_b_ui §10: T.negative não passa 4,5:1 como texto). Zero: trilho vazio, sem "perda" (não é perda).
+                      const semFill = sem || (c.sinal === "positivo" && ehNum(v) && v <= 0);
+                      const perdaNoGanho = c.sinal === "positivo" && ehNum(v) && v < 0;
                       if (c.sinal == null && !ehNum(v)) {
                         return <div key={c.chave} style={{ ...TIPO.corpo, color: T.textMuted }}>{c.rotulo}</div>;
                       }
@@ -175,11 +181,12 @@ export default function EscadaObjetivo({
                             <span style={{ ...MONO, color: T.textPrimary }}>R$ {fmt(v)}</span>
                           </div>
                           <div style={{ height: "8px", borderRadius: "4px", background: T.borderSubtle }}>
-                            {sem ? null : (
+                            {semFill ? null : (
                               <div style={{ height: "8px", borderRadius: "4px", width: `${c.fracao * 100}%`,
                                 background: c.sinal === "negativo" ? T.negative : (c.sinal === "positivo" ? T.positive : T.textMuted) }} />
                             )}
                           </div>
+                          {perdaNoGanho ? <div style={{ ...TIPO.corpo, color: T.textPrimary }}>{tx("nota_ganho_negativo")}</div> : null}
                         </div>
                       );
                     })}

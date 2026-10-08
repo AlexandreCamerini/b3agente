@@ -59,7 +59,7 @@ const diaCurto = (iso) => {
   return s || "—";
 };
 
-export default function ReguaRegime({ regua, cp }) {
+export default function ReguaRegime({ regua, cp, semAjuda }) {
   const c = cp || {};
   const itens = (regua && Array.isArray(regua.itens)) ? regua.itens : [];
   // Régua vazia NÃO é desenhada. Sete segmentos "indefinido" seriam lidos
@@ -148,9 +148,13 @@ export default function ReguaRegime({ regua, cp }) {
         </div>
       ) : null}
 
-      <div style={{ fontSize: "11px", color: T.textMuted, marginTop: "4px", lineHeight: 1.45 }}>
-        {c.opcoesReguaAjuda || ""}
-      </div>
+      {/* Onda F (2026-10-08): o hub mostra a legenda uma vez acima da lista (semAjuda nos cards);
+          aria-label/title de cada segmento continua por card. */}
+      {semAjuda ? null : (
+        <div style={{ fontSize: "11px", color: T.textMuted, marginTop: "4px", lineHeight: 1.45 }}>
+          {c.opcoesReguaAjuda || ""}
+        </div>
+      )}
     </div>
   );
 }

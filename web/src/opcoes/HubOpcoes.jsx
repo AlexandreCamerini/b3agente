@@ -102,7 +102,7 @@ function CardAtivo({ cp, mode, pos, tecnico, estrutura, nVigias, onAbrir, didati
       <div style={{ ...TIPO.corpo, color: T.textSecondary }}>
         <TermoOpcoes texto={sub} termos={TERMO_LASTRO} A={A} didatica={didatica} kbCatalogo={kbCatalogo} onAbrirVerbete={onAbrirVerbete} />
       </div>
-      {dados && dados.regua ? <ReguaRegime regua={dados.regua} cp={cp} /> : null}
+      {dados && dados.regua ? <ReguaRegime regua={dados.regua} cp={cp} semAjuda /> : null}
       <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
         <Chip>{"HV21 " + (vol ? formatarVolatilidade(vol.hv21Pct, vol.unidade) : "—")}</Chip>
         <Chip>{"suporte " + vz(niveis && niveis.nearestSupport)}</Chip>
@@ -125,6 +125,8 @@ export default function HubOpcoes({
   const tx = (k, v) => opcoesEscadaTxt(mode, k, v);
   const red = reduzido();
   const lista = Array.isArray(carteira) ? carteira : [];
+  // Onda F (2026-10-08): legenda da régua uma vez no topo da lista; só se ao menos um card desenha régua.
+  const algumaRegua = lista.some((p) => { const d = tecnicoPorTicker && tecnicoPorTicker[p.ticker] && tecnicoPorTicker[p.ticker].dados; return !!(d && d.regua && Array.isArray(d.regua.itens) && d.regua.itens.length); });
   const vigias = Array.isArray(vigiasLista) ? vigiasLista : [];
   const armados = vigias.filter((v) => v && v.armed === true);
   const nVigiasDe = (t) => vigias.filter((v) => v && v.ticker === t).length;
@@ -200,6 +202,8 @@ export default function HubOpcoes({
                 </button>
               </div>
             ) : (
+              <>
+              {algumaRegua ? <div style={{ ...TIPO.corpo, color: T.textMuted, marginBottom: "8px" }}>{cp && cp.opcoesReguaAjuda}</div> : null}
               <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
                 {lista.map((p) => (
                   <CardAtivo key={p.ticker} cp={cp} mode={mode} pos={p}
@@ -209,6 +213,7 @@ export default function HubOpcoes({
                     didatica={didatica} A={A} kbCatalogo={kbCatalogo} onAbrirVerbete={onAbrirVerbete} />
                 ))}
               </div>
+              </>
             )}
             <div style={{ ...TIPO.corpo, ...NUM, color: T.textMuted, marginTop: "16px" }}>{tx("hub_aviso_custo")}</div>
           </div>

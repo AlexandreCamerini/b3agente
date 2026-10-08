@@ -42,7 +42,8 @@ ok("skill_ref: nota nos dois modos", (skill.match(/"nota_ganho_negativo": "se ex
 ok("semFill", esc.includes('const semFill = sem || (c.sinal === "positivo" && ehNum(v) && v <= 0);'));
 ok("perdaNoGanho", esc.includes('const perdaNoGanho = c.sinal === "positivo" && ehNum(v) && v < 0;'));
 ok("fill condicionado a semFill", esc.includes("{semFill ? null : (") && !esc.includes("{sem ? null : ("));
-ok("valor em T.negative quando perda", esc.includes("color: perdaNoGanho ? T.negative : T.textPrimary"));
+ok("perda no ganho NÃO usa T.negative como cor de texto (contraste, caminho_b §10)", !/color:\s*T\.negative/.test(esc.slice(esc.indexOf("perdaNoGanho"))));
+ok("nota de perda em textPrimary", esc.includes('color: T.textPrimary }}>{tx("nota_ganho_negativo")'));
 ok("nota renderizada", esc.includes('tx("nota_ganho_negativo")'));
 
 // parte 3 — legendas
