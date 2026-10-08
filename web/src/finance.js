@@ -332,6 +332,15 @@ export function equityCurve(snapshots, budget, livePatr, todayYmd) { // eslint-d
   };
 }
 
+// Curva da carteira em % desde a base da série (escala compartilhada com o
+// Ibovespa na Evolução). Quick 261007-w5t (2026-10-07): sem base > 0 devolve
+// null — nunca uma série de 0 % (antes: `: 0` desenhava linha plana como se a
+// carteira não tivesse variado). Só exibição: sem gêmeo em store.py.
+export function pctDesdeBase(curva, base) {
+  if (!Array.isArray(curva) || typeof base !== "number" || !isFinite(base) || base <= 0) return null;
+  return curva.map((v) => (typeof v === "number" && isFinite(v) ? ((v - base) / base) * 100 : null));
+}
+
 // Alinha a série do Ibovespa (candles do provedor) às DATAS REAIS da curva da
 // carteira (`equityCurve(...).datas`) — Plano 04-06 (FIX-C03). Pura: sem
 // rede, sem leitura de relógio do sistema, sem estado de módulo (I/O fica no
