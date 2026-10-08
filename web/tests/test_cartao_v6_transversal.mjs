@@ -40,7 +40,9 @@ ok("autoteste disabled flagra e ignora aria-disabled", reDisabled.test("<button 
 
 // ---- higiene ---------------------------------------------------------------
 ok("zero hex literal (só tokens T.*)", !reHex.test(alvo));
-ok("zero `disabled=` (usar aria-disabled + motivo visível)", !reDisabled.test(alvo));
+// NOTA 2026-10-08 (quick 261008-iuz, Onda G): a saída com 0 ações livres (BlocoBorisIA) passou a ser disabled de fato por decisão do Alex.
+// A única exceção tolerada é UM `disabled={semLivres}`; qualquer outro `disabled=` na fatia segue reprovado.
+ok("zero `disabled=` (usar aria-disabled + motivo visível; exceção: disabled={semLivres} da saída)", !reDisabled.test(alvo.replace("disabled={semLivres}", "")));
 ok("zero dangerouslySetInnerHTML", !alvo.includes("dangerouslySetInnerHTML"));
 ok("zero markPrice( e optionsCalc (números de opções vêm do backend, D-02)", !/markPrice\(|optionsCalc/.test(alvo));
 

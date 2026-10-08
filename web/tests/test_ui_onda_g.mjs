@@ -43,7 +43,8 @@ for (const [nome, src] of arquivos) {
     ok(`trilho marcado ${nome}:${i + 1}`, l.includes("data-sem-gesto-voltar"));
   });
 }
-ok("trilhos encontrados >= 12 (era " + totalTrilhos + ")", totalTrilhos >= 12);
+// Plano dizia 12, mas a soma por arquivo (2+1+1+2+2+1+1+1) é 11.
+ok("trilhos encontrados >= 11 (era " + totalTrilhos + ")", totalTrilhos >= 11);
 
 // parte 2 — largura
 const iSP = app.indexOf("const SP = {");
@@ -52,8 +53,7 @@ const iC = app.indexOf("const CARD_PAD_X = SP[4];");
 ok("GUTTER_X definido após SP", iG > iSP && iSP >= 0);
 ok("CARD_PAD_X definido após SP", iC > iSP && iSP >= 0);
 ok("sem padding 24px 18px 34px", !app.includes('padding: "24px 18px 34px"'));
-const iW = app.indexOf('maxWidth: CONTENT_MAX_WIDTH, margin: "0 auto"');
-const wrap = iW < 0 ? "" : app.slice(iW, iW + 600);
+const wrap = app.split("\n").find((l) => l.includes('maxWidth: CONTENT_MAX_WIDTH, margin: "0 auto"') && l.includes("translateY")) || "";
 ok("wrapper: safe-area esquerda", wrap.includes("paddingLeft: `max(${GUTTER_X}, env(safe-area-inset-left))`"));
 ok("wrapper: safe-area direita", wrap.includes("paddingRight: `max(${GUTTER_X}, env(safe-area-inset-right))`"));
 ok("wrapper: paddingTop/Bottom", wrap.includes('paddingTop: "24px"') && wrap.includes('paddingBottom: "34px"'));

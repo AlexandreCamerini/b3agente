@@ -1378,6 +1378,9 @@ const SP_OPTICO_CHIP_PRIMARIO = { v: 9, h: 11 };
 // Exceções ópticas — herdado do 42-UI-SPEC.md, developer-approved 2026-09-26;
 // lista fechada D-16 — nova exceção exige discuss-phase.
 const SP_OPTICO_ANEL = 36;
+// Onda G (2026-10-08, quick 261008-iuz): gutter da coluna = SP[3] (12px) no iPhone; rampa até 18px (histórico) a partir de 732px de viewport, então tablet/desktop não mudam. CARD_PAD_X = padding lateral dos cartões das telas principais (16 = margem do cartão v6 e de Opções; trocar para SP[3] aqui se o Alex quiser mais largura).
+const GUTTER_X = `clamp(${SP[3]}px, calc(100vw - 714px), 18px)`;
+const CARD_PAD_X = SP[4];
 const TECH_MODELS = [
   ["completo", "Completo", "Visão geral para estudo"],
   ["tendencia", "Tendência", "Médias e estrutura"],
@@ -2187,7 +2190,7 @@ function CapitalCurve({ ctx }) {
     </div>
   );
   return (
-    <div style={{ ...card, padding: "18px 18px 14px" }}>
+    <div style={{ ...card, padding: `18px ${CARD_PAD_X}px 14px` }}>
       <div style={{ fontSize: "12px", color: T.textMuted, letterSpacing: "0.04em" }}>PATRIMÔNIO SIMULADO</div>
       {/* quick 261006-bwv (2026-10-06): mesma ressalva da Carteira — perna de
           opção marcada pelo prêmio de abertura nunca entra calada. */}
@@ -2383,7 +2386,7 @@ function EvolucaoScreen({ ctx }) {
       {!novato && alertas.length > 0 && (
         <div>
           <div style={{ fontSize: "11px", fontWeight: 700, color: T.textFaint, letterSpacing: "0.05em", textTransform: "uppercase", marginBottom: "9px" }}>{cp.kickerSetups}</div>
-          <div data-sem-gesto-voltar style={carouselTrackStyle({ gap: "12px", scrollSnapType: "x mandatory", margin: "0 -18px", padding: "2px 18px 6px" })}>
+          <div data-sem-gesto-voltar style={carouselTrackStyle({ gap: "12px", scrollSnapType: "x mandatory", margin: `0 calc(-1 * ${GUTTER_X})`, padding: `2px ${GUTTER_X} 6px` })}>
             {alertas.slice(0, 8).map((r) => (
               <button key={r.ticker} onClick={() => A.go("mercado")} style={{ ...card, ...carouselItemStyle("center"), flex: "0 0 84%", maxWidth: "330px", borderLeft: `3px solid ${T.accent}`, padding: "15px 16px", textAlign: "left", cursor: "pointer" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
@@ -2405,7 +2408,7 @@ function EvolucaoScreen({ ctx }) {
 
       {/* FASE 2 (2.2): estado vazio elegante — onboarding do funil */}
       {novato && (
-        <div style={{ ...card, padding: "20px 18px", textAlign: "center", border: `1px dashed ${T.borderDashed}` }}>
+        <div style={{ ...card, padding: `20px ${CARD_PAD_X}px`, textAlign: "center", border: `1px dashed ${T.borderDashed}` }}>
           {/* qa/34: onboarding na voz do modo — antes hardcodado ("seu simulador…
               dinheiro simulado") e exibido igual na mesa do Operador. */}
           <div style={{ fontSize: "16px", fontWeight: 700 }}>{cp.welcomeTitulo}</div>
@@ -2418,7 +2421,7 @@ function EvolucaoScreen({ ctx }) {
 
       {/* FASE 2 (2.2): resumo do dia — determinístico (finance.js é a fonte única) */}
       {!novato && (
-        <div style={{ ...card, padding: "16px 18px" }}>
+        <div style={{ ...card, padding: `16px ${CARD_PAD_X}px` }}>
           <div style={{ fontSize: "11px", fontWeight: 700, color: T.textSecondary, letterSpacing: "0.05em" }}>RESUMO DO DIA</div>
           <div style={{ display: "flex", gap: "18px", flexWrap: "wrap", marginTop: "10px" }}>
             <div><div style={kicker}>CARTEIRA NO DIA</div><div style={{ fontFamily: MONO, fontWeight: 700, fontSize: "17px", color: dColor }}>{moneySigned(m.dayVal)} <span style={{ fontSize: "12px" }}>({pct(diaPct)})</span></div></div>
@@ -2445,7 +2448,7 @@ function EvolucaoScreen({ ctx }) {
 
       {/* FASE 2 (2.2): destaque de oportunidade — melhor score FORA da watchlist */}
       {!novato && destaque.stage !== "idle" && destaque.stage !== "empty" && (
-        <div style={{ ...card, padding: "16px 18px", borderLeft: `3px solid ${T.accent}` }}>
+        <div style={{ ...card, padding: `16px ${CARD_PAD_X}px`, borderLeft: `3px solid ${T.accent}` }}>
           <div style={{ fontSize: "11px", fontWeight: 700, color: T.accent, letterSpacing: "0.05em" }}>OPORTUNIDADE ADICIONAL PARA ESTUDO</div>
           {destaque.stage === "loading" && <div style={{ marginTop: "10px" }}><SweepGauge compact label="Varrendo o mercado" steps={["scan diário do Radar", "melhor score fora da watchlist"]} /></div>}
           {destaque.stage === "error" && <div style={{ marginTop: "8px", fontSize: "12px", color: T.textMuted }}>Não deu para varrer agora ({destaque.error}). Tento de novo quando você voltar.</div>}
@@ -2476,7 +2479,7 @@ function EvolucaoScreen({ ctx }) {
       <CapitalCurve ctx={ctx} />
 
       {/* Streak de consistência (intrínseco, sem push) */}
-      <div style={{ ...card, padding: "16px 18px", display: "flex", alignItems: "center", gap: "14px" }}>
+      <div style={{ ...card, padding: `16px ${CARD_PAD_X}px`, display: "flex", alignItems: "center", gap: "14px" }}>
         <div style={{ width: 46, height: 46, borderRadius: "12px", background: T.accentTint, color: T.accent, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: MONO, fontWeight: 800, fontSize: "20px", flex: "none" }}>{streak}</div>
         <div>
           <div style={{ fontSize: "14px", fontWeight: 700 }}>{streak <= 0 ? "Comece sua sequência hoje" : streak === 1 ? "1 dia de consistência" : streak + " dias de consistência"}</div>
@@ -2485,14 +2488,14 @@ function EvolucaoScreen({ ctx }) {
       </div>
 
       {/* Card do Coach (insight do dia — determinístico na Fase A) */}
-      <div style={{ ...card, padding: "16px 18px", borderLeft: `3px solid ${T.accent}` }}>
+      <div style={{ ...card, padding: `16px ${CARD_PAD_X}px`, borderLeft: `3px solid ${T.accent}` }}>
         <div style={{ fontSize: "11px", fontWeight: 700, color: T.accent, letterSpacing: "0.05em" }}>COACH · INSIGHT DO DIA</div>
         <div style={{ fontSize: "14px", color: T.textPrimary, marginTop: "7px", lineHeight: 1.55 }}>{coachTip()}</div>
         <div style={{ fontSize: "10px", color: T.textFaint, marginTop: "8px" }}>Orientação educacional sobre comportamento — não é recomendação de compra/venda.</div>
       </div>
 
       {/* Desafio da semana (meta de comportamento, não de mercado) */}
-      <div style={{ ...card, padding: "16px 18px" }}>
+      <div style={{ ...card, padding: `16px ${CARD_PAD_X}px` }}>
         <div style={{ fontSize: "11px", fontWeight: 700, color: T.textSecondary, letterSpacing: "0.05em" }}>DESAFIO DA SEMANA</div>
         <div style={{ fontSize: "14px", color: T.textPrimary, marginTop: "7px", lineHeight: 1.55 }}>{weeklyChallenge()}</div>
       </div>
@@ -5304,10 +5307,11 @@ function BlocoBorisIA({ p, data, modo, ctx, histAberto, onHist }) {
       <div style={{ display: "flex", flexDirection: "column", gap: `${SP[2]}px` }}>
         <button
           type="button"
+          disabled={semLivres}
           onClick={semLivres ? undefined : () => ctx.A.openSell(p.t)}
           aria-disabled={semLivres ? "true" : undefined}
           aria-describedby={semLivres ? idMotivo : undefined}
-          style={{ width: "100%", minHeight: 44, borderRadius: "10px", border: `1px solid ${semLivres ? T.borderSubtle : T.negative}`, background: semLivres ? "transparent" : T.negativeTint10, color: semLivres ? T.textSecondary : T.negative, fontSize: TIPO_CARD.corpo, fontWeight: 700 }}
+          style={{ width: "100%", minHeight: 44, borderRadius: "10px", border: `1px solid ${semLivres ? T.borderSubtle : T.negative}`, background: semLivres ? "transparent" : T.negativeTint10, color: semLivres ? T.textFaint : T.negative, fontSize: TIPO_CARD.corpo, fontWeight: 700, opacity: semLivres ? 0.6 : 1, cursor: semLivres ? "not-allowed" : "pointer" }}
         >
           {cartaoPosicaoTxt(modo, semLivres ? "saida_sem_livres" : "saida")}
         </button>
@@ -5715,7 +5719,7 @@ function CarteiraScreen({ ctx }) {
       {/* qa/34: chave órfã subtituloPortfolio finalmente ligada — "carteira
           SIMULADA" × "posições com plano e risco em R". */}
       <p style={{ margin: "6px 0 0", color: T.textMuted, fontSize: "13px", lineHeight: 1.5, maxWidth: "560px" }}>{cp.subtituloPortfolio}</p>
-      <div style={{ ...card, padding: "16px 18px", margin: "16px 0 18px" }}>
+      <div style={{ ...card, padding: `16px ${CARD_PAD_X}px`, margin: "16px 0 18px" }}>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px 18px" }}>
           <div>
             <div style={kicker}>PATRIMÔNIO TOTAL</div>
@@ -6035,7 +6039,7 @@ function AgenteScreen({ ctx }) {
           topo (ATIVO/INATIVO · modo), o toggle como único CTA de peso. As regras
           e tetos desceram para o card "Regras & limites"; o link de notificações
           foi para o rodapé. NADA foi removido — só reorganizado. */}
-      <div style={{ marginTop: "16px", ...card, padding: "18px 17px", border: `1px solid ${(ag.serverEnabled && logged) ? T.accent : T.borderSubtle}` }}>
+      <div style={{ marginTop: "16px", ...card, padding: `18px ${CARD_PAD_X}px`, border: `1px solid ${(ag.serverEnabled && logged) ? T.accent : T.borderSubtle}` }}>
         <div style={{ fontSize: "11px", fontWeight: 800, letterSpacing: "0.06em", color: T.textFaint }}>OPERADOR NO SERVIDOR <span style={{ color: T.accent }}>· 24×5</span></div>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "14px", marginTop: "8px" }}>
           <div>
@@ -6085,7 +6089,7 @@ function AgenteScreen({ ctx }) {
 
       {/* qa/34: REGRAS & LIMITES — agrupamento das regras (stop/alvo/trailing),
           tetos e intervalo do ciclo do servidor, antes soltos no card do toggle. */}
-      <div style={{ marginTop: "16px", ...card, padding: "16px 17px" }}>
+      <div style={{ marginTop: "16px", ...card, padding: `16px ${CARD_PAD_X}px` }}>
         <div style={{ fontSize: "11px", fontWeight: 800, letterSpacing: "0.06em", color: T.textFaint }}>REGRAS & LIMITES</div>
         <div style={{ marginTop: "11px", display: "flex", gap: "8px", flexWrap: "wrap" }}>
           {[["stop", "Regra: stop"], ["alvo", "Regra: alvo"], ["trailing", "Trailing (sobe o stop)"]].map(([k, lb]) => {
@@ -6193,7 +6197,7 @@ function AgenteScreen({ ctx }) {
           Operador, com o mesmo tipo de texto explicativo). O slider allocPct
           que morava solto no card "Modo local" (decorativo até a Fase B)
           agora mora aqui — é aqui que ele passou a ter efeito real. */}
-      <div style={{ marginTop: "16px", ...card, padding: "16px 17px" }}>
+      <div style={{ marginTop: "16px", ...card, padding: `16px ${CARD_PAD_X}px` }}>
         <div style={{ fontSize: "11px", fontWeight: 800, letterSpacing: "0.06em", color: T.textFaint }}>ENTRADA AUTOMÁTICA</div>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "14px", marginTop: "8px" }}>
           <div>
@@ -6238,7 +6242,7 @@ function AgenteScreen({ ctx }) {
         )}
       </div>
 
-      <div style={{ marginTop: "16px", ...card, padding: "16px 17px" }}>
+      <div style={{ marginTop: "16px", ...card, padding: `16px ${CARD_PAD_X}px` }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "14px" }}>
           <div>
             <div style={{ fontWeight: 700, fontSize: "15px" }}>Modo local (com o app aberto)</div>
@@ -6451,7 +6455,7 @@ function NotifSection({ ctx }) {
     </div>
   );
   return (
-    <div style={{ ...card, padding: "17px 18px", marginBottom: "16px" }}>
+    <div style={{ ...card, padding: `17px ${CARD_PAD_X}px`, marginBottom: "16px" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px" }}>
         <div>
           <div style={sectionTitle}>NOTIFICAÇÕES</div>
@@ -6584,7 +6588,7 @@ function SkillSection({ ctx, sectionTitle }) {
   const sk = alvo === "operador" ? (data.skillOperador || { name: "Mesa B3 - Operador v1", text: "" }) : (data.skill || { name: "", text: "" });
   const emUso = alvo === modoAtivo;
   return (
-    <div style={{ marginTop: "14px", ...card, padding: "17px 18px" }}>
+    <div style={{ marginTop: "14px", ...card, padding: `17px ${CARD_PAD_X}px` }}>
       <div style={sectionTitle}>INSTRUÇÕES DO AGENTE (SKILLS)</div>
       <p style={{ margin: "6px 0 12px", color: T.textMuted, fontSize: "13px", lineHeight: 1.5, maxWidth: "580px" }}>
         Cada modo de trabalho tem a SUA instrução, selecionada pelo nome abaixo. A análise usa automaticamente a skill do modo ativo.
@@ -6623,7 +6627,7 @@ function PromptsSection({ ctx }) {
   const extra = Object.keys(prompts).filter((k) => !known.includes(k));
   const keys = [...known, ...extra];
   return (
-    <div style={{ marginTop: "14px", ...card, padding: "17px 18px" }}>
+    <div style={{ marginTop: "14px", ...card, padding: `17px ${CARD_PAD_X}px` }}>
       <div style={sectionTitle}>CONFIG DE LLMs E PROMPTS</div>
       <p style={{ margin: "6px 0 16px", color: T.textMuted, fontSize: "13px", lineHeight: 1.5, maxWidth: "580px" }}>Prompts que guiam as funções de IA da solução. Edite com cuidado — mantenha sempre o enquadramento educacional (sugestão por perfil, nunca recomendação de compra ou venda).</p>
       {keys.map((key) => {
@@ -6687,7 +6691,7 @@ function BorisConfigSection({ ctx, sectionTitle }) {
     </div>
   );
   return (
-    <div style={{ marginTop: "14px", ...card, padding: "17px 18px" }}>
+    <div style={{ marginTop: "14px", ...card, padding: `17px ${CARD_PAD_X}px` }}>
       <div style={sectionTitle}>BÓRIS — VOZ, PRESENÇA E AVISOS</div>
       <p style={{ margin: "6px 0 4px", color: T.textMuted, fontSize: "13px", lineHeight: 1.5, maxWidth: "580px" }}>
         O Boris conversa com o modelo configurado acima, em "Modelo de IA do agente" — não há um segundo modelo só dele.
@@ -6782,7 +6786,7 @@ function PlanoScreen({ ctx }) {
     <div>
       <h1 style={{ margin: "0 0 6px", fontSize: "22px", fontWeight: 700, fontFamily: DISPLAY }}>{cp.planoTituloTela}</h1>
       <p style={{ margin: "0 0 18px", color: T.textMuted, fontSize: "13px", lineHeight: 1.5, maxWidth: "560px" }}>{cp.planoDescricao}</p>
-      <div style={{ ...card, padding: "17px 18px" }}>
+      <div style={{ ...card, padding: `17px ${CARD_PAD_X}px` }}>
         <div style={{ fontSize: "11px", fontWeight: 800, letterSpacing: "0.05em", color: T.textSecondary, textTransform: "uppercase" }}>{cp.planoRotulo}</div>
         <div style={{ fontFamily: MONO, fontSize: "18px", fontWeight: 800, color: T.accent, marginTop: "5px" }}>{cp.planoNome(planId)}</div>
         <PlanoLinha texto={cp.planoEntitlementAnalises(aiQuotaObj && aiQuotaObj.limit)} quota={aiQuotaObj} count={aiCount} indisponivel={cp.planoLimiteIndisponivel} />
@@ -6833,7 +6837,7 @@ function AiConfigScreen({ ctx }) {
       </p>
 
       {/* A) Modelo de IA */}
-      <div style={{ ...card, padding: "17px 18px" }}>
+      <div style={{ ...card, padding: `17px ${CARD_PAD_X}px` }}>
         <div style={sectionTitle}>MODELO DE IA DO AGENTE</div>
         <p style={{ margin: "6px 0 16px", color: T.textMuted, fontSize: "13px", lineHeight: 1.5, maxWidth: "560px" }}>Provedor e modelo usados para gerar as análises. A chave nunca é exibida depois de salva e fica apenas {isNative ? "neste aparelho" : "no servidor"}.</p>
 
@@ -7440,7 +7444,7 @@ function LogsDebugScreen({ ctx }) {
         if (!rows.length) return null;
         rows.sort((x, y) => String(y.at).localeCompare(String(x.at)));
         return (
-          <div style={{ ...card, padding: "17px 18px", marginBottom: "16px" }}>
+          <div style={{ ...card, padding: `17px ${CARD_PAD_X}px`, marginBottom: "16px" }}>
             <div style={sectionTitle}>SNAPSHOTS DAS ANÁLISES</div>
             <p style={{ margin: "6px 0 10px", color: T.textMuted, fontSize: "13px", lineHeight: 1.5, maxWidth: "560px" }}>
               Hash do snapshot técnico (STU) que embasou cada análise recente — rastreabilidade de QA; não aparece nas telas de uso.
@@ -7455,7 +7459,7 @@ function LogsDebugScreen({ ctx }) {
         );
       })()}
 
-      <div style={{ ...card, padding: "17px 18px", marginBottom: "16px" }}>
+      <div style={{ ...card, padding: `17px ${CARD_PAD_X}px`, marginBottom: "16px" }}>
         <div style={sectionTitle}>DIAGNÓSTICO QA · iOS / IA / NOTIFICAÇÕES</div>
         <p style={{ margin: "6px 0 14px", color: T.textMuted, fontSize: "13px", lineHeight: 1.5, maxWidth: "560px" }}>
           Executa um teste integrado da URL do servidor, configuração da IA e plugin de notificações. Use este relatório para entender exatamente onde está a falha.
@@ -7737,7 +7741,7 @@ function FonteDadosScreen({ ctx }) {
       </p>
 
       {isNative && (
-        <div style={{ ...card, padding: "17px 18px", marginBottom: "16px" }}>
+        <div style={{ ...card, padding: `17px ${CARD_PAD_X}px`, marginBottom: "16px" }}>
           <div style={sectionTitle}>SERVIDOR DO APP</div>
           <p style={{ margin: "6px 0 14px", color: T.textMuted, fontSize: "13px", lineHeight: 1.5, maxWidth: "560px" }}>
             O app já vem apontado para o servidor de <b>produção</b> — não precisa configurar nada para usar (login, cotações e IA funcionam de fábrica). Este campo é um <b>override de desenvolvimento</b>: preencha só para testar contra um Mac na rede local; deixe vazio para voltar à produção. Vale para o aparelho inteiro (qualquer conta).
@@ -7756,7 +7760,7 @@ function FonteDadosScreen({ ctx }) {
       )}
 
       {candles && (
-        <div style={{ ...card, padding: "17px 18px" }}>
+        <div style={{ ...card, padding: `17px ${CARD_PAD_X}px` }}>
           <div style={sectionTitle}>FONTE DE COTAÇÕES</div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: "5px 14px", color: T.textFaint, fontSize: "11px", fontFamily: MONO, marginTop: "10px", marginBottom: orc ? "6px" : 0 }}>
             <span>provedor: {FONTE_LABEL(candles.provedor)}{candles.fallback ? " (backup: " + FONTE_LABEL(candles.fallback) + ")" : ""}</span>
@@ -8157,7 +8161,7 @@ function RadarScreen({ ctx }) {
       )}
 
       {st.busy && !res && (
-        <div style={{ ...card, padding: "18px 20px", marginBottom: "14px" }}>
+        <div style={{ ...card, padding: `18px ${CARD_PAD_X}px`, marginBottom: "14px" }}>
           <SweepGauge progress={prog} label="Varrendo o universo…" steps={["carregando históricos para o cache", "calculando indicadores e setups", "rankeando por confluência"]} />
           <p style={{ margin: "10px 0 0", color: T.textMuted, fontSize: "12px", lineHeight: 1.5 }}>
             A primeira varredura do dia aquece o cache de todos os ativos; as próximas só atualizam a análise e voltam em segundos.
@@ -8165,7 +8169,7 @@ function RadarScreen({ ctx }) {
         </div>
       )}
       {st.error && (
-        <div style={{ ...card, padding: "16px 18px", marginBottom: "14px", border: `1px solid ${T.negative}` }}>
+        <div style={{ ...card, padding: `16px ${CARD_PAD_X}px`, marginBottom: "14px", border: `1px solid ${T.negative}` }}>
           <div style={{ fontSize: "13px", fontWeight: 700, color: T.negative }}>A varredura falhou</div>
           <p style={{ margin: "6px 0 10px", color: T.textMuted, fontSize: "13px", lineHeight: 1.5, whiteSpace: "pre-wrap" }}>{st.error}</p>
           <button onClick={() => run(period)} style={{ padding: "10px 16px", borderRadius: "8px", border: `1px solid ${T.accent}`, background: T.accentTint, color: T.accent, fontWeight: 700, fontSize: "13px" }}>Tentar de novo</button>
@@ -8173,7 +8177,7 @@ function RadarScreen({ ctx }) {
       )}
 
       {buscaNorm && resultsFiltrados.length === 0 ? (
-        <div style={{ ...card, padding: "16px 18px", color: T.textMuted, fontSize: "13px" }}>
+        <div style={{ ...card, padding: `16px ${CARD_PAD_X}px`, color: T.textMuted, fontSize: "13px" }}>
           {"Nenhum ativo encontrado para \"" + busca + "\"."}
         </div>
       ) : (
@@ -8506,7 +8510,7 @@ function OpcaoDescobertoCard({ ctx }) {
     A.saveConfig({ permitirOpcaoADescoberto: false }); // DESLIGAR: livre, sem modal
   };
   return (
-    <div style={{ ...card, padding: "17px 18px", marginBottom: "16px" }}>
+    <div style={{ ...card, padding: `17px ${CARD_PAD_X}px`, marginBottom: "16px" }}>
       <div style={{ fontSize: "13px", fontWeight: 800, letterSpacing: "0.04em", color: T.accent }}>OPÇÕES A DESCOBERTO</div>
       <p style={{ margin: "6px 0 14px", color: T.textMuted, fontSize: "13px", lineHeight: 1.5, maxWidth: "560px" }}>
         O padrão desta conta é operar opção COM lastro de ações. Ligar isto libera abrir
@@ -8537,7 +8541,7 @@ function ConfigScreen({ ctx }) {
       <h1 style={{ margin: "0 0 18px", fontSize: "22px", fontWeight: 700, fontFamily: DISPLAY }}>Preferências</h1>
 
       {/* Personalização — nome e aparência (tema) */}
-      <div style={{ ...card, padding: "17px 18px", marginBottom: "16px" }}>
+      <div style={{ ...card, padding: `17px ${CARD_PAD_X}px`, marginBottom: "16px" }}>
         <div style={sectionTitle}>PERSONALIZAÇÃO</div>
         <div style={{ marginTop: "14px" }}>
           <span style={{ display: "block", fontSize: "12px", color: T.textMuted, marginBottom: "6px" }}>Seu nome</span>
@@ -8557,7 +8561,7 @@ function ConfigScreen({ ctx }) {
       </div>
 
       {/* Objetivo 4: período de candles do gráfico e da análise */}
-      <div style={{ ...card, padding: "17px 18px", marginBottom: "16px" }}>
+      <div style={{ ...card, padding: `17px ${CARD_PAD_X}px`, marginBottom: "16px" }}>
         <div style={sectionTitle}>PERÍODO DE DADOS (CANDLES)</div>
         <p style={{ margin: "6px 0 14px", color: T.textMuted, fontSize: "13px", lineHeight: 1.5, maxWidth: "560px" }}>
           Janela de candles exibida no gráfico e enviada à IA na análise. Os indicadores
@@ -8572,7 +8576,7 @@ function ConfigScreen({ ctx }) {
       </div>
 
       {/* Orçamento inicial SIMULADO — vira o caixa e entra no contexto da IA */}
-      <div style={{ ...card, padding: "17px 18px", marginBottom: "16px" }}>
+      <div style={{ ...card, padding: `17px ${CARD_PAD_X}px`, marginBottom: "16px" }}>
         <div style={sectionTitle}>ORÇAMENTO DE INVESTIMENTO</div>
         <p style={{ margin: "6px 0 14px", color: T.textMuted, fontSize: "13px", lineHeight: 1.5, maxWidth: "560px" }}>
           Quanto você quer simular como capital inicial. Vira o caixa da carteira e
@@ -8612,7 +8616,7 @@ function ConfigScreen({ ctx }) {
         const selStyle = { ...field, fontWeight: 600 };
         const Lab = ({ children }) => <span style={{ display: "block", fontSize: "12px", color: T.textMuted, marginBottom: "6px" }}>{children}</span>;
         return (
-          <div style={{ ...card, padding: "17px 18px", marginBottom: "16px" }}>
+          <div style={{ ...card, padding: `17px ${CARD_PAD_X}px`, marginBottom: "16px" }}>
             <div style={sectionTitle}>PERFIL DO OPERADOR</div>
             <p style={{ margin: "6px 0 16px", color: T.textMuted, fontSize: "13px", lineHeight: 1.5, maxWidth: "560px" }}>
               Estes parâmetros compõem o prompt enviado à IA. As recomendações, o stop e o alvo passam a ser adaptados ao seu perfil — um conservador recebe leitura diferente de um agressivo para o mesmo ativo.
@@ -10738,7 +10742,7 @@ export default function App() {
             {pullY >= 70 ? "Solte para atualizar" : "Puxe para atualizar"}
           </div>
         )}
-        <div style={{ maxWidth: CONTENT_MAX_WIDTH, margin: "0 auto", padding: "24px 18px 34px", transform: pullY ? `translateY(${pullY}px)` : undefined, transition: pullY ? "none" : "transform .2s ease" }}>
+        <div style={{ maxWidth: CONTENT_MAX_WIDTH, margin: "0 auto", paddingTop: "24px", paddingRight: `max(${GUTTER_X}, env(safe-area-inset-right))`, paddingBottom: "34px", paddingLeft: `max(${GUTTER_X}, env(safe-area-inset-left))`, transform: pullY ? `translateY(${pullY}px)` : undefined, transition: pullY ? "none" : "transform .2s ease" }}>
           <div key={chaveTela} className={classeTela}>
           {tab === "evolucao" && <EvolucaoScreen ctx={ctx} />}
           {tab === "mercado" && <MercadoScreen ctx={ctx} />}

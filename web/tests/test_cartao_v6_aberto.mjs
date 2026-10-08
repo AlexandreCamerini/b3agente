@@ -65,7 +65,8 @@ ok("BlocoBorisIA: botão de plano SEM aria-disabled/disabled (stop/alvo nunca ve
 ok("BlocoBorisIA: reanalisar chama ctx.openAvaliar(", /ctx\.openAvaliar\(p\.t\)/.test(bloco));
 ok("BlocoBorisIA: saída usa qtyLivre(p) === 0, aria-disabled, aria-describedby e saida_motivo_lastro", /qtyLivre\(p\) === 0/.test(bloco) && /aria-disabled=/.test(bloco) && /aria-describedby=\{semLivres/.test(bloco) && /"saida_motivo_lastro"/.test(bloco));
 ok("BlocoBorisIA: saída sem livres não abre o modal (onClick undefined)", /semLivres \? undefined : \(\) => ctx\.A\.openSell\(p\.t\)/.test(bloco));
-ok("BlocoBorisIA: sem disabled= na fatia", !/(?<![-\w])disabled=/.test(bloco));
+// NOTA 2026-10-08 (quick 261008-iuz, Onda G): o Alex decidiu que a saída com 0 ações livres é disabled de fato (antes só aria-disabled, para manter foco e o VoiceOver ler o motivo). O motivo segue visível logo abaixo e aria-describedby fica. A asserção passa a exigir exatamente UM disabled= (o da saída); plano/stop-alvo continua sem disabled (linha 64).
+ok("BlocoBorisIA: único disabled= da fatia é o da saída (disabled={semLivres})", (bloco.match(/(?<![-\w])disabled=/g) || []).length === 1 && bloco.includes("disabled={semLivres}"));
 ok("BlocoBorisIA: rótulos plano_ia_definir/completar/ajustar", /plano_ia_definir/.test(bloco) && /plano_ia_completar/.test(bloco) && /plano_ia_ajustar/.test(bloco));
 ok("SellModal mostra apoio_saida", /"apoio_saida"/.test(semCom(functionBody("SellModal"))));
 
