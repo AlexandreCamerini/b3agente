@@ -260,7 +260,7 @@ export function PropostaLastreada({ r, operador, cp, busy, onAbrir, onFechar, po
         <button
           onClick={posAberta ? onFechar : onAbrir}
           disabled={busy || degradado}
-          style={{ marginTop: "12px", width: "100%", minHeight: "40px", borderRadius: "9px", border: `1px solid ${T.accent}`, background: T.accentTint, color: T.accent, fontWeight: 800, fontSize: "12.5px" }}
+          style={{ marginTop: "12px", width: "100%", minHeight: "44px", borderRadius: "9px", border: `1px solid ${T.accent}`, background: T.accentTint, color: T.accent, fontWeight: 800, fontSize: "12.5px" }}
         >
           {degradado
             ? cp.propostaIndisponivelDegradada

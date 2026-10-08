@@ -213,8 +213,11 @@ ok("A.cancelPendingOrder chama store.cancelPendingOrder exatamente 1x no arquivo
   (app.match(/store\.cancelPendingOrder\(/g) || []).length === 1);
 ok("A.cancelPendingOrder adota o estado devolvido (setData) e nunca finge sucesso local",
   /cancelPendingOrder: async \(id\) => \{\s*try \{\s*const s = await store\.cancelPendingOrder\(id\);\s*setData\(s\);/.test(app));
-ok("HistoricoScreen: botão gatilho ✕ tem 40px e aria-label por ticker",
-  historicoScreen.includes('width: "40px", height: "40px"') && historicoScreen.includes('"Cancelar ordem pendente de " + o.t'));
+// NOTA 2026-10-08 (quick 261008-16z, Onda A / A1): o alvo do ✕ subiu de 40px para 44px
+// (piso de toque do diagnóstico de UI; guardado por test_ui_onda_a.mjs). A asserção de
+// tamanho continua — agora aceita o histórico (40px) OU o piso novo (44px); nunca menos.
+ok("HistoricoScreen: botão gatilho ✕ tem 40px (hoje 44px) e aria-label por ticker",
+  (historicoScreen.includes('width: "40px", height: "40px"') || historicoScreen.includes('width: "44px", height: "44px"')) && historicoScreen.includes('"Cancelar ordem pendente de " + o.t'));
 ok("HistoricoScreen: confirmação de dois passos com os dois textos exigidos",
   historicoScreen.includes("Manter ordem") && historicoScreen.includes("Confirmar cancelamento"));
 ok("HistoricoScreen: um `confirmando` por vez (estado local do componente)",

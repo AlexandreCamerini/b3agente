@@ -299,7 +299,7 @@ export default function CuradoriaEstruturas({ top, meta, carregando, erro, concl
               {execAtual.ok ? (
                 <div style={{ marginTop: "10px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "10px" }}>
                   <span style={{ fontSize: "12px", color: T.positive, fontWeight: 700 }}>{cp.curadoriaExecutada}</span>
-                  <button type="button" onClick={() => setAbertoId(null)} style={{ minHeight: "40px", padding: "8px 14px", borderRadius: "8px", border: `1px solid ${T.borderSubtle}`, background: "transparent", color: T.textSecondary, fontWeight: 700, fontSize: "12px" }}>{cp.curadoriaFechar}</button>
+                  <button type="button" onClick={() => setAbertoId(null)} style={{ minHeight: "44px", padding: "8px 14px", borderRadius: "8px", border: `1px solid ${T.borderSubtle}`, background: "transparent", color: T.textSecondary, fontWeight: 700, fontSize: "12px" }}>{cp.curadoriaFechar}</button>
                 </div>
               ) : (
                 <button
@@ -355,7 +355,7 @@ export default function CuradoriaEstruturas({ top, meta, carregando, erro, concl
             <button
               type="button"
               onClick={onRecarregar}
-              style={{ marginTop: "10px", minHeight: "40px", padding: "8px 14px", borderRadius: "8px", border: `1px solid ${T.warn}`, background: "transparent", color: T.warn, fontWeight: 700, fontSize: "12px" }}
+              style={{ marginTop: "10px", minHeight: "44px", padding: "8px 14px", borderRadius: "8px", border: `1px solid ${T.warn}`, background: "transparent", color: T.warn, fontWeight: 700, fontSize: "12px" }}
             >
               {cp.curadoriaErroBuscaCta}
             </button>

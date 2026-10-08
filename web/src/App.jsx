@@ -482,11 +482,15 @@ function GlobalStyle() {
 }
 
 function Toggle({ on, onClick, label, disabled }) {
-  const s = { bg: on ? T.accentTintHi : T.knob, border: on ? T.accent : T.borderSubtle, knob: on ? "24px" : "2px", color: on ? T.accent : T.textFaint };
+  // Onda A (2026-10-08): alvo de toque 44px sem mudar o desenho — o botão é a área clicável
+  // (transparente) e o trilho visual 50x28 vive num span interno; o knob anima por transform.
+  const s = { bg: on ? T.accentTintHi : T.knob, border: on ? T.accent : T.borderSubtle, knob: on ? "translateX(22px)" : "translateX(0)", color: on ? T.accent : T.textFaint };
   return (
     <button onClick={onClick} disabled={disabled} role="switch" aria-checked={on} aria-label={label}
-      style={{ position: "relative", width: "50px", height: "28px", borderRadius: "16px", border: `1px solid ${s.border}`, background: s.bg, flex: "none", opacity: disabled ? 0.6 : 1, cursor: disabled ? "not-allowed" : "pointer" }}>
-      <span style={{ position: "absolute", top: "2px", left: s.knob, width: "22px", height: "22px", borderRadius: "50%", background: s.color, transition: "left .15s" }} />
+      style={{ position: "relative", width: "50px", height: "44px", padding: 0, border: "none", background: "transparent", display: "flex", alignItems: "center", flex: "none", opacity: disabled ? 0.6 : 1, cursor: disabled ? "not-allowed" : "pointer" }}>
+      <span aria-hidden style={{ position: "relative", display: "block", width: "50px", height: "28px", borderRadius: "16px", border: `1px solid ${s.border}`, background: s.bg, boxSizing: "border-box" }}>
+        <span style={{ position: "absolute", top: "2px", left: "2px", width: "22px", height: "22px", borderRadius: "50%", background: s.color, transform: s.knob, transition: "transform .15s" }} />
+      </span>
     </button>
   );
 }
@@ -499,7 +503,7 @@ function Spinner({ size = 16, color = T.accent }) {
 function IconBtn({ label, onClick, busy, disabled, children, primary }) {
   return (
     <button onClick={onClick} disabled={disabled || busy} aria-label={label} title={label}
-      style={{ width: "42px", height: "42px", borderRadius: "12px", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "18px", lineHeight: 1, border: `1px solid ${primary ? T.accent : T.borderSubtle}`, background: primary ? T.accentTint : T.bgPanel, color: primary ? T.accent : T.textSecondary }}>
+      style={{ width: "44px", height: "44px", borderRadius: "12px", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "18px", lineHeight: 1, border: `1px solid ${primary ? T.accent : T.borderSubtle}`, background: primary ? T.accentTint : T.bgPanel, color: primary ? T.accent : T.textSecondary }}>
       <span className={busy ? "spin" : undefined} style={{ display: "inline-block" }}>{children}</span>
     </button>
   );
@@ -1014,7 +1018,7 @@ function Topbar({ patr, dia, caixa, name, onProfile, modeChip, mercado, cp }) {
         <div style={{ fontSize: "10.5px", marginTop: "2px", color: T.textFaint, whiteSpace: "nowrap" }}>caixa {money(caixa)}</div>
       </div>
       {/* M1: Perfil mora no avatar (Conta, Config, IA & chaves, avisos) */}
-      <button onClick={onProfile} aria-label="Abrir perfil e configurações" style={{ flex: "none", width: "40px", height: "40px", borderRadius: "50%", border: `1px solid ${T.borderSubtle}`, background: T.accentTint, color: T.accent, fontWeight: 800, fontSize: "15px", display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <button onClick={onProfile} aria-label="Abrir perfil e configurações" style={{ flex: "none", width: "44px", height: "44px", borderRadius: "50%", border: `1px solid ${T.borderSubtle}`, background: T.accentTint, color: T.accent, fontWeight: 800, fontSize: "15px", display: "flex", alignItems: "center", justifyContent: "center" }}>
         {(name || "").trim() ? (name.trim()[0] || "").toUpperCase() : <NavIcon id="perfil" active />}
       </button>
     </div>
@@ -1774,7 +1778,7 @@ function IndCell({ label, value, sub, color }) {
 }
 function Toggle2({ on, label, color, onClick }) {
   return (
-    <button onClick={onClick} style={{ padding: "6px 11px", borderRadius: "999px", fontSize: "12px", fontWeight: 700, minHeight: "32px", border: `1px solid ${on ? color : T.borderSubtle}`, background: on ? "color-mix(in srgb," + color + " 16%, transparent)" : "transparent", color: on ? color : T.textFaint }}>
+    <button onClick={onClick} style={{ padding: "6px 11px", borderRadius: "999px", fontSize: "12px", fontWeight: 700, minHeight: "44px", border: `1px solid ${on ? color : T.borderSubtle}`, background: on ? "color-mix(in srgb," + color + " 16%, transparent)" : "transparent", color: on ? color : T.textFaint }}>
       {label}
     </button>
   );
@@ -1998,7 +2002,7 @@ function TechnicalModal({ ticker, name, quote, position, onClose, period }) {
         {/* atalhos de período */}
         <div style={{ display: "flex", gap: "7px", marginBottom: "10px" }}>
           {periods.map(([lab, bars]) => (
-            <button key={lab} onClick={() => setViewBars(bars)} style={{ flex: 1, minHeight: "34px", padding: "7px", borderRadius: "8px", fontSize: "12.5px", fontWeight: 700, border: `1px solid ${viewBars === bars ? T.accent : T.borderSubtle}`, background: viewBars === bars ? T.accentTint : T.bgPanel, color: viewBars === bars ? T.accent : T.textMuted }}>{lab}</button>
+            <button key={lab} onClick={() => setViewBars(bars)} style={{ flex: 1, minHeight: "44px", padding: "7px", borderRadius: "8px", fontSize: "12.5px", fontWeight: 700, border: `1px solid ${viewBars === bars ? T.accent : T.borderSubtle}`, background: viewBars === bars ? T.accentTint : T.bgPanel, color: viewBars === bars ? T.accent : T.textMuted }}>{lab}</button>
           ))}
         </div>
 
@@ -2432,8 +2436,8 @@ function EvolucaoScreen({ ctx }) {
                 <div style={{ marginTop: "9px", fontSize: "12.5px", color: T.textSecondary, lineHeight: 1.6 }}>{destaque.deep.deep.resumo}</div>
               )}
               <div style={{ display: "flex", gap: "8px", marginTop: "11px" }}>
-                {destaque.deep && <button onClick={() => setDeepOpen(true)} style={{ flex: 1, minHeight: "40px", padding: "9px", borderRadius: "10px", border: `1px solid ${T.accent}`, background: T.accentTint10, color: T.accent, fontWeight: 800, fontSize: "12.5px" }}>Ver leitura completa</button>}
-                <button onClick={() => ctx.openAvaliar(it.ticker)} style={{ flex: 1, minHeight: "40px", padding: "9px", borderRadius: "10px", border: `1px solid ${T.borderSubtle}`, background: T.bgBase, color: T.textSecondary, fontWeight: 700, fontSize: "12.5px" }}>{cp.btnLevarWatchlist}</button>
+                {destaque.deep && <button onClick={() => setDeepOpen(true)} style={{ flex: 1, minHeight: "44px", padding: "9px", borderRadius: "10px", border: `1px solid ${T.accent}`, background: T.accentTint10, color: T.accent, fontWeight: 800, fontSize: "12.5px" }}>Ver leitura completa</button>}
+                <button onClick={() => ctx.openAvaliar(it.ticker)} style={{ flex: 1, minHeight: "44px", padding: "9px", borderRadius: "10px", border: `1px solid ${T.borderSubtle}`, background: T.bgBase, color: T.textSecondary, fontWeight: 700, fontSize: "12.5px" }}>{cp.btnLevarWatchlist}</button>
               </div>
               <div style={{ fontSize: "10px", color: T.textFaint, marginTop: "9px", lineHeight: 1.5 }}>{cp.rodape}</div>
             </>
@@ -2566,8 +2570,8 @@ function ModoTrabalhoCard({ ctx }) {
           <div style={{ fontSize: "11.5px", fontWeight: 700, color: T.warn }}>Você ainda não abriu nenhuma análise no Estudo.</div>
           <div style={{ fontSize: "11.5px", color: T.textSecondary, lineHeight: 1.4, marginTop: "4px" }}>O Modo Operador libera decisões diretas — mas ele parte do que você já entende. Vale a pena estudar pelo menos um ativo antes de ativar.</div>
           <div style={{ display: "flex", gap: "8px", marginTop: "8px" }}>
-            <button type="button" onClick={() => { setNudgeOperador(false); goMercado(); }} style={{ flex: 1, minHeight: "40px", borderRadius: "9px", border: `1px solid ${T.accent}`, background: T.accentTint, color: T.accent, fontWeight: 700, fontSize: "12px" }}>Fazer uma análise no Estudo primeiro</button>
-            <button type="button" onClick={() => { nudgeDispensadoRef.current = true; setNudgeOperador(false); escolher("operador"); }} style={{ flex: "none", minHeight: "40px", padding: "0 10px", background: "transparent", border: "none", color: T.textMuted, fontWeight: 700, fontSize: "12px" }}>Ativar mesmo assim</button>
+            <button type="button" onClick={() => { setNudgeOperador(false); goMercado(); }} style={{ flex: 1, minHeight: "44px", borderRadius: "9px", border: `1px solid ${T.accent}`, background: T.accentTint, color: T.accent, fontWeight: 700, fontSize: "12px" }}>Fazer uma análise no Estudo primeiro</button>
+            <button type="button" onClick={() => { nudgeDispensadoRef.current = true; setNudgeOperador(false); escolher("operador"); }} style={{ flex: "none", minHeight: "44px", padding: "0 10px", background: "transparent", border: "none", color: T.textMuted, fontWeight: 700, fontSize: "12px" }}>Ativar mesmo assim</button>
           </div>
         </div>
       )}
@@ -2854,7 +2858,7 @@ function AjudaScreen({ ctx }) {
       <p style={{ margin: "6px 0 0", color: T.textMuted, fontSize: "13px", lineHeight: 1.5, maxWidth: "600px" }}>
         Um guia rápido de cada parte do app. Toque numa seção para abrir.
       </p>
-      <button onClick={() => ctx.A.openTour && ctx.A.openTour()} style={{ marginTop: "12px", padding: "9px 14px", borderRadius: "8px", border: `1px solid ${T.accent}`, background: T.accentTint10, color: T.accent, fontWeight: 700, fontSize: "12px" }}>▶ Ver o tour de novo</button>
+      <button onClick={() => ctx.A.openTour && ctx.A.openTour()} style={{ marginTop: "12px", minHeight: "44px", padding: "9px 14px", borderRadius: "8px", border: `1px solid ${T.accent}`, background: T.accentTint10, color: T.accent, fontWeight: 700, fontSize: "12px" }}>▶ Ver o tour de novo</button>
       <div style={{ marginTop: "14px", display: "flex", flexDirection: "column", gap: "8px" }}>
         {secoes.map(([titulo, paras], i) => {
           const on = aberta === i;
@@ -3024,7 +3028,7 @@ function TelaGlossario({ ctx }) {
           style={{ ...field, paddingRight: busca ? "36px" : undefined }} />
         {busca ? (
           <button type="button" onClick={() => setBusca("")} aria-label={ctx.cp.glossarioLimpar}
-            style={{ position: "absolute", right: "4px", top: "50%", transform: "translateY(-50%)", width: "30px", height: "30px", border: "none", background: "transparent", color: T.textMuted, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
+            style={{ position: "absolute", right: "4px", top: "50%", transform: "translateY(-50%)", width: "44px", height: "44px", border: "none", background: "transparent", color: T.textMuted, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
             <svg width="15" height="15" viewBox="0 0 24 24" aria-hidden><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" /></svg>
           </button>
         ) : null}
@@ -3528,12 +3532,12 @@ function OpcaoContrato({ c, cur, chain, isOpen, onToggle, sustains, pos, onBuy, 
           {pos ? (
             <div style={{ marginTop: "9px" }}>
               <div style={{ fontSize: "11px", color: T.textSecondary, marginBottom: "6px" }}>Em carteira · {pos.qty} cotas · prêmio médio R$ {price(pos.avg)}</div>
-              <button onClick={onSell} disabled={busy || bloqueado} style={{ width: "100%", minHeight: "38px", borderRadius: "9px", border: `1px solid ${T.negative}`, background: "transparent", color: T.negative, fontWeight: 800, fontSize: "12px" }}>
+              <button onClick={onSell} disabled={busy || bloqueado} style={{ width: "100%", minHeight: "44px", borderRadius: "9px", border: `1px solid ${T.negative}`, background: "transparent", color: T.negative, fontWeight: 800, fontSize: "12px" }}>
                 {busy ? "Vendendo…" : "Vender posição"}
               </button>
             </div>
           ) : (
-            <button onClick={onBuy} disabled={busy || bloqueado || custoTotal == null} style={{ marginTop: "9px", width: "100%", minHeight: "40px", borderRadius: "9px", border: `1px solid ${T.accent}`, background: T.accentTint, color: T.accent, fontWeight: 800, fontSize: "12.5px" }}>
+            <button onClick={onBuy} disabled={busy || bloqueado || custoTotal == null} style={{ marginTop: "9px", width: "100%", minHeight: "44px", borderRadius: "9px", border: `1px solid ${T.accent}`, background: T.accentTint, color: T.accent, fontWeight: 800, fontSize: "12.5px" }}>
               {busy ? "Comprando…" : bloqueado ? "Indisponível — cotação de opções degradada" : "Comprar — " + (custoTotal != null ? "R$ " + price(custoTotal) : "…") + " (100 cotas)"}
             </button>
           )}
@@ -3585,7 +3589,7 @@ function OpcoesCamada({ t, cur, open, onToggle, chain, chainLoading, opContract,
               onBuy={() => onBuy(c)} onSell={() => onSell(c.contractSymbol)} busy={busy === c.contractSymbol} />
           ))}
           {!opShowAll && contratos.length > 2 && (
-            <button onClick={() => setOpShowAll(true)} style={{ width: "100%", padding: "9px 0", background: "transparent", border: "none", borderTop: `1px dashed ${T.borderFaint}`, color: T.textFaint, fontSize: "10.5px", fontWeight: 700 }}>
+            <button onClick={() => setOpShowAll(true)} style={{ width: "100%", minHeight: "44px", padding: "9px 0", background: "transparent", border: "none", borderTop: `1px dashed ${T.borderFaint}`, color: T.textFaint, fontSize: "10.5px", fontWeight: 700 }}>
               Ver mais {contratos.length - 2} contrato{contratos.length - 2 > 1 ? "s" : ""} ▾
             </button>
           )}
@@ -3951,7 +3955,7 @@ function AtivoCard({ vm, contexto = "watchlist", children }) {
               )}
               {/* FASE 2 (2.3a): linha-resumo do histórico de operações do ativo */}
               {os.n > 0 && (
-                <button onClick={() => onToggleOps()} aria-expanded={!!opsOpen} style={{ marginTop: "8px", width: "100%", minHeight: "34px", padding: "7px 10px", borderRadius: "9px", border: `1px solid ${T.borderFaint}`, background: T.bgBase, color: T.textMuted, fontWeight: 700, fontSize: "11.5px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <button onClick={() => onToggleOps()} aria-expanded={!!opsOpen} style={{ marginTop: "8px", width: "100%", minHeight: "44px", padding: "7px 10px", borderRadius: "9px", border: `1px solid ${T.borderFaint}`, background: T.bgBase, color: T.textMuted, fontWeight: 700, fontSize: "11.5px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                   <span>{os.n} op{os.n > 1 ? "s" : ""} · <span style={{ fontFamily: MONO, color: os.pnl >= 0 ? T.positive : T.negative }}>{pct(os.pct)} acum.</span></span>
                   <span aria-hidden>{opsOpen ? "▴" : "▾"}</span>
                 </button>
@@ -3986,7 +3990,7 @@ function AtivoCard({ vm, contexto = "watchlist", children }) {
                 if (boa) {
                   const qs = suggestedQty(data.cash, q.price, (data.profile || {}).risco);
                   return (
-                    <button onClick={() => A.openBuy(t, qs, buyMeta)} style={{ marginTop: "10px", width: "100%", minHeight: "42px", padding: "9px", borderRadius: "10px", border: `1px solid ${T.positive}`, background: T.positiveTint10, color: T.positive, fontWeight: 800, fontSize: "12.5px" }}>
+                    <button onClick={() => A.openBuy(t, qs, buyMeta)} style={{ marginTop: "10px", width: "100%", minHeight: "44px", padding: "9px", borderRadius: "10px", border: `1px solid ${T.positive}`, background: T.positiveTint10, color: T.positive, fontWeight: 800, fontSize: "12.5px" }}>
                       {cp.btnComprar} · sugestão {qs} ações
                     </button>
                   );
@@ -3995,14 +3999,14 @@ function AtivoCard({ vm, contexto = "watchlist", children }) {
                   return (
                     <div style={{ marginTop: "10px" }}>
                       <div style={{ fontSize: "11px", color: T.textFaint, lineHeight: 1.5, marginBottom: "6px" }}>A leitura atual não favorece entrada — se quiser praticar mesmo assim, é modo estudo, sem sugestão de quantidade.</div>
-                      <button onClick={() => A.openBuy(t, undefined, buyMeta)} style={{ width: "100%", minHeight: "38px", padding: "8px", borderRadius: "10px", border: `1px dashed ${T.borderSubtle}`, background: "transparent", color: T.textFaint, fontWeight: 700, fontSize: "12px" }}>
+                      <button onClick={() => A.openBuy(t, undefined, buyMeta)} style={{ width: "100%", minHeight: "44px", padding: "8px", borderRadius: "10px", border: `1px dashed ${T.borderSubtle}`, background: "transparent", color: T.textFaint, fontWeight: 700, fontSize: "12px" }}>
                         Simular mesmo assim
                       </button>
                     </div>
                   );
                 }
                 return (
-                  <button onClick={() => A.openBuy(t, undefined, buyMeta)} style={{ marginTop: "10px", width: "100%", minHeight: "42px", padding: "9px", borderRadius: "10px", border: `1px solid ${T.borderSubtle}`, background: T.bgBase, color: T.textSecondary, fontWeight: 700, fontSize: "12.5px" }}>
+                  <button onClick={() => A.openBuy(t, undefined, buyMeta)} style={{ marginTop: "10px", width: "100%", minHeight: "44px", padding: "9px", borderRadius: "10px", border: `1px solid ${T.borderSubtle}`, background: T.bgBase, color: T.textSecondary, fontWeight: 700, fontSize: "12.5px" }}>
                     {/* A leitura da IA vivia AQUI, a dois centímetros da
                         manchete determinística — quando discordavam, a
                         contradição estava no mesmo card. A manchete acima já
@@ -4042,7 +4046,7 @@ function AtivoCard({ vm, contexto = "watchlist", children }) {
                       ativo" × "Plano completo" (antes: "Analisar com IA" fixo). */}
                   {an.loading ? <><Spinner size={11} color={T.accent} /> analisando…</> : <><NavIcon id="brilho" size={13} color="currentColor" />{hasAnalysis(an) ? "Reanalisar" : cp.btnAnalise}</>}
                 </button>
-                <button onClick={() => A.openTech(t)} disabled={q.error} style={{ background: "transparent", border: "none", padding: "6px 0", color: T.textMuted, fontSize: "11.5px", fontWeight: 700, display: "inline-flex", alignItems: "center", gap: "5px" }}><NavIcon id="evolucao" size={13} color="currentColor" /> Indicadores</button>
+                <button onClick={() => A.openTech(t)} disabled={q.error} style={{ background: "transparent", border: "none", minHeight: "44px", padding: "6px 0", color: T.textMuted, fontSize: "11.5px", fontWeight: 700, display: "inline-flex", alignItems: "center", gap: "5px" }}><NavIcon id="evolucao" size={13} color="currentColor" /> Indicadores</button>
                 {hasAnalysis(an) && (
                   <button onClick={() => A.toggleExpand(t)} aria-expanded={!!expanded} style={{ background: "transparent", border: "none", padding: "6px 0", color: T.textMuted, fontSize: "11.5px", fontWeight: 700, marginLeft: "auto" }}>
                     {expanded ? "Ocultar análise ▴" : "Ver análise ▾"}
@@ -4132,7 +4136,7 @@ function MercadoScreen({ ctx }) {
       {data.watchlist.length > 1 && (
         <div style={{ display: "flex", alignItems: "center", gap: "7px", marginBottom: "12px", flexWrap: "wrap" }}>
           {[["todos", "Todos"], ["alta", cp.filtroAlta], ["baixa", cp.filtroBaixa], ["neutro", "Neutros"]].map(([id, label]) => (
-            <button key={id} onClick={() => setDirFilter(id)} style={{ minHeight: "34px", padding: "7px 12px", borderRadius: "999px", border: `1px solid ${dirFilter === id ? T.accent : T.borderSubtle}`, background: dirFilter === id ? T.accentTint : T.bgBase, color: dirFilter === id ? T.accent : T.textMuted, fontWeight: 700, fontSize: "11.5px" }}>{label}</button>
+            <button key={id} onClick={() => setDirFilter(id)} style={{ minHeight: "44px", padding: "7px 12px", borderRadius: "999px", border: `1px solid ${dirFilter === id ? T.accent : T.borderSubtle}`, background: dirFilter === id ? T.accentTint : T.bgBase, color: dirFilter === id ? T.accent : T.textMuted, fontWeight: 700, fontSize: "11.5px" }}>{label}</button>
           ))}
           {wlScanLoading && <span style={{ fontSize: "11px", color: T.textFaint }}>atualizando oportunidade…</span>}
           {!wlScanLoading && <button onClick={A.refreshWlScan} style={{ background: "transparent", border: "none", color: T.textFaint, fontSize: "11px", fontWeight: 700, padding: "6px" }}>↻ reordenar</button>}
@@ -5462,7 +5466,7 @@ function TermosTocaveis({ didatica, ctx }) {
           return (
             <button key={i} type="button" ref={(el) => { refs.current[i] = el; }} aria-expanded={aberto === i}
               onClick={() => setAberto(aberto === i ? null : i)}
-              style={{ display: "inline", minHeight: 28, padding: "0 2px", background: "transparent", border: "none", color: T.textPrimary, fontSize: TIPO_CARD.corpo, fontWeight: 700, textDecoration: "underline dotted", textDecorationColor: T.accent, textUnderlineOffset: "3px" }}>
+              style={{ display: "inline", minHeight: 44, padding: "0 2px", background: "transparent", border: "none", color: T.textPrimary, fontSize: TIPO_CARD.corpo, fontWeight: 700, textDecoration: "underline dotted", textDecorationColor: T.accent, textUnderlineOffset: "3px" }}>
               {seg.rotulo}
             </button>
           );
@@ -5839,7 +5843,7 @@ function HistoricoScreen({ ctx }) {
                 <div style={{ flex: 1, textAlign: "right", color: T.textSecondary, fontSize: "12px" }}>{o.precoReferencia != null ? "ref. R$ " + price(o.precoReferencia) : "—"}</div>
                 <div style={{ flex: 1.1, textAlign: "right" }}>
                   <button type="button" onClick={() => setConfirmando((c) => (c === o.id ? null : o.id))} aria-label={"Cancelar ordem pendente de " + o.t}
-                    style={{ width: "40px", height: "40px", borderRadius: "50%", border: `1px solid ${T.borderSubtle}`, background: "transparent", color: T.textFaint, fontSize: "15px", display: "inline-flex", alignItems: "center", justifyContent: "center" }}>✕</button>
+                    style={{ width: "44px", height: "44px", borderRadius: "50%", border: `1px solid ${T.borderSubtle}`, background: "transparent", color: T.textFaint, fontSize: "15px", display: "inline-flex", alignItems: "center", justifyContent: "center" }}>✕</button>
                 </div>
               </div>
               {/* princípio 4: uma ordem que tentou executar e falhou não some
@@ -6225,7 +6229,7 @@ function AgenteScreen({ ctx }) {
             {[5, 10, 15, 30, 60].map((m) => {
               const on = (ag.intervalMin || 15) === m;
               return (
-                <button key={m} onClick={() => A.setAgentInterval(m)} aria-pressed={on} style={{ flex: 1, minWidth: "56px", minHeight: "40px", padding: "8px", borderRadius: "8px", fontSize: "13px", fontWeight: 700, border: `1px solid ${on ? T.accent : T.borderSubtle}`, background: on ? T.accentTint : T.bgPanel, color: on ? T.accent : T.textMuted }}>{m}m</button>
+                <button key={m} onClick={() => A.setAgentInterval(m)} aria-pressed={on} style={{ flex: 1, minWidth: "56px", minHeight: "44px", padding: "8px", borderRadius: "8px", fontSize: "13px", fontWeight: 700, border: `1px solid ${on ? T.accent : T.borderSubtle}`, background: on ? T.accentTint : T.bgPanel, color: on ? T.accent : T.textMuted }}>{m}m</button>
               );
             })}
           </div>
@@ -8049,7 +8053,7 @@ function RadarScreen({ ctx }) {
           <InfoDot onClick={ctx.A.openAbout} />
         </div>
         <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-          <button onClick={runBatch} disabled={batch.busy || st.busy || !res} style={{ minHeight: "36px", padding: "7px 12px", borderRadius: "10px", border: `1px solid ${T.accent}`, background: batch.stage === "confirm" ? T.accent : T.accentTint, color: batch.stage === "confirm" ? T.onAccent : T.accent, fontWeight: 800, fontSize: "12px", opacity: (batch.busy || st.busy || !res) ? 0.6 : 1 }}>
+          <button onClick={runBatch} disabled={batch.busy || st.busy || !res} style={{ minHeight: "44px", padding: "7px 12px", borderRadius: "10px", border: `1px solid ${T.accent}`, background: batch.stage === "confirm" ? T.accent : T.accentTint, color: batch.stage === "confirm" ? T.onAccent : T.accent, fontWeight: 800, fontSize: "12px", opacity: (batch.busy || st.busy || !res) ? 0.6 : 1 }}>
             {batch.busy ? "…" : batch.stage === "confirm" && batch.est ? `Confirmar: ${batch.est.chamadas} chamada${batch.est.chamadas === 1 ? "" : "s"} de IA` : "IA no top-N"}
           </button>
           <IconBtn label="Varrer novamente" onClick={() => run(period, true)} busy={st.busy}>↻</IconBtn>
@@ -8191,17 +8195,17 @@ function RadarScreen({ ctx }) {
                   seguem em "+ Ver critérios do setup". */}
               {/* FASE 2 (2.1): jornada — aprofundar (N1) ou avaliar por completo (N2) */}
               <div style={{ display: "flex", gap: "8px", marginTop: "12px" }}>
-                <button onClick={() => runDeep(r.ticker)} style={{ flex: 1, minHeight: "38px", padding: "8px", borderRadius: "10px", border: `1px solid ${T.accent}`, background: (deep[r.ticker] && deep[r.ticker].res) ? T.accent : T.accentTint10, color: (deep[r.ticker] && deep[r.ticker].res) ? T.onAccent : T.accent, fontWeight: 700, fontSize: "12px" }}>
+                <button onClick={() => runDeep(r.ticker)} style={{ flex: 1, minHeight: "44px", padding: "8px", borderRadius: "10px", border: `1px solid ${T.accent}`, background: (deep[r.ticker] && deep[r.ticker].res) ? T.accent : T.accentTint10, color: (deep[r.ticker] && deep[r.ticker].res) ? T.onAccent : T.accent, fontWeight: 700, fontSize: "12px" }}>
                   {deep[r.ticker] && deep[r.ticker].loading ? "IA lendo…" : deep[r.ticker] && deep[r.ticker].res ? "Leitura da IA ✓" : cp.btnAprofundar}
                 </button>
                 {/* qa/34: CTA de monitoramento na voz do modo ("+ Watchlist" ×
                     "+ Monitorar") — antes hardcodado. */}
                 {naWl ? (
-                  <button disabled style={{ flex: 1, minHeight: "38px", padding: "8px", borderRadius: "10px", border: `1px solid ${T.borderSubtle}`, background: T.bgBase, color: T.textFaint, fontWeight: 700, fontSize: "12px" }}>
+                  <button disabled style={{ flex: 1, minHeight: "44px", padding: "8px", borderRadius: "10px", border: `1px solid ${T.borderSubtle}`, background: T.bgBase, color: T.textFaint, fontWeight: 700, fontSize: "12px" }}>
                     {cp.jaMonitorado}
                   </button>
                 ) : (
-                  <button onClick={() => ctx.A.addToWatchlist(r.ticker)} style={{ flex: 1, minHeight: "38px", padding: "8px", borderRadius: "10px", border: "none", background: T.accent, color: T.onAccent, fontWeight: 800, fontSize: "12px" }}>
+                  <button onClick={() => ctx.A.addToWatchlist(r.ticker)} style={{ flex: 1, minHeight: "44px", padding: "8px", borderRadius: "10px", border: "none", background: T.accent, color: T.onAccent, fontWeight: 800, fontSize: "12px" }}>
                     {cp.btnAddMonitor}
                   </button>
                 )}
@@ -8271,7 +8275,7 @@ function RadarScreen({ ctx }) {
                     <span key={i} style={{ padding: "5px 9px", borderRadius: "999px", background: T.bgBase, border: `1px solid ${T.borderSubtle}`, color: T.textSecondary, fontSize: "11px", fontWeight: 600, lineHeight: 1.35 }}>{cnd}</span>
                   ))}
                   {!isOpen && r.condicoes_detectadas.length > 3 && (
-                    <button onClick={() => setOpenTicker(r.ticker)} style={{ padding: "5px 9px", borderRadius: "999px", background: "transparent", border: `1px dashed ${T.borderSubtle}`, color: T.textFaint, fontSize: "11px", fontWeight: 700 }}>+{r.condicoes_detectadas.length - 3} condições</button>
+                    <button onClick={() => setOpenTicker(r.ticker)} style={{ minHeight: "44px", padding: "5px 9px", borderRadius: "999px", background: "transparent", border: `1px dashed ${T.borderSubtle}`, color: T.textFaint, fontSize: "11px", fontWeight: 700 }}>+{r.condicoes_detectadas.length - 3} condições</button>
                   )}
                 </div>
               )}
@@ -8376,7 +8380,7 @@ function DeepModal({ t, d, onClose, onAvaliar, cp }) {
             <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
               {r.planoEstudo && <span style={{ padding: "4px 10px", borderRadius: "999px", background: T.accentTint, color: T.accent, fontSize: "11px", fontWeight: 800 }}>{r.planoEstudo}</span>}
               {/* FASE 4 (1.4): fechar SEMPRE visível — o rodapé pode sair da tela em leituras longas */}
-              <button onClick={onClose} aria-label="Fechar" style={{ width: "30px", height: "30px", borderRadius: "999px", border: `1px solid ${T.borderSubtle}`, background: T.bgBase, color: T.textSecondary, fontSize: "15px", fontWeight: 700, lineHeight: 1, flexShrink: 0 }}>✕</button>
+              <button onClick={onClose} aria-label="Fechar" style={{ width: "44px", height: "44px", borderRadius: "999px", border: `1px solid ${T.borderSubtle}`, background: T.bgBase, color: T.textSecondary, fontSize: "15px", fontWeight: 700, lineHeight: 1, flexShrink: 0 }}>✕</button>
             </div>
           </div>
           <div style={{ fontSize: "11.5px", color: T.textMuted, marginTop: "4px" }}>
@@ -8761,9 +8765,9 @@ function BuyModal({ ctx }) {
         <div style={{ marginTop: "18px" }}>
           <div style={{ fontSize: "12px", color: T.textMuted, marginBottom: "8px" }}>Quantidade (lotes de 100)</div>
           <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-            <button onClick={() => setBuyModal((b) => ({ ...b, qty: Math.max(100, b.qty - 100) }))} aria-label="Diminuir" style={{ width: "42px", height: "42px", borderRadius: "9px", border: `1px solid ${T.borderSubtle}`, background: T.bgPanel, color: T.textPrimary, fontSize: "20px", fontWeight: 600 }}>−</button>
+            <button onClick={() => setBuyModal((b) => ({ ...b, qty: Math.max(100, b.qty - 100) }))} aria-label="Diminuir" style={{ width: "44px", height: "44px", borderRadius: "9px", border: `1px solid ${T.borderSubtle}`, background: T.bgPanel, color: T.textPrimary, fontSize: "20px", fontWeight: 600 }}>−</button>
             <div style={{ flex: 1, textAlign: "center", fontFamily: MONO, fontSize: "22px", fontWeight: 600 }}>{buyModal.qty}</div>
-            <button onClick={() => setBuyModal((b) => ({ ...b, qty: b.qty + 100 }))} aria-label="Aumentar" style={{ width: "42px", height: "42px", borderRadius: "9px", border: `1px solid ${T.borderSubtle}`, background: T.bgPanel, color: T.textPrimary, fontSize: "20px", fontWeight: 600 }}>+</button>
+            <button onClick={() => setBuyModal((b) => ({ ...b, qty: b.qty + 100 }))} aria-label="Aumentar" style={{ width: "44px", height: "44px", borderRadius: "9px", border: `1px solid ${T.borderSubtle}`, background: T.bgPanel, color: T.textPrimary, fontSize: "20px", fontWeight: 600 }}>+</button>
           </div>
         </div>
         <div style={{ display: "flex", justifyContent: "space-between", marginTop: "16px", padding: "12px 13px", background: T.bgBase, border: `1px solid ${T.borderSubtle}`, borderRadius: "9px", fontFamily: MONO }}>
@@ -8856,11 +8860,11 @@ function SellModal({ ctx }) {
         <div style={{ marginTop: "18px" }}>
           <div style={{ fontSize: "12px", color: T.textMuted, marginBottom: "8px" }}>Quantidade a vender (lotes de 100)</div>
           <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-            <button onClick={() => step(-1)} aria-label="Diminuir" style={{ width: "42px", height: "42px", borderRadius: "9px", border: `1px solid ${T.borderSubtle}`, background: T.bgPanel, color: T.textPrimary, fontSize: "20px", fontWeight: 600 }}>−</button>
+            <button onClick={() => step(-1)} aria-label="Diminuir" style={{ width: "44px", height: "44px", borderRadius: "9px", border: `1px solid ${T.borderSubtle}`, background: T.bgPanel, color: T.textPrimary, fontSize: "20px", fontWeight: 600 }}>−</button>
             <div style={{ flex: 1, textAlign: "center", fontFamily: MONO, fontSize: "22px", fontWeight: 600 }}>{qty}</div>
-            <button onClick={() => step(1)} aria-label="Aumentar" style={{ width: "42px", height: "42px", borderRadius: "9px", border: `1px solid ${T.borderSubtle}`, background: T.bgPanel, color: T.textPrimary, fontSize: "20px", fontWeight: 600 }}>+</button>
+            <button onClick={() => step(1)} aria-label="Aumentar" style={{ width: "44px", height: "44px", borderRadius: "9px", border: `1px solid ${T.borderSubtle}`, background: T.bgPanel, color: T.textPrimary, fontSize: "20px", fontWeight: 600 }}>+</button>
           </div>
-          <button onClick={() => setSellModal((m) => ({ ...m, qty: livre }))} disabled={livre <= 0} style={{ marginTop: "8px", width: "100%", minHeight: "34px", padding: "7px", borderRadius: "9px", border: `1px dashed ${total ? T.accent : T.borderSubtle}`, background: total ? T.accentTint10 : "transparent", color: total ? T.accent : T.textMuted, fontWeight: 700, fontSize: "12px" }}>
+          <button onClick={() => setSellModal((m) => ({ ...m, qty: livre }))} disabled={livre <= 0} style={{ marginTop: "8px", width: "100%", minHeight: "44px", padding: "7px", borderRadius: "9px", border: `1px dashed ${total ? T.accent : T.borderSubtle}`, background: total ? T.accentTint10 : "transparent", color: total ? T.accent : T.textMuted, fontWeight: 700, fontSize: "12px" }}>
             {/* Com trava ativa, vender tudo o que está LIVRE nunca encerra a
                 posição (sobra a parte travada) — dizer "TOTAL (encerra a
                 posição)" nesse caso seria resultado apresentado de forma

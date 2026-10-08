@@ -137,7 +137,7 @@ export default function CandidatoOpcao({ p, r, cp, operador, busy, onAceitar, on
           type="button"
           onClick={() => onAceitar(p)}
           disabled={busy || degradado}
-          style={{ marginTop: "12px", width: "100%", minHeight: "40px", borderRadius: "9px", border: `1px solid ${T.accent}`, background: T.accentTint, color: T.accent, fontWeight: 800, fontSize: "12.5px" }}
+          style={{ marginTop: "12px", width: "100%", minHeight: "44px", borderRadius: "9px", border: `1px solid ${T.accent}`, background: T.accentTint, color: T.accent, fontWeight: 800, fontSize: "12.5px" }}
         >
           {degradado
             ? cp.propostaIndisponivelDegradada
