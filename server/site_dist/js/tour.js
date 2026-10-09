@@ -86,16 +86,33 @@
         ["Entender o estado vazio e ir à Watchlist para a primeira compra simulada.", 50, 59],
         ["Abrir o histórico de operações.", 50, 81.6]],
       guard: "Carteira SIMULADA: ganhos e perdas aparecem sem maquiagem." },
-    { id: "opc", row: 2, kind: "m", img: "img/10-opcoes.png", title: "Opções", sub: "Estudo sobre a carteira",
-      alt: "Aba Opções: sem ações em carteira, a tela explica que as opções são estudadas sobre as ações da carteira virtual.",
+    { id: "opc", row: 3, kind: "m", img: "img/10-opcoes.png", title: "Opções", sub: "Estudo sobre a carteira",
+      alt: "Aba Opções com PETR4 em carteira: 100 ações livres para lastro, evolução da semana, volatilidade, suporte e resistência.",
       can: [
-        ["Estudar opções sobre as ações que você já tem na carteira virtual.", 50, 49.5],
-        ["Ver o estado do pregão: com o pregão fechado, a tela avisa que os valores não são de agora.", 48, 29],
-        ["Ler o lembrete: dinheiro virtual, nenhuma ordem sai para corretora, bolsa ou banco.", 49, 33],
-        ["Ir à Carteira para comprar a primeira posição simulada.", 24, 57],
-        ["Abrir um ativo sem gastar consultas da sua cota.", 36, 64.6],
-        ["Saber quanto esta aba consome da sua cota.", 32, 81]],
-      guard: "Conteúdo educacional: dados de fim de pregão, possivelmente atrasados; nada aqui é ordem ou recomendação." },
+        ["Escolher um ativo da carteira: o card mostra quantas ações você tem e quantas estão livres como lastro.", 50, 61.5],
+        ["Ver como a semana evoluiu: cada segmento é um pregão, colorido pelo regime medido naquele dia.", 50, 68.7],
+        ["Ler as referências do ativo: volatilidade (HV21), suporte e resistência.", 35, 77],
+        ["Saber se há estrutura aberta e quantas vigias você tem.", 50, 82.3],
+        ["Abrir o card para escolher o que fazer com as ações.", 88, 58],
+        ["Lembrete fixo: dinheiro virtual, nenhuma ordem sai para corretora, bolsa ou banco.", 50, 29.7]],
+      guard: "Cada segmento mostra o regime medido naquele dia, não uma previsão do próximo." },
+    { id: "opcobj", row: 3, kind: "m", img: "img/11-opcoes-objetivos.png", title: "Opções · objetivos", sub: "O que fazer com as ações",
+      alt: "Objetivos para as 100 ações de PETR4: proteger de queda, gerar renda e proteger com custo baixo.",
+      can: [
+        ["Escolher o objetivo: proteger de queda, gerar renda ou proteger com custo baixo.", 50, 33.7],
+        ["Ler cada objetivo em linguagem simples, com o termo técnico entre parênteses.", 50, 47],
+        ["Ver, antes de decidir, o que se perde em cada objetivo (o prêmio, ou o ganho acima do teto).", 35, 58.7],
+        ["Tocar nos termos sublinhados para abrir uma explicação.", 60, 41],
+        ["Voltar ao resumo da carteira.", 10, 23]],
+      guard: "Você vê o pior caso antes de decidir." },
+    { id: "opcpiso", row: 3, kind: "m", img: "img/12-opcoes-piso.png", title: "Opções · escolher o piso", sub: "Proteger de queda",
+      alt: "Escolha do piso da proteção: vencimentos, três níveis de put, perda máxima e custo da proteção.",
+      can: [
+        ["Escolher o vencimento (por exemplo, 42 ou 70 dias).", 30, 40],
+        ["Comparar três níveis de piso: mais protegido, equilibrado e mais barato.", 50, 48],
+        ["Ver a perda máxima de cada nível, em reais e em barras.", 80, 52],
+        ["Ver o custo da proteção.", 80, 55.7]],
+      guard: "Valores de opções nesta captura vêm de um ambiente de demonstração: são ilustrativos." },
     { id: "boris", row: 2, kind: "m", img: "img/03-boris-assistente.jpg", title: "Bóris, o assistente", sub: "Em qualquer tela do Estudo",
       alt: "Apresentação do Bóris: não recomenda compra ou venda e não envia ordem.",
       can: [
@@ -104,21 +121,21 @@
         ["Chamá-lo pela coruja flutuante, em qualquer tela do Estudo.", 50, 70],
         ["Conversar agora ou deixar para depois.", 50, 79]],
       guard: "O Bóris é o professor, nunca o operador." },
-    { id: "web1", row: 3, kind: "w", img: "img/web-acompanhar.jpg", title: "Web · Acompanhar", sub: "No navegador",
+    { id: "web1", row: 4, kind: "w", img: "img/web-acompanhar.jpg", title: "Web · Acompanhar", sub: "No navegador",
       alt: "Versão web, aba Acompanhar.",
       can: [
         ["Percorrer os setups da watchlist em carrossel, cada um com anel de confiança.", 27, 66],
         ["Ver o estado do mercado e do horário de pregão.", 50, 24],
         ["Ver o saldo virtual e o caixa no topo.", 85, 17]],
       guard: "Mesmo conteúdo do celular, em layout largo." },
-    { id: "web2", row: 3, kind: "w", img: "img/web-plano-setup.jpg", title: "Web · Watchlist", sub: "Cards em colunas",
+    { id: "web2", row: 4, kind: "w", img: "img/web-plano-setup.jpg", title: "Web · Watchlist", sub: "Cards em colunas",
       alt: "Versão web, Watchlist com dois cards lado a lado.",
       can: [
         ["Comparar o plano de dois ativos lado a lado.", 30, 33],
         ["Ler regime e amostra de cada setup.", 30, 54],
         ["Abrir a compra simulada direto do card.", 50, 80]],
       guard: "Em telas largas, os cards se organizam em colunas." },
-    { id: "web3", row: 3, kind: "w", img: "img/web-portfolio.jpg", title: "Web · Portfólio", sub: "Carteira simulada",
+    { id: "web3", row: 4, kind: "w", img: "img/web-portfolio.jpg", title: "Web · Portfólio", sub: "Carteira simulada",
       alt: "Versão web, Portfólio.",
       can: [
         ["Abrir o Operador IA.", 50, 36],
@@ -129,9 +146,9 @@
   var ARROWS = [
     ["boas", "acomp", "Entrar na mesa"], ["acomp", "radar", "aba Radar"], ["radar", "watch", "aba Watchlist"],
     ["watch", "plano", "Rolar até o plano"], ["plano", "ordem", "Simular compra…", "wrap"],
-    ["ordem", "pend", "Confirmar compra"], ["pend", "port", "aba Portfólio"], ["port", "opc", "aba Opções"], ["opc", "boris", "coruja, em qualquer tela", "dash"]
+    ["ordem", "pend", "Confirmar compra"], ["pend", "port", "aba Portfólio"], ["port", "boris", "coruja, em qualquer tela", "dash"], ["port", "opc", "aba Opções", "wrap"], ["opc", "opcobj", "tocar no ativo"], ["opcobj", "opcpiso", "Proteger de queda"]
   ];
-  var ROWS = { 1: "Fluxo no celular · da escolha ao plano", 2: "Fluxo no celular · da ordem ao resultado", 3: "Versão web · o mesmo app no navegador" };
+  var ROWS = { 1: "Fluxo no celular · da escolha ao plano", 2: "Fluxo no celular · da ordem ao resultado", 3: "Aba Opções · estudo sobre as ações da carteira", 4: "Versão web · o mesmo app no navegador" };
 
   /* ---------- montagem do canvas ---------- */
   var NS = "http://www.w3.org/2000/svg";
@@ -140,7 +157,7 @@
   var rowTop = { 1: 150 }, rowFirstX = 0;
 
   function build() {
-    var perRow = { 1: 0, 2: 0, 3: 0 };
+    var perRow = { 1: 0, 2: 0, 3: 0, 4: 0 };
     F.forEach(function (f) {
       var w = f.kind === "m" ? MW : WW, h = f.kind === "m" ? MH : WH;
       var unitW = (f.kind === "m" ? MW : WW) + GAPX;
@@ -174,11 +191,11 @@
   function layout() {
     Array.prototype.forEach.call(world.querySelectorAll(".wires,.chip,.rowlabel"), function (n) { n.remove(); });
     var y = 150;
-    [1, 2, 3].forEach(function (r) {
+    [1, 2, 3, 4].forEach(function (r) {
       var maxNote = 0;
       F.forEach(function (f) { if (f.row === r) { var n = nodes[f.id]; n.y = y; n.fr.style.left = n.x + "px"; n.fr.style.top = y + "px"; n.note.style.top = (n.h + 16) + "px"; maxNote = Math.max(maxNote, n.note.offsetHeight); } });
       var lab = el("div", "rowlabel", ROWS[r]); lab.style.left = "0px"; lab.style.top = (y - 86) + "px"; world.appendChild(lab);
-      nodes["row" + r] = { bottom: y + (r === 3 ? WH : MH) + 16 + maxNote };
+      nodes["row" + r] = { bottom: y + (r === 4 ? WH : MH) + 16 + maxNote };
       y = nodes["row" + r].bottom + 170;
     });
     arrows();
