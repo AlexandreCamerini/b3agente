@@ -27,8 +27,8 @@ ok("navigateFallbackDenylist encontrado em vite.config.js", !!m);
 const lista = m ? m[1] : "";
 
 // Uma árvore estática nova entra aqui sempre que main.py ganhar um novo
-// app.mount(...) fora do catch-all "/" (web_dist) — hoje: /admin e /ios.
-const arvoresEsperadas = ["/^\\/admin/", "/^\\/ios/"];
+// app.mount(...) fora do catch-all "/" (web_dist) — hoje: /admin, /ios e /site.
+const arvoresEsperadas = ["/^\\/admin/", "/^\\/ios/", "/^\\/site/"];
 for (const padrao of arvoresEsperadas) {
   ok(`denylist contém ${padrao}`, lista.includes(padrao));
 }

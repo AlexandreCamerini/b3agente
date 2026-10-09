@@ -5624,6 +5624,19 @@ _ADMIN_DIST = Path(__file__).resolve().parent.parent / "admin_dist"
 if _ADMIN_DIST.exists():
     app.mount("/admin", StaticFiles(directory=str(_ADMIN_DIST), html=True), name="admin")
 
+# ---- Site de marketing estático em /site/* (quick 261009-mvb, mesmo container
+# do Boris — decisão do Alex, 2026-10-09). Home, tour do produto, treinamento
+# interativo, suporte e termos: HTML/CSS/JS puro, sem build, publicado com
+# scripts/publicar-site.sh a partir de site/ para server/site_dist (tracked no
+# git pelo mesmo motivo do web_dist: rootDirectory=/server). Marketing URL e
+# Support URL do App Store Connect apontam para cá; a Privacy URL segue sendo
+# a rota /privacidade acima (fonte única: POLITICA-PRIVACIDADE.md). Precisa
+# vir ANTES do mount "/" (catch-all) e, no front, entrar no
+# navigateFallbackDenylist do PWA (web/vite.config.js).
+_SITE_DIST = Path(__file__).resolve().parent.parent / "site_dist"
+if _SITE_DIST.exists():
+    app.mount("/site", StaticFiles(directory=str(_SITE_DIST), html=True), name="site")
+
 # ---- Servir o app web em producao (mesma origem) — F4 mínimo (2026-08-01) ---
 # O serviço do Railway tem rootDirectory=/server (ver server/railway.json): o
 # builder NUNCA enxerga a árvore ../web fora dessa raiz. Por isso o bundle vive

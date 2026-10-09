@@ -20,8 +20,9 @@ export default defineConfig({
       // denylist) e serve o shell deste app no lugar deles. Bug real
       // reportado em produção: "/admin abre o app" em vez do portal; mesma
       // classe reapareceu em "/ios abre o app" em vez da página de instalação.
+      // /site (server/site_dist) é o site de marketing estático, mesma classe.
       workbox: {
-        navigateFallbackDenylist: [/^\/admin/, /^\/ios/],
+        navigateFallbackDenylist: [/^\/admin/, /^\/ios/, /^\/site/],
       },
       manifest: {
         name: "Boris+",
