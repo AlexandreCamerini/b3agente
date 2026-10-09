@@ -113,7 +113,51 @@
         ["Ver a perda máxima de cada nível, em reais e em barras.", 80, 52],
         ["Ver o custo da proteção.", 80, 55.7]],
       guard: "Valores de opções nesta captura vêm de um ambiente de demonstração: são ilustrativos." },
-    { id: "boris", row: 2, kind: "m", img: "img/03-boris-assistente.jpg", title: "Bóris, o assistente", sub: "Em qualquer tela do Estudo",
+    { id: "pior", row: 2, kind: "m", img: "img/13-opcoes-pior-caso.jpg", title: "Opções · pior caso", sub: "Antes de escolher",
+      alt: "Pior caso, melhor caso e equilíbrio da proteção, com o botão Escolher este.",
+      can: [
+        ["Mover o controle e comparar “só as ações” com “com a estrutura” para um preço no vencimento.", 49, 20.4],
+        ["Ver os dois resultados lado a lado, em reais.", 50, 27],
+        ["Ler o pior caso, o melhor caso e o equilíbrio em linguagem direta.", 50, 52],
+        ["Escolher a estrutura.", 50, 65],
+        ["Ver o custo da escolha na sua cota (aqui: sem custo).", 24, 69.4],
+        ["Ler o aviso: conteúdo educacional, dados de fim de pregão.", 50, 78]],
+      guard: "O pior caso vem antes de qualquer decisão." },
+    { id: "payoff", row: 2, kind: "m", img: "img/14-opcoes-payoff.jpg", title: "Opções · resultado no vencimento", sub: "O gráfico",
+      alt: "Gráfico de resultado no vencimento com legenda numerada: piso, equilíbrio, perda máxima e preço médio.",
+      can: [
+        ["Ler o gráfico: linha cheia com a estrutura, tracejada só com as ações.", 55, 24],
+        ["Conferir os pontos numerados: piso, equilíbrio, perda máxima e preço médio.", 10, 37.5],
+        ["Saber se há teto: “sem teto, o ganho acompanha a alta, menos o prêmio”.", 50, 60],
+        ["Simular: “e se a ação fechar a tal preço no vencimento?”.", 50, 73.5]],
+      guard: "Linguagem de cenário, nunca de promessa." },
+    { id: "confest", row: 2, kind: "m", img: "img/15-opcoes-confirmar-estudo.jpg", title: "Opções · confirmar (Estudo)", sub: "Só leitura",
+      alt: "Confirmar a estrutura no Modo Estudo, com a nota de que no Estudo nada é executado e o botão Criar vigia.",
+      can: [
+        ["Rever o pior e o melhor caso antes de qualquer decisão.", 50, 44],
+        ["Conferir a estrutura: vencimento, perna comprada e prêmio.", 50, 61.8],
+        ["Ver quantos contratos e ações entram e se as ações ficam livres como lastro.", 40, 70],
+        ["Entender que, no Modo Estudo, nada é executado: é a leitura de como funcionaria.", 50, 79.4],
+        ["Criar uma vigia para acompanhar a estrutura.", 50, 86.6]],
+      guard: "No Estudo você aprende a estrutura; executar fica para o Modo Operador." },
+    { id: "termo", row: 3, kind: "m", img: "img/16-operador-termo.jpg", title: "Termo do Operador", sub: "Antes de ativar",
+      alt: "Termo de Responsabilidade do Modo Operador, com aceite liberado só ao final da leitura.",
+      can: [
+        ["Ler o termo até o fim: o Operador é ferramenta de decisão e disciplina, não recomendação.", 50, 40],
+        ["Saber que o texto precisa ser rolado até o fim para liberar o aceite.", 50, 64],
+        ["Marcar que leu e entende que pode perder dinheiro operando por conta e risco.", 14, 67.5],
+        ["Continuar no Estudo ou ativar o Modo Operador.", 50, 76]],
+      guard: "As decisões diretas só são liberadas depois da leitura e do aceite." },
+    { id: "opcaberta", row: 3, kind: "m", img: "img/17-opcoes-estrutura-aberta.jpg", title: "Opções · estrutura aberta", sub: "Modo Operador",
+      alt: "Aba Opções no Modo Operador com PETR4: 100 ações travadas como lastro e uma estrutura aberta.",
+      can: [
+        ["Ver que a carteira tem uma estrutura aberta sobre o ativo.", 50, 74.8],
+        ["Notar que as 100 ações passam a ficar travadas como lastro (0 livres).", 45, 54],
+        ["Acompanhar a semana, a volatilidade, o suporte e a resistência do ativo.", 50, 67],
+        ["Ver quantas vigias há.", 88, 74.8],
+        ["Abrir o card do ativo.", 88, 50.7]],
+      guard: "Execução simulada. Códigos “MOCK” indicam o ambiente de demonstração." },
+    { id: "boris", row: 3, kind: "m", img: "img/03-boris-assistente.jpg", title: "Bóris, o assistente", sub: "Em qualquer tela do Estudo",
       alt: "Apresentação do Bóris: não recomenda compra ou venda e não envia ordem.",
       can: [
         ["Saber o que ele não faz: não recomenda compra ou venda e não envia ordem.", 50, 44],
@@ -121,21 +165,21 @@
         ["Chamá-lo pela coruja flutuante, em qualquer tela do Estudo.", 50, 70],
         ["Conversar agora ou deixar para depois.", 50, 79]],
       guard: "O Bóris é o professor, nunca o operador." },
-    { id: "web1", row: 3, kind: "w", img: "img/web-acompanhar.jpg", title: "Web · Acompanhar", sub: "No navegador",
+    { id: "web1", row: 4, kind: "w", img: "img/web-acompanhar.jpg", title: "Web · Acompanhar", sub: "No navegador",
       alt: "Versão web, aba Acompanhar.",
       can: [
         ["Percorrer os setups da watchlist em carrossel, cada um com anel de confiança.", 27, 66],
         ["Ver o estado do mercado e do horário de pregão.", 50, 24],
         ["Ver o saldo virtual e o caixa no topo.", 85, 17]],
       guard: "Mesmo conteúdo do celular, em layout largo." },
-    { id: "web2", row: 3, kind: "w", img: "img/web-plano-setup.jpg", title: "Web · Watchlist", sub: "Cards em colunas",
+    { id: "web2", row: 4, kind: "w", img: "img/web-plano-setup.jpg", title: "Web · Watchlist", sub: "Cards em colunas",
       alt: "Versão web, Watchlist com dois cards lado a lado.",
       can: [
         ["Comparar o plano de dois ativos lado a lado.", 30, 33],
         ["Ler regime e amostra de cada setup.", 30, 54],
         ["Abrir a compra simulada direto do card.", 50, 80]],
       guard: "Em telas largas, os cards se organizam em colunas." },
-    { id: "web3", row: 3, kind: "w", img: "img/web-portfolio.jpg", title: "Web · Portfólio", sub: "Carteira simulada",
+    { id: "web3", row: 4, kind: "w", img: "img/web-portfolio.jpg", title: "Web · Portfólio", sub: "Carteira simulada",
       alt: "Versão web, Portfólio.",
       can: [
         ["Abrir o Operador IA.", 50, 36],
@@ -147,9 +191,11 @@
     ["boas", "acomp", "Entrar na mesa"], ["acomp", "radar", "aba Radar"], ["radar", "watch", "aba Watchlist"],
     ["watch", "plano", "Rolar até o plano"], ["plano", "ordem", "Simular compra…"], ["ordem", "pend", "Confirmar compra"],
     ["pend", "port", "aba Portfólio", "wrap"], ["port", "opc", "aba Opções"], ["opc", "opcobj", "tocar no ativo"],
-    ["opcobj", "opcpiso", "Proteger de queda"], ["opcpiso", "boris", "coruja, em qualquer tela", "dash"]
+    ["opcobj", "opcpiso", "Proteger de queda"], ["opcpiso", "pior", "escolher o piso"], ["pior", "payoff", "Ver os números"],
+    ["payoff", "confest", "Escolher este"], ["confest", "termo", "Ativar o Operador", "wrap"], ["termo", "opcaberta", "Executar (simulado)"],
+    ["opcaberta", "boris", "coruja, em qualquer tela", "dash"]
   ];
-  var ROWS = { 1: "Fluxo no celular · da escolha à ordem", 2: "Resultado, aba Opções e o Bóris", 3: "Versão web · o mesmo app no navegador" };
+  var ROWS = { 1: "Fluxo no celular · da escolha à ordem", 2: "Resultado e aba Opções no Modo Estudo", 3: "Modo Operador e o Bóris", 4: "Versão web · o mesmo app no navegador" };
 
   /* ---------- montagem do canvas ---------- */
   var NS = "http://www.w3.org/2000/svg";
@@ -158,7 +204,7 @@
   var rowTop = { 1: 150 }, rowFirstX = 0;
 
   function build() {
-    var perRow = { 1: 0, 2: 0, 3: 0 };
+    var perRow = { 1: 0, 2: 0, 3: 0, 4: 0 };
     F.forEach(function (f) {
       var w = f.kind === "m" ? MW : WW, h = f.kind === "m" ? MH : WH;
       var unitW = (f.kind === "m" ? MW : WW) + GAPX;
@@ -192,11 +238,11 @@
   function layout() {
     Array.prototype.forEach.call(world.querySelectorAll(".wires,.chip,.rowlabel"), function (n) { n.remove(); });
     var y = 150;
-    [1, 2, 3].forEach(function (r) {
+    [1, 2, 3, 4].forEach(function (r) {
       var maxNote = 0;
       F.forEach(function (f) { if (f.row === r) { var n = nodes[f.id]; n.y = y; n.fr.style.left = n.x + "px"; n.fr.style.top = y + "px"; n.note.style.top = (n.h + 16) + "px"; maxNote = Math.max(maxNote, n.note.offsetHeight); } });
       var lab = el("div", "rowlabel", ROWS[r]); lab.style.left = "0px"; lab.style.top = (y - 86) + "px"; world.appendChild(lab);
-      nodes["row" + r] = { bottom: y + (r === 3 ? WH : MH) + 16 + maxNote };
+      nodes["row" + r] = { bottom: y + (r === 4 ? WH : MH) + 16 + maxNote };
       y = nodes["row" + r].bottom + 170;
     });
     arrows();
