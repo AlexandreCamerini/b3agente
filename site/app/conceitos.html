@@ -3,32 +3,26 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Treinamento — Boris+</title>
-<meta name="description" content="Material de treinamento interativo do Boris+: tendência, risco, plano de trade, expectativa matemática e drawdown, com exercícios e quizzes. Conteúdo educacional.">
+<title>Conceitos de mercado — Boris+</title>
+<meta name="description" content="Dez módulos interativos de conceitos de mercado do treinamento Boris+, com exercícios e quizzes.">
+<meta name="author" content="semente.dev">
 <meta name="theme-color" content="#10121a">
-<link rel="icon" type="image/png" href="img/favicon.png">
-<link rel="stylesheet" href="css/site.css">
-<link rel="stylesheet" href="css/treinamento.css">
-<link rel="stylesheet" href="css/guia.css">
+<link rel="icon" type="image/png" href="../img/favicon.png">
+<link rel="stylesheet" href="../css/site.css">
+<link rel="stylesheet" href="../css/inapp.css">
+<link rel="stylesheet" href="../css/treinamento.css">
 </head>
-<body>
+<body class="inapp">
 <a class="skip" href="#conteudo">Ir para o conteúdo</a>
-
-<header class="top">
-  <a class="logo" href="index.html" aria-label="Boris+ — início">Boris<span class="plus">+</span></a>
-  <nav class="nav" aria-label="Principal">
-    <a href="tour.html">O app</a>
-    <a href="treinamento.html" aria-current="page">Treinamento</a>
-    <a href="index.html#modos">Modos</a>
-    <a href="index.html#faq">Dúvidas</a>
-    <a class="btn" href="index.html#baixar">Baixar</a>
-  </nav>
+<header class="appbar">
+  <a class="back" href="/" aria-label="Voltar ao app"><span aria-hidden="true">‹</span> Voltar ao app</a>
+  <a class="ttl" href="index.html">Treinamento</a>
+  <span class="by">por semente.dev</span>
 </header>
-
 <main id="conteudo">
+  <div class="wrap" style="padding-top:14px"><div class="subnav" role="group" aria-label="Treinamento"><a href="guia.html">Guia das telas</a><a href="conceitos.html" aria-current="page">Conceitos de mercado</a></div></div>
   <section class="wrap" style="padding-top:24px;padding-bottom:8px">
-    <div class="subnav" role="group" aria-label="Treinamento"><a href="treinamento.html" aria-current="page">Conceitos de mercado</a><a href="guia-telas.html">Guia das telas</a></div>
-    <span class="eyebrow" style="margin-top:18px">Conceitos</span>
+    <span class="eyebrow">Conceitos de mercado</span>
     <h1 style="margin-top:20px">Aprenda o raciocínio, não a resposta.</h1>
     <p class="lede" style="margin-top:14px;max-width:700px">Dez módulos curtos com exercícios que você manipula e perguntas com explicação. Todos os exemplos usam números fictícios. É conteúdo educacional: nada aqui é recomendação de investimento nem promessa de resultado.</p>
   </section>
@@ -196,7 +190,7 @@
 <section class="mod" id="m10" data-title="Seu ciclo no Boris+">
   <p class="kicker">Módulo 10</p>
   <h2>Seu ciclo no Boris+</h2>
-  <p>Juntando tudo: o mesmo ciclo em toda decisão. Marque cada etapa ao treinar. Veja como elas aparecem nas telas no <a href="tour.html">tour do produto</a>.</p>
+  <p>Juntando tudo: o mesmo ciclo em toda decisão. Marque cada etapa ao treinar. Veja como elas aparecem nas telas no <a href="../tour.html">tour do produto</a>.</p>
   <div class="lab" data-lab="ciclo">
     <p class="lab-title">Checklist de uma decisão simulada</p>
     <ul class="todo" id="cicloList">
@@ -216,29 +210,14 @@
       <div class="finish" id="finish" hidden>
         <h2>Treinamento concluído</h2>
         <p class="lede">Você passou pelos dez módulos. O próximo passo é praticar com saldo virtual e revisar cada decisão.</p>
-        <p class="actions"><a class="btn" href="index.html#baixar">Baixar o Boris+</a> <a class="btn ghost" href="tour.html">Rever o tour</a></p>
+        <p class="actions"><a class="btn" href="index.html#baixar">Baixar o Boris+</a> <a class="btn ghost" href="../tour.html">Rever o tour</a></p>
       </div>
     </div>
   </div>
   <p class="wrap note" style="margin-bottom:64px">Material educacional com dados e cenários fictícios. Não constitui recomendação de investimento, consultoria nem promessa de rentabilidade. Resultados simulados não garantem resultados reais.</p>
 </main>
-
-<footer class="foot">
-  <div class="wrap">
-    <div class="row">
-      <span class="logo" style="font-size:24px">Boris<span class="plus">+</span></span>
-      <nav aria-label="Rodapé">
-        <a href="index.html">Início</a>
-        <a href="tour.html">O app</a>
-        <a href="guia-telas.html">Guia das telas</a>
-        <a href="suporte.html">Suporte</a>
-        <a href="/privacidade">Privacidade</a>
-        <a href="privacidade.html#termos">Termos de uso</a>
-      </nav>
-    </div>
-    <p>© <span class="ph">[ANO]</span> <span class="ph">[RAZÃO SOCIAL DO EDITOR]</span>. Todos os direitos reservados.</p>
-  </div>
+<footer class="appfoot">
+  <p>Conteúdo educacional: nada aqui é recomendação de investimento. Autoria: <a href="https://semente.dev" rel="author">semente.dev</a> · <a href="../index.html">Site institucional</a></p>
 </footer>
-<script src="js/treinamento.js" defer></script>
-</body>
+<script src="../js/treinamento.js" defer></script></body>
 </html>

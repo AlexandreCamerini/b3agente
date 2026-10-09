@@ -26,7 +26,7 @@
       var row = el("div", "row");
       map[g].forEach(function (t) {
         var b = el("button"); b.type = "button"; b.dataset.id = t.id; b.setAttribute("aria-label", t.titulo);
-        var th = el("span", "th"); var im = new Image(); im.src = t.img; im.alt = ""; im.loading = "lazy"; im.width = 78; im.height = 104; th.appendChild(im); b.appendChild(th);
+        var th = el("span", "th"); var im = new Image(); im.src = (window.TELAS_BASE || "") + t.img; im.alt = ""; im.loading = "lazy"; im.width = 78; im.height = 104; th.appendChild(im); b.appendChild(th);
         b.appendChild(el("span", "nm", t.titulo)); b.appendChild(el("span", "ok", "✓"));
         b.addEventListener("click", function () { go(t.id, true); });
         row.appendChild(b);
@@ -57,25 +57,51 @@
     art.appendChild(el("p", "obj", t.objetivo));
 
     var cols = el("div", "cols" + (t.kind === "w" ? " web" : ""));
-    var sc = el("div", "shotcol");
+    var sc = el("div", "shotcol"), base = window.TELAS_BASE || "";
+    var stage = el("div", "pstage" + (t.kind === "w" ? " w" : ""));
     var pw = el("div", "pwrap" + (t.kind === "w" ? " w" : ""));
-    var img = new Image(); img.src = t.img; img.alt = t.alt; img.width = t.kind === "w" ? 800 : 780; img.height = t.kind === "w" ? 500 : 1688; img.draggable = false; pw.appendChild(img);
-    var pins = [], items = [];
+    var img = new Image(); img.src = base + t.img; img.alt = t.alt; img.width = t.kind === "w" ? 800 : 780; img.height = t.kind === "w" ? 500 : 1688; img.draggable = false; pw.appendChild(img);
+    var over = el("div", "pover"); stage.appendChild(pw); stage.appendChild(over);
+    var pins = [], dots = [], items = [];
     var note = el("p", "pinnote"); note.setAttribute("aria-live", "polite"); note.textContent = "Toque num número da captura para ver o que ele mostra.";
     function pick(k, scroll) {
-      pins.forEach(function (p, j) { p.classList.toggle("on", j === k); });
+      pins.forEach(function (p, j) { p.classList.toggle("on", j === k); if (dots[j]) dots[j].classList.toggle("on", j === k); });
       items.forEach(function (b, j) { b.classList.toggle("on", j === k); });
       note.textContent = "";
       var b = el("b", null, (k + 1) + ". "); note.appendChild(b); note.appendChild(document.createTextNode(t.can[k][0]));
       if (scroll && items[k] && items[k].scrollIntoView) { var r = items[k].getBoundingClientRect(); if (r.top < 0 || r.bottom > innerHeight) items[k].scrollIntoView({ block: "center", behavior: "smooth" }); }
     }
-    t.can.forEach(function (c, k) {
-      var p = el("button", "gpin", String(k + 1)); p.type = "button"; p.style.left = c[1] + "%"; p.style.top = c[2] + "%";
-      p.setAttribute("aria-label", "Ponto " + (k + 1) + ": " + c[0]); p.addEventListener("click", function () { pick(k, false); }); pw.appendChild(p); pins.push(p);
-    });
+    /* Marcadores fora da captura: o número fica na margem (esquerda ou direita), um ponto marca o alvo
+       e uma linha tracejada liga os dois. Nada cobre o conteúdo; pinos próximos se afastam. */
+    function layoutPins() {
+      over.textContent = ""; pins = []; dots = [];
+      var W = over.clientWidth, H = over.clientHeight; if (!W || !H) return;
+      var gx = parseFloat(getComputedStyle(over).getPropertyValue("--gx")) || 17, MIN = 27;
+      var order = t.can.map(function (c, k) { return k; }).sort(function (a, b) { return t.can[a][2] - t.can[b][2]; });
+      var used = { L: [], R: [] }, place = {};
+      function free(side, y) { return used[side].every(function (u) { return Math.abs(u - y) >= MIN; }); }
+      order.forEach(function (k) {
+        var x = t.can[k][1], y = t.can[k][2] / 100 * H, pref = x < 50 ? "L" : "R", alt = pref === "L" ? "R" : "L", side = pref, py = y;
+        if (!free(pref, y)) { if (free(alt, y)) side = alt; else { var last = Math.max.apply(null, used[pref]); py = Math.min(last + MIN, H - 12); } }
+        used[side].push(py); place[k] = { side: side, y: y, py: py, x: x / 100 * W };
+      });
+      t.can.forEach(function (c, k) {
+        var pl = place[k];
+        var ln = el("span", "ln h"); ln.style.top = pl.y + "px";
+        if (pl.side === "L") { ln.style.left = "0"; ln.style.width = pl.x + "px"; } else { ln.style.right = "0"; ln.style.width = (W - pl.x) + "px"; }
+        over.appendChild(ln);
+        if (Math.abs(pl.py - pl.y) > 1) { var vl = el("span", "ln v"); vl.style.top = Math.min(pl.y, pl.py) + "px"; vl.style.height = Math.abs(pl.py - pl.y) + "px"; vl.style[pl.side === "L" ? "left" : "right"] = "0"; over.appendChild(vl); }
+        var d = el("span", "dot"); d.style.left = pl.x + "px"; d.style.top = pl.y + "px"; over.appendChild(d); dots.push(d);
+        var p = el("button", "gpin", String(k + 1)); p.type = "button"; p.style.top = pl.py + "px";
+        if (pl.side === "L") p.style.left = (-gx) + "px"; else p.style.left = (W + gx) + "px";
+        p.setAttribute("aria-label", "Ponto " + (k + 1) + ": " + c[0]); p.addEventListener("click", function () { pick(k, false); }); over.appendChild(p); pins.push(p);
+      });
+    }
+    if (img.complete) setTimeout(layoutPins, 0); img.addEventListener("load", layoutPins);
+    var rz; window.addEventListener("resize", function () { clearTimeout(rz); rz = setTimeout(layoutPins, 120); });
     var tg = el("button", "tgl", "Números na tela"); tg.type = "button"; tg.setAttribute("aria-pressed", "true");
-    tg.addEventListener("click", function () { var off = pw.classList.toggle("nopins"); tg.setAttribute("aria-pressed", String(!off)); });
-    sc.appendChild(pw); sc.appendChild(tg); sc.appendChild(note); cols.appendChild(sc);
+    tg.addEventListener("click", function () { var off = stage.classList.toggle("nopins"); tg.setAttribute("aria-pressed", String(!off)); });
+    sc.appendChild(stage); sc.appendChild(tg); sc.appendChild(note); cols.appendChild(sc);
 
     var info = el("div", "info");
     var s1 = el("section"); s1.appendChild(el("h3", null, "O que dá para fazer"));

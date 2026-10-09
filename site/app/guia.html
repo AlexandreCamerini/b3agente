@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Guia das telas — Boris+</title>
+<meta name="description" content="Treinamento tela a tela do Boris+: o que dá para fazer em cada tela, uma missão prática e um teste rápido.">
+<meta name="author" content="semente.dev">
+<meta name="theme-color" content="#10121a">
+<link rel="icon" type="image/png" href="../img/favicon.png">
+<link rel="stylesheet" href="../css/site.css">
+<link rel="stylesheet" href="../css/inapp.css">
+<link rel="stylesheet" href="../css/guia.css">
+</head>
+<body class="inapp">
+<a class="skip" href="#conteudo">Ir para o conteúdo</a>
+<header class="appbar">
+  <a class="back" href="/" aria-label="Voltar ao app"><span aria-hidden="true">‹</span> Voltar ao app</a>
+  <a class="ttl" href="index.html">Treinamento</a>
+  <span class="by">por semente.dev</span>
+</header>
+<main id="conteudo">
+  <section class="wrap" style="padding-top:20px">
+    <div class="subnav" role="group" aria-label="Treinamento"><a href="guia.html" aria-current="page">Guia das telas</a><a href="conceitos.html">Conceitos de mercado</a></div>
+    <h1 style="margin-top:22px;font-size:clamp(34px,6vw,56px)">Guia das telas</h1>
+    <p class="lede" style="margin-top:12px;max-width:700px">Um treinamento para cada tela do Boris+: o que dá para fazer ali, uma missão prática para repetir no app e um teste rápido. Todas as capturas usam dinheiro virtual.</p>
+    <noscript><p class="callout" style="margin-top:16px">Este guia usa JavaScript. Sem ele, veja as telas na página <a href="../tour.html">O app</a>.</p></noscript>
+  </section>
+
+  <section class="wrap guia" id="guia" aria-label="Guia das telas">
+    <div class="gprog" aria-live="polite">
+      <div class="gprog-row"><strong id="gTxt">0 de 20 telas</strong><button type="button" class="link" id="gReset">Reiniciar</button></div>
+      <div class="bar" role="progressbar" aria-label="Progresso do guia" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="gBar"><span id="gFill"></span></div>
+    </div>
+    <nav class="mapa" id="mapa" aria-label="Mapa das telas"></nav>
+    <div id="viewer" class="viewer" tabindex="-1"></div>
+  </section>
+
+  <p class="wrap note" style="margin:8px auto 64px">Capturas de 09/10/2026 de um ambiente de desenvolvimento. Valores de opções vêm de um provedor de demonstração e são ilustrativos. Conteúdo educacional: nada aqui é recomendação de investimento.</p>
+</main>
+<footer class="appfoot">
+  <p>Conteúdo educacional: nada aqui é recomendação de investimento. Autoria: <a href="https://semente.dev" rel="author">semente.dev</a> · <a href="../index.html">Site institucional</a></p>
+</footer>
+<script>window.TELAS_BASE = "../";</script>
+<script src="../js/telas-data.js"></script>
+<script src="../js/guia.js" defer></script></body>
+</html>

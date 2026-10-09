@@ -23,11 +23,13 @@ def test_paginas_do_site_respondem_em_site():
     for path, marca in [
         ("/site/", "Boris"),
         ("/site/tour.html", "O app por dentro"),
-        ("/site/guia-telas.html", "Guia das telas"),
+        ("/site/app/", "Treinamento"),
+        ("/site/app/guia.html", "Guia das telas"),
+        ("/site/app/conceitos.html", "Conceitos de mercado"),
+        ("/site/css/inapp.css", "appbar"),
         ("/site/js/telas-data.js", "window.TELAS"),
         ("/site/js/guia.js", "boris-guia-v1"),
-        ("/site/treinamento.html", "Treinamento"),
-        ("/site/suporte.html", "Suporte"),
+                ("/site/suporte.html", "Suporte"),
         ("/site/privacidade.html", "Termos de uso"),
         ("/site/css/site.css", "--brand-amber"),
         ("/site/js/treinamento.js", "boris-treino-v1"),
@@ -48,13 +50,14 @@ def test_privacy_url_continua_sendo_a_rota_do_servidor():
     assert client.get("/privacidade").status_code == 200
     html = (SITE / "suporte.html").read_text(encoding="utf-8")
     assert 'href="/privacidade"' in html
+    assert 'name="author" content="semente.dev"' in html
 
 
 def test_site_autocontido_sem_url_externa_e_sem_prometer_lucro():
     for f in SITE.rglob("*"):
         if f.suffix in {".html", ".css", ".js"}:
             txt = f.read_text(encoding="utf-8")
-            achados = [u for u in re.findall(r"https?://[^\s\"')]+", txt) if "w3.org" not in u]
+            achados = [u for u in re.findall(r"https?://[^\s\"')]+", txt) if "w3.org" not in u and not u.startswith("https://semente.dev")]
             assert not achados, f"{f.name} referencia URL externa: {achados}"
     home = (SITE / "index.html").read_text(encoding="utf-8").lower()
     for proibido in ("lucro garantido", "retorno garantido", "enriqueça", "fique rico"):

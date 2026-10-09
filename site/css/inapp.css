@@ -1,0 +1,25 @@
+/* Tema "no app" — treinamento aberto de dentro do Boris+. Sem navegação institucional;
+   acento do Modo Estudo (azul-esverdeado) no lugar do âmbar da marca. */
+body.inapp{--brand-amber:#68a89b;--brand-amber-soft:#8fc7ba;--acc-ink:#0b1f1b;background:#10121a}
+.inapp a{color:var(--brand-amber-soft)}
+.inapp .btn{background:var(--brand-amber);border-color:var(--brand-amber);color:var(--acc-ink)}
+.inapp .btn:hover{background:var(--brand-amber-soft);color:var(--acc-ink)}
+.inapp .btn.ghost{background:transparent;color:var(--ink);border-color:var(--line)}
+.inapp .eyebrow{background:var(--brand-amber);color:var(--acc-ink)}
+.inapp .subnav a[aria-current="page"],.inapp .tabs2 button[aria-pressed="true"]{background:var(--brand-amber);color:var(--acc-ink)}
+.inapp .toc .done .dot{color:var(--acc-ink)}
+.appbar{position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:12px;padding:10px 16px;background:rgba(16,18,26,.94);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+.appbar .back{display:inline-flex;align-items:center;gap:4px;min-height:44px;padding:0 10px 0 4px;font-weight:800;font-size:15px;text-decoration:none;color:var(--brand-amber-soft)}
+.appbar .back span{font-size:26px;line-height:1;margin-top:-3px}
+.appbar .ttl{font-family:var(--font-display);font-weight:600;font-size:20px;color:var(--ink);text-decoration:none;margin:0 auto 0 4px}
+.appbar .by{font-size:12px;color:var(--muted);white-space:nowrap}
+.appfoot{border-top:1px solid var(--line);background:var(--bg-3);padding:22px 20px 40px}
+.appfoot p{max-width:820px;margin:0 auto;font-size:13px;color:var(--muted)}
+.hubcards{list-style:none;margin:26px 0 0;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px}
+.hub{display:flex;flex-direction:column;gap:8px;min-height:180px;background:var(--panel);border:1px solid var(--line);border-radius:22px;padding:24px;text-decoration:none;color:var(--ink)}
+.hub:hover{border-color:var(--brand-amber)}
+.hub .hn{font-family:var(--font-display);font-weight:600;font-size:26px}
+.hub .hd{color:var(--soft);font-size:16px}
+.hub .hg{margin-top:auto;color:var(--brand-amber-soft);font-weight:800}
+.inapp .gpin,.inapp .gpin.on{--pin:#f2a93b}
+@media (max-width:420px){.appbar .by{display:none}}

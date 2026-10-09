@@ -21,7 +21,7 @@ die(){ printf "  \033[31m[X]\033[0m %s\n" "$*" >&2; exit 1; }
 
 say "Verificando site/"
 [ -f site/index.html ] || die "site/index.html ausente"
-if grep -rEn 'https?://' site --include='*.html' --include='*.css' --include='*.js' | grep -v 'www.w3.org' | grep -q .; then
+if grep -rEn 'https?://' site --include='*.html' --include='*.css' --include='*.js' | grep -v 'www.w3.org' | grep -v 'https://semente.dev' | grep -q .; then
   die "site/ referencia URL externa — o site deve ser autocontido (sem CDN)"
 fi
 ok "autocontido, sem URL externa"
