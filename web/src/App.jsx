@@ -2968,6 +2968,26 @@ async function abrirAdminMobile(ctx) {
   }
 }
 
+// Quick 261009-ukl: abre o Guia de treinamento (site/app/, publicado em /site/app/ pelo
+// MESMO servidor do Boris — scripts/publicar-site.sh -> server/site_dist). Mesma regra do
+// abrirAdminMobile: o bundle nativo é local (sem server.url), então vai pelo browser in-app
+// com a origem do servidor; na web, aba nova aberta ainda no gesto síncrono do clique
+// (sem await antes do window.open, senão o navegador bloqueia como popup).
+async function abrirGuiaTreinamento(ctx) {
+  const origem = isNative ? (getApiBase() !== "(mesma origem)" ? getApiBase() : PROD_BASE) : window.location.origin;
+  const url = origem.replace(/\/$/, "") + "/site/app/";
+  try {
+    if (isNative) {
+      const mod = await import("@capacitor/browser");
+      await mod.Browser.open({ url });
+    } else {
+      window.open(url, "_blank", "noopener");
+    }
+  } catch (e) {
+    ctx.flash("Não foi possível abrir o guia de treinamento: " + ((e && e.message) || e));
+  }
+}
+
 // Fase 38 (38-04, KB-01): linha de verbete — MESMO componente local no
 // acordeão de famílias e na lista plana de resultados (38-UI-SPEC.md §2).
 // `meta` é o rótulo da família (mostrado na lista plana, onde não há seção
@@ -3191,6 +3211,12 @@ function PerfilHub({ ctx, onOpen }) {
           verbetes (38-01), e um número fixo aqui seria afirmação não medida. */}
       <ProfileTile wide onClick={() => onOpen("glossario")} title="Glossário" sub={ctx.cp.glossarioSub(ctx.kbCatalogo && ctx.kbCatalogo.verbetes ? ctx.kbCatalogo.verbetes.length : 0)} icon={
         <svg width="19" height="19" viewBox="0 0 24 24" aria-hidden><path d="M5 4.5c0-.8.7-1.5 1.5-1.5H12v18H6.5A1.5 1.5 0 0 1 5 19.5v-15Z" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" /><path d="M19 4.5c0-.8-.7-1.5-1.5-1.5H12v18h5.5a1.5 1.5 0 0 0 1.5-1.5v-15Z" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" /></svg>
+      } />
+      {/* Quick 261009-ukl: Guia de treinamento (site/app/) — tela a tela, com missões e testes.
+          Abre fora do app (aba nova na web, browser in-app no nativo): é conteúdo estático
+          servido pelo servidor, não uma tela do bundle. */}
+      <ProfileTile wide onClick={() => abrirGuiaTreinamento(ctx)} title="Guia de treinamento" sub="Tela a tela, com missões e testes — abre em janela própria" icon={
+        <svg width="19" height="19" viewBox="0 0 24 24" aria-hidden><path d="M3 9.5 12 5l9 4.5-9 4.5-9-4.5Z" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" /><path d="M7 12v4c0 1.1 2.2 2 5 2s5-.9 5-2v-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" /></svg>
       } />
 
       <div style={{ fontSize: "12px", color: T.textFaint, marginTop: "8px", lineHeight: 1.5 }}>
