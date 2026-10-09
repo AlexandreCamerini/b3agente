@@ -372,6 +372,11 @@ export const COPY = {
     opcoesHojeAjuda: "Preço de mercado agora — pode mudar a qualquer momento, diferente do resultado no vencimento acima.",
     opcoesPerdaIlimitadaCurta: "sem piso",
     opcoesHojePrefixoEixo: "hoje",
+    // Onda H2 (2026-10-08): legenda do PayoffChart
+    opcoesLegStrike: "Strike (preço de exercício)",
+    opcoesLegHoje: "Preço do ativo hoje",
+    opcoesSerieTotal: "Resultado da estrutura no vencimento",
+    opcoesSerieLeitura: "acima de R$ 0 ganha; abaixo, perde",
     opcoesComoLerTitulo: "Como ler esta estrutura",
     // EXPL-01/02/03 — 11 templates de frase (segmento-posição × inclinação),
     // consumidos por `ExplicacaoPayoff.jsx`. Redação idêntica nos dois modos
@@ -1727,6 +1732,11 @@ export const COPY = {
     opcoesHojeAjuda: "Preço de mercado agora — pode mudar a qualquer momento, diferente do resultado no vencimento acima.",
     opcoesPerdaIlimitadaCurta: "sem piso",
     opcoesHojePrefixoEixo: "hoje",
+    // Onda H2 (2026-10-08): legenda do PayoffChart
+    opcoesLegStrike: "Strike",
+    opcoesLegHoje: "Spot (hoje)",
+    opcoesSerieTotal: "Resultado no vencimento",
+    opcoesSerieLeitura: "acima de R$ 0 ganha; abaixo, perde",
     opcoesComoLerTitulo: "Como ler esta estrutura",
     opcoesExplicSpotPositiva: "Hoje, com o ativo em R$ {spot}, você está numa faixa de alta: se o preço subir, seu resultado melhora; se cair, piora.",
     opcoesExplicSpotNegativa: "Hoje, com o ativo em R$ {spot}, você está numa faixa de baixa: se o preço cair, seu resultado melhora; se subir, piora.",

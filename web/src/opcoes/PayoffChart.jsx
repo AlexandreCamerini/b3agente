@@ -23,35 +23,22 @@
  * Zero import de `App.jsx` (seria ciclo): o bloco de tokens é local, padrão
  * de `SetupChart.jsx`/`pet/BorisChat.jsx`.
  */
-import { useId, useMemo } from "react";
+import { useId, useMemo, useRef } from "react";
 import { extentOf } from "../chartutil.js";
 import { Kicker, ErroDoMcp } from "./uiOpcoes.jsx";
+import { montarGeometria, afastarPontos, MARC_R } from "./payoffEixos.js";
+import { useLarguraMedida, EixoY, EixoX, MarcadoresVerticais, LegendaMarcadores } from "./PayoffPrimitivas.jsx";
 
 // Mesmos NOMES de variável CSS que `App.jsx` injeta em `:root`.
 const VARKEY = (k) => "--" + k.replace(/[A-Z]/g, (c) => "-" + c.toLowerCase());
 const TOKENS = ["bgBase", "bgPanel", "borderSubtle", "borderFaint", "textPrimary",
-  "textSecondary", "textMuted", "textFaint", "accent", "accentTint10", "negative", "scrim"];
+  "textSecondary", "textMuted", "textFaint", "accent", "accentTint10", "negative", "scrim",
+  "onAccent", "positive"];
 const T = Object.fromEntries(TOKENS.map((k) => [k, `var(${VARKEY(k)})`]));
 
-// H/PAD_T/PAD_B cresceram no plano 31-03 (D-07, legibilidade em 375px): o
-// viewBox é a única "unidade" que este SVG tem — tipografia maior sem mais
-// respiro vertical corta rótulo no eixo. W fica em 320 de propósito: é a
-// razão de aspecto que casa com a largura útil de um cartão em 375px, e
-// mudá-la mudaria o enquadramento da curva, não a legibilidade.
-const W = 320, H = 192;
-// PAD_E cresceu de 10 para 48 no plano 37-04 (CHART-01): orçamento pro pior
-// caso de rótulo do eixo Y de 2 casas ("-99,99", 6 chars) a FONTE_MIN=11,5px
-// — ver `37-UI-SPEC.md` §1.1 pela conta completa. Desloca a borda esquerda
-// da curva ~38px pra dentro, mesma categoria de troca que H/PAD_T/PAD_B já
-// fizeram uma vez (Fase 31 D-07, legibilidade sobre área bruta de plot).
-const PAD_E = 48, PAD_D = 10, PAD_T = 18, PAD_B = 32;
-
-// Piso de legibilidade (D-07): com viewBox de 320 de largura e um container
-// de ~315px num aparelho de 375px, a escala é ~0,98 — o tamanho em
-// user-space é praticamente o tamanho em CSS px, então fontSize="9.5" era
-// 9,5px reais na tela, abaixo do piso de legibilidade.
-const FONTE_MIN = 11.5;
-const FONTE_SETA = 14;
+// Onda H2 (2026-10-08, quick 261008-w9i): viewBox = largura medida; eixos, marcadores
+// numerados e legenda da linguagem comum (payoffEixos.js + PayoffPrimitivas.jsx).
+// Decisões H2-D1..D9 no PLAN do quick.
 
 const ehNum = (v) => typeof v === "number" && isFinite(v);
 const fmt = (v, casas = 2) => (ehNum(v) ? v.toFixed(casas).replace(".", ",") : "—");
@@ -98,6 +85,8 @@ export default function PayoffChart({ estrutura, emReais, cp, palette, dominio, 
   // `url(#…)`. Vários gráficos convivem na mesma tela (um por vencimento), e
   // dois `clipPath` com o mesmo id pintariam a curva errada.
   const uid = useId().replace(/[^a-zA-Z0-9_-]/g, "");
+  const refPlot = useRef(null);
+  const largura = useLarguraMedida(refPlot, 340);
 
   const nome = typeof e.name === "string" && e.name ? e.name : "—";
   // Vencimento não existe no envelope de `evaluate_option_structure`; a perna
@@ -182,16 +171,8 @@ export default function PayoffChart({ estrutura, emReais, cp, palette, dominio, 
         ...cenarios.filter((s) => ehNum(s.result)).map((s) => s.result), 0]]);
     }
 
-    const sx = (u) => PAD_E + ((u - x0) / (x1 - x0 || 1)) * (W - PAD_E - PAD_D);
-    const sy = (r) => PAD_T + (1 - (r - ymin) / (ymax - ymin || 1)) * (H - PAD_T - PAD_B);
-
-    const d = curva
-      .map((p, i) => (i ? "L" : "M") + sx(p.underlying).toFixed(1) + " " + sy(p.result).toFixed(1))
-      .join(" ");
-
     return {
-      d, sx, sy, x0, x1, ymin, ymax,
-      yZero: sy(0),
+      x0, x1, ymin, ymax,
       curva,
       cenarios: cenarios.filter((s) => s.underlying >= x0 && s.underlying <= x1),
       marcas: breakevens.filter((b) => b >= x0 && b <= x1),
@@ -297,9 +278,10 @@ export default function PayoffChart({ estrutura, emReais, cp, palette, dominio, 
     );
   }
 
-  const { d, sx, sy, x0, x1, ymin, ymax, yZero, curva, cenarios, marcas } = desenho;
-  // CHART-02: só os strikes que caem dentro da janela visível ganham marca
-  // no eixo — mesma disciplina de `marcas` (breakevens) acima.
+  const { x0, x1, ymin, ymax, curva, cenarios, marcas } = desenho;
+  const semTeto = ganhoIlimitado || dominio?.ganhoIlimitado === true;
+  const semPiso = perdaIlimitada || dominio?.perdaIlimitada === true;
+  // CHART-02: só os strikes dentro da janela visível ganham marcador.
   const strikesVisiveis = strikesUnicos.filter((v) => v >= x0 && v <= x1);
   const descricao = "Curva de resultado no vencimento de " + nome
     + (vencimento ? ", vencimento " + vencimento : "")
@@ -317,189 +299,110 @@ export default function PayoffChart({ estrutura, emReais, cp, palette, dominio, 
     // tela — mesma disciplina do breakeven acima.
     + (strikesUnicos.length
       ? " Strikes desta estrutura: " + strikesUnicos.map((v) => fmt(v)).join(", ") + "."
-      : "");
+      : "")
+    + (dominio && ehNum(dominio.spot) ? " Preço do ativo hoje: " + fmt(dominio.spot) + "." : "");
+
+  // Marcadores verticais numerados (ordem de entrada: breakevens, strikes, spot;
+  // a numeração final é por preço, feita em montarGeometria).
+  const marcadoresIn = [
+    ...marcas.map((v) => ({ preco: v, rotulo: c.opcoesBreakevenRotulo || "Breakeven", comPreco: true, traco: "2 4" })),
+    ...strikesVisiveis.map((v) => ({ preco: v, rotulo: c.opcoesLegStrike || "Strike", comPreco: true, traco: "1 3" })),
+  ];
+  if (dominio && ehNum(dominio.spot) && dominio.spot >= x0 && dominio.spot <= x1) {
+    marcadoresIn.push({ preco: dominio.spot, rotulo: c.opcoesLegHoje || "Preço do ativo hoje", comPreco: true, traco: "none" });
+  }
+  const geo = montarGeometria({ largura, x0, x1, yMin: ymin, yMax: ymax, marcadores: marcadoresIn, semTeto, semPiso });
+
+  const d = curva
+    .map((p, i) => (i ? "L" : "M") + geo.sx(p.underlying).toFixed(1) + " " + geo.sy(p.result).toFixed(1))
+    .join(" ");
+  const yCorte = Math.max(0, Math.min(geo.H, geo.yZero));
+
+  // Cenários do serviço: círculos numerados SOBRE a curva (a partir de k+1). Sem
+  // `result` numérico não há ponto (null != 0): o cenário só aparece na legenda.
+  const cenNum = cenarios.map((s, i) => ({ s, n: geo.marcadores.length + i + 1 }));
+  const noCurva = cenNum.filter(({ s }) => ehNum(s.result));
+  const afast = afastarPontos(noCurva.map(({ s }) => ({ x: geo.sx(s.underlying), y: geo.sy(s.result) })), 20);
+
+  const fonteLeg = { fontSize: "12px", color: T.textSecondary, lineHeight: 1.45 };
 
   return caixa(
     <>
-      <svg
-        role="img"
-        aria-label={descricao}
-        viewBox={`0 0 ${W} ${H}`}
-        preserveAspectRatio="xMidYMid meet"
-        style={{ width: "100%", height: "auto", display: "block", maxWidth: "100%" }}
-      >
-        <title>{descricao}</title>
-        <defs>
-          {/* Duas metades da mesma curva: o traço acima do zero é lucro, o de
-              baixo é prejuízo. Recorte por retângulo em vez de partir a
-              poligonal nos cruzamentos — mesmo resultado, sem uma segunda
-              implementação do cálculo de breakeven. */}
-          <clipPath id={"lucro-" + uid}>
-            <rect x="0" y="0" width={W} height={Math.max(0, Math.min(H, yZero))} />
-          </clipPath>
-          <clipPath id={"perda-" + uid}>
-            <rect x="0" y={Math.max(0, Math.min(H, yZero))} width={W} height={Math.max(0, H - yZero)} />
-          </clipPath>
-        </defs>
+      <div ref={refPlot} style={{ minWidth: 0 }}>
+        <svg
+          role="img"
+          aria-label={descricao}
+          viewBox={`0 0 ${geo.W} ${geo.H}`}
+          preserveAspectRatio="xMidYMid meet"
+          style={{ width: "100%", height: "auto", display: "block", maxWidth: "100%" }}
+        >
+          <title>{descricao}</title>
+          <defs>
+            {/* Duas metades da mesma curva: acima do zero é lucro, abaixo é
+                prejuízo. Recorte por retângulo, sem segunda implementação do
+                cálculo de breakeven. */}
+            <clipPath id={"lucro-" + uid}>
+              <rect x="0" y="0" width={geo.W} height={yCorte} />
+            </clipPath>
+            <clipPath id={"perda-" + uid}>
+              <rect x="0" y={yCorte} width={geo.W} height={Math.max(0, geo.H - yCorte)} />
+            </clipPath>
+          </defs>
 
-        {/* 1. linha do zero */}
-        <line x1={PAD_E} y1={yZero} x2={W - PAD_D} y2={yZero}
-          stroke={T.borderSubtle} strokeWidth="1" strokeDasharray="3 3" />
+          <EixoY geo={geo} semTeto={semTeto} semPiso={semPiso} />
+          <MarcadoresVerticais geo={geo} />
 
-        {/* 1b. eixo Y (CHART-01): até 3 marcas (topo/zero/base), coluna
-            esquerda em x=44, tick de 4px até PAD_E=48. A linha acima é o
-            TRAÇO do zero na área do gráfico; isto é o EIXO (tick+número) —
-            propósitos diferentes, nunca fundidos num só desenho. */}
-        {(() => {
-          const yTopo = sy(dominio?.yMax ?? ymax);
-          const suprimirTopo = dominio?.ganhoIlimitado === true || Math.abs(yTopo - yZero) < 3;
-          const yBase = sy(dominio?.yMin ?? ymin);
-          const suprimirBase = dominio?.perdaIlimitada === true || Math.abs(yBase - yZero) < 3;
-          const marcasEixo = [
-            !suprimirTopo ? { y: yTopo, label: fmt(dominio?.yMax ?? ymax) } : null,
-            { y: yZero, label: c.opcoesEixoZeroRotulo || "R$ 0" },
-            !suprimirBase ? { y: yBase, label: fmt(dominio?.yMin ?? ymin) } : null,
-          ].filter(Boolean);
-          return marcasEixo.map((mrc, i) => (
-            <g key={"eixo-y-" + i}>
-              <line x1={44} y1={mrc.y} x2={PAD_E} y2={mrc.y} stroke={T.textMuted} strokeWidth="1" />
-              <text x={44} y={mrc.y} textAnchor="end" dominantBaseline="central"
-                fontSize={FONTE_MIN} fill={T.textMuted}>{mrc.label}</text>
-            </g>
-          ));
-        })()}
+          {/* A curva, nas duas cores de P&L. Só traço: NENHUM preenchimento em
+              lugar nenhum, para que um lado ilimitado não pareça fechado. */}
+          <path d={d} fill="none" strokeWidth="3" style={{ stroke: corLucro }} clipPath={`url(#lucro-${uid})`} />
+          <path d={d} fill="none" strokeWidth="3" style={{ stroke: corPerda }} clipPath={`url(#perda-${uid})`} />
 
-        {/* 2. a curva, nas duas cores de P&L. Só traço: NENHUM `fill` em
-            lugar nenhum — é o que garante que um lado ilimitado não apareça
-            fechado por um retângulo. */}
-        <path d={d} fill="none" stroke={corLucro} strokeWidth="2" clipPath={`url(#lucro-${uid})`} />
-        <path d={d} fill="none" stroke={corPerda} strokeWidth="2" clipPath={`url(#perda-${uid})`} />
+          <EixoX geo={geo} formatar={fmt} />
 
-        {/* 3. breakevens + strikes (CHART-02): a mesma marca medida no eixo
-            X, em preço, mescladas num único array ordenado por X antes de
-            decidir o que cabe (regra (d) do plano 31-03, estendida pelo
-            37-04) — a LINHA do preço é SEMPRE desenhada — é dado, não
-            decoração — e só o TEXTO se suprime quando dois rótulos ficam
-            próximos demais para não se sobrepor. Em empate de slot,
-            breakeven vem primeiro no array de entrada (ordenação estável) e
-            GANHA a exibição do texto. A descrição completa de todos os
-            breakevens/strikes continua no aria-label/<title> do SVG acima,
-            então nada de dado desaparece — só o texto ilegível/duplicado
-            some da tela. */}
-        {(() => {
-          const itens = [
-            ...marcas.map((v) => ({ valor: v, tipoMarca: "breakeven" })),
-            ...strikesVisiveis.map((v) => ({ valor: v, tipoMarca: "strike" })),
-          ].sort((a, b) => sx(a.valor) - sx(b.valor));
-          let ultimoX = -Infinity;
-          return itens.map((item, i) => {
-            const x = sx(item.valor);
-            const mostrarTexto = x - ultimoX >= 44;
-            if (mostrarTexto) ultimoX = x;
-            const ancora = x < PAD_E + 18 ? "start" : x > W - 28 ? "end" : "middle";
-            const ehBreakeven = item.tipoMarca === "breakeven";
+          {noCurva.map(({ s, n }, i) => {
+            const p = afast[i];
+            const cy = p.y + p.dy;
             return (
-              <g key={"marca-" + i}>
-                <line x1={x} y1={PAD_T} x2={x} y2={H - PAD_B}
-                  stroke={ehBreakeven ? T.textMuted : T.borderFaint} strokeWidth="1"
-                  strokeDasharray={ehBreakeven ? "2 4" : "1 3"} />
-                {mostrarTexto ? (
-                  <text x={x} y={H - PAD_B + 12} textAnchor={ancora} fontSize={FONTE_MIN} fill={T.textMuted}>{fmt(item.valor)}</text>
+              <g key={"ce-" + i} aria-hidden="true">
+                {p.dy !== 0 ? (
+                  <line x1={p.x} x2={p.x} y1={p.y} y2={cy} style={{ stroke: T.textSecondary }} strokeWidth="1" />
                 ) : null}
+                <circle cx={p.x} cy={cy} r={MARC_R} style={{ fill: T.accent }} />
+                <text x={p.x} y={cy} textAnchor="middle" dominantBaseline="central"
+                  style={{ fontSize: "12px", fontWeight: 700, fill: T.onAccent }}>{n}</text>
               </g>
             );
-          });
-        })()}
+          })}
+        </svg>
+      </div>
 
-        {/* 4. cenários do serviço (±1σ e os nomeados alvo/stop) + spot
-            (CHART-02, "hoje"). Mesma regra de supressão: o CÍRCULO (marca) é
-            sempre desenhado, só o texto some quando um rótulo já desenhado
-            fica a menos de 52 em x E menos de 14 em y — perto o bastante pra
-            colidir. O spot entra PRIMEIRO na lista de colisão — CHART-02
-            exige spot sempre marcado, então ele nunca perde o texto; um
-            cenário que colida com ele é quem cede. */}
-        {(() => {
-          const temSpot = dominio && ehNum(dominio.spot);
-          const xSpot = temSpot ? sx(dominio.spot) : null;
-          const ySpot = temSpot ? (() => {
-            for (let i = 0; i < curva.length - 1; i++) {
-              const a = curva[i], b = curva[i + 1];
-              if (dominio.spot >= a.underlying && dominio.spot <= b.underlying) return sy(entre(a, b, dominio.spot));
-            }
-            // Spot fora dos nós conhecidos de `curva`: acontece quando só UM
-            // lado é ilimitado (a cauda plana só é sintetizada com os DOIS
-            // lados limitados, ver comentário acima no useMemo) e o domínio
-            // do backend abre espaço extra pra seta. `entre()` não recorta —
-            // extrapola pela reta do segmento mais próximo, que É a mesma
-            // inclinação declarada além do último nó (estrutura linear por
-            // partes): continuação matemática do payoff, não invenção.
-            return dominio.spot < curva[0].underlying
-              ? sy(entre(curva[0], curva[1], dominio.spot))
-              : sy(entre(curva[curva.length - 2], curva[curva.length - 1], dominio.spot));
-          })() : null;
-          const desenhados = temSpot ? [{ x: xSpot, y: ySpot }] : [];
-          const marcasCenario = cenarios.map((s, i) => {
-            const x = sx(s.underlying);
-            const y = ehNum(s.result) ? sy(s.result) : yZero;
-            const colide = desenhados.some((p) => Math.abs(x - p.x) < 52 && Math.abs(y - p.y) < 14);
-            const mostrarTexto = !colide;
-            if (mostrarTexto) desenhados.push({ x, y });
-            const ancora = x > W - 52 ? "end" : "start";
-            return (
-              <g key={"ce-" + i}>
-                <circle cx={x} cy={y} r="3" fill={T.textPrimary} />
-                {mostrarTexto ? (
-                  <text x={ancora === "end" ? x - 5 : x + 5} y={y - 5} textAnchor={ancora}
-                    fontSize={FONTE_MIN} fill={T.textSecondary}>
-                    {typeof s.name === "string" ? s.name : "—"}
-                  </text>
-                ) : null}
-              </g>
-            );
-          });
-          const anchoraSpot = xSpot > W - 52 ? "end" : "start";
-          return (
-            <>
-              {marcasCenario}
-              {temSpot ? (
-                <g key="spot">
-                  <line x1={xSpot} y1={PAD_T} x2={xSpot} y2={H - PAD_B} stroke={T.textPrimary} strokeWidth="1" />
-                  <circle cx={xSpot} cy={ySpot} r="3" fill={T.textPrimary} />
-                  <text x={anchoraSpot === "end" ? xSpot - 5 : xSpot + 5} y={ySpot - 5} textAnchor={anchoraSpot}
-                    fontSize={FONTE_MIN} fill={T.textPrimary}>
-                    {(c.opcoesHojePrefixoEixo || "hoje") + " " + fmt(dominio.spot)}
-                  </text>
-                </g>
-              ) : null}
-            </>
-          );
-        })()}
-
-        {/* 5. lado sem limite: seta na borda, sem fechar a curva, agora com
-            rótulo curto colado (CHART-03) — a leitura completa segue na
-            legenda abaixo (cabe e é lida por leitor de tela lá). */}
-        {ganhoIlimitado ? (
-          <>
-            <text aria-hidden x={W - PAD_D - 16} y={PAD_T + 8} textAnchor="end" fontSize={FONTE_MIN} fill={corLucro}>
-              {c.opcoesGanhoIlimitado || "sem teto"}
-            </text>
-            <text aria-hidden x={W - PAD_D} y={PAD_T + 8} textAnchor="end" fontSize={FONTE_SETA} fill={corLucro}>↑</text>
-          </>
+      <div style={{ display: "flex", flexDirection: "column", gap: "6px", marginTop: "6px" }}>
+        <div style={{ ...fonteLeg, display: "flex", alignItems: "center", gap: "8px" }}>
+          <svg aria-hidden="true" width="16" height="10" style={{ flexShrink: 0 }}>
+            <line x1="0" x2="16" y1="5" y2="5" strokeWidth="3" style={{ stroke: T.textPrimary }} />
+          </svg>
+          <span>{(c.opcoesSerieTotal || "Resultado no vencimento") + " · " + (c.opcoesSerieLeitura || "acima de R$ 0 ganha; abaixo, perde")}</span>
+        </div>
+        <LegendaMarcadores
+          itens={[
+            ...geo.marcadores,
+            ...cenNum.map(({ s, n }) => ({ n, rotulo: typeof s.name === "string" ? s.name : "—", comPreco: true, preco: s.underlying })),
+          ]}
+          formatarPreco={fmt}
+        />
+        {semTeto ? (
+          <div style={fonteLeg}><span aria-hidden="true">↑</span> {c.opcoesGanhoIlimitado || "sem teto"}</div>
         ) : null}
-        {perdaIlimitada ? (
-          <>
-            <text aria-hidden x={W - PAD_D - 16} y={H - PAD_B - 2} textAnchor="end" fontSize={FONTE_MIN} fill={corPerda}>
-              {c.opcoesPerdaIlimitadaCurta || "sem piso"}
-            </text>
-            <text aria-hidden x={W - PAD_D} y={H - PAD_B - 2} textAnchor="end" fontSize={FONTE_SETA} fill={corPerda}>↓</text>
-          </>
+        {semPiso ? (
+          <div style={fonteLeg}><span aria-hidden="true">↓</span> {c.opcoesPerdaIlimitadaCurta || "sem piso"}</div>
         ) : null}
-      </svg>
+      </div>
 
       <div style={{ fontSize: "11px", color: T.textMuted, marginTop: "6px", lineHeight: 1.45 }}>
         {"Eixo horizontal: preço do ativo no vencimento (" + fmt(x0) + " a " + fmt(x1) + "). "}
         {"Eixo vertical: resultado " + (c.opcoesPorAcaoRotulo || "por ação") + "."}
         {" " + (c.opcoesEixoVerticalLoteAjuda || "Multiplique pelo lote para o valor total.")}
+        {" Linha " + (c.opcoesEixoZeroRotulo || "R$ 0") + ": empate."}
         {ganhoIlimitado ? " Ganho: " + (c.opcoesGanhoIlimitado || "sem teto") + "." : ""}
         {perdaIlimitada ? " Perda: " + (c.opcoesPerdaIlimitada || "sem piso declarado pelo serviço") + "." : ""}
       </div>

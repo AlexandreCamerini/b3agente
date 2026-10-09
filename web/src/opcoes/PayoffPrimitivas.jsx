@@ -7,6 +7,7 @@
  * Só desenha geometria vinda de payoffEixos.js; nenhum número financeiro nasce
  * aqui. Cor sempre via `style` (tema), sem transição (Reduce Motion), fonte
  * inteira em px reais (o SVG usa viewBox = largura medida).
+ * Onda H2 (2026-10-08, quick 261008-w9i): `traco` opcional por marcador; default 3 3.
  */
 import { useEffect, useState } from "react";
 import { T, TIPO, MONO } from "./fluxoEstilo.js";
@@ -76,7 +77,7 @@ export function MarcadoresVerticais({ geo }) {
         const cy = 4 + MARC_R + m.linha * MARC_LINHA_H;
         return (
           <g key={i}>
-            <line x1={m.x} x2={m.x} y1={cy + MARC_R} y2={base} style={{ stroke: T.textSecondary }} strokeWidth="1" strokeDasharray="3 3" />
+            <line x1={m.x} x2={m.x} y1={cy + MARC_R} y2={base} style={{ stroke: T.textSecondary }} strokeWidth="1" strokeDasharray={m.traco || "3 3"} />
             {m.cx !== m.x ? (
               <line x1={m.cx} x2={m.x} y1={cy + MARC_R} y2={cy + MARC_R + 4} style={{ stroke: T.textSecondary }} strokeWidth="1" />
             ) : null}
