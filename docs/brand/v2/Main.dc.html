@@ -1,0 +1,739 @@
+<!DOCTYPE html>
+<html><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Brand Book Boris+</title>
+<script src="./support.js"></script>
+<script src="./boris.js"></script>
+
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>/* hebrew */
+@font-face {
+  font-family: 'Fredoka';
+  font-style: normal;
+  font-weight: 500;
+  font-stretch: 100%;
+  font-display: swap;
+  src: url("fonts/8c57fef4-3306-4de8-81cd-c0443d6a5643.woff2") format('woff2');
+  unicode-range: U+0307-0308, U+0590-05FF, U+200C-2010, U+20AA, U+25CC, U+FB1D-FB4F;
+}
+/* latin-ext */
+@font-face {
+  font-family: 'Fredoka';
+  font-style: normal;
+  font-weight: 500;
+  font-stretch: 100%;
+  font-display: swap;
+  src: url("fonts/3054d029-ae6c-4926-af38-fcfa018d8279.woff2") format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+  font-family: 'Fredoka';
+  font-style: normal;
+  font-weight: 500;
+  font-stretch: 100%;
+  font-display: swap;
+  src: url("fonts/504a58e8-4057-467d-9cb9-4277ddfb4e58.woff2") format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* hebrew */
+@font-face {
+  font-family: 'Fredoka';
+  font-style: normal;
+  font-weight: 600;
+  font-stretch: 100%;
+  font-display: swap;
+  src: url("fonts/8c57fef4-3306-4de8-81cd-c0443d6a5643.woff2") format('woff2');
+  unicode-range: U+0307-0308, U+0590-05FF, U+200C-2010, U+20AA, U+25CC, U+FB1D-FB4F;
+}
+/* latin-ext */
+@font-face {
+  font-family: 'Fredoka';
+  font-style: normal;
+  font-weight: 600;
+  font-stretch: 100%;
+  font-display: swap;
+  src: url("fonts/3054d029-ae6c-4926-af38-fcfa018d8279.woff2") format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+  font-family: 'Fredoka';
+  font-style: normal;
+  font-weight: 600;
+  font-stretch: 100%;
+  font-display: swap;
+  src: url("fonts/504a58e8-4057-467d-9cb9-4277ddfb4e58.woff2") format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* hebrew */
+@font-face {
+  font-family: 'Fredoka';
+  font-style: normal;
+  font-weight: 700;
+  font-stretch: 100%;
+  font-display: swap;
+  src: url("fonts/8c57fef4-3306-4de8-81cd-c0443d6a5643.woff2") format('woff2');
+  unicode-range: U+0307-0308, U+0590-05FF, U+200C-2010, U+20AA, U+25CC, U+FB1D-FB4F;
+}
+/* latin-ext */
+@font-face {
+  font-family: 'Fredoka';
+  font-style: normal;
+  font-weight: 700;
+  font-stretch: 100%;
+  font-display: swap;
+  src: url("fonts/3054d029-ae6c-4926-af38-fcfa018d8279.woff2") format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+  font-family: 'Fredoka';
+  font-style: normal;
+  font-weight: 700;
+  font-stretch: 100%;
+  font-display: swap;
+  src: url("fonts/504a58e8-4057-467d-9cb9-4277ddfb4e58.woff2") format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* cyrillic-ext */
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("fonts/006a48ad-1cd9-4487-a0da-72a91f82eccc.woff2") format('woff2');
+  unicode-range: U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+}
+/* cyrillic */
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("fonts/0948c8e4-e93e-428f-9d15-6c1643cc6ce3.woff2") format('woff2');
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+/* greek */
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("fonts/2c997de2-d679-4fd4-9505-78fca409c702.woff2") format('woff2');
+  unicode-range: U+0370-0377, U+037A-037F, U+0384-038A, U+038C, U+038E-03A1, U+03A3-03FF;
+}
+/* vietnamese */
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("fonts/7f364d0d-25d2-4e7d-9f1f-c2005179056a.woff2") format('woff2');
+  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;
+}
+/* latin-ext */
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("fonts/042e0b78-265e-45d6-85e0-b5f996432fe0.woff2") format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("fonts/9d5150ba-273a-4c11-9eac-30fe080a87e8.woff2") format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* cyrillic-ext */
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("fonts/006a48ad-1cd9-4487-a0da-72a91f82eccc.woff2") format('woff2');
+  unicode-range: U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+}
+/* cyrillic */
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("fonts/0948c8e4-e93e-428f-9d15-6c1643cc6ce3.woff2") format('woff2');
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+/* greek */
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("fonts/2c997de2-d679-4fd4-9505-78fca409c702.woff2") format('woff2');
+  unicode-range: U+0370-0377, U+037A-037F, U+0384-038A, U+038C, U+038E-03A1, U+03A3-03FF;
+}
+/* vietnamese */
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("fonts/7f364d0d-25d2-4e7d-9f1f-c2005179056a.woff2") format('woff2');
+  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;
+}
+/* latin-ext */
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("fonts/042e0b78-265e-45d6-85e0-b5f996432fe0.woff2") format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("fonts/9d5150ba-273a-4c11-9eac-30fe080a87e8.woff2") format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* cyrillic-ext */
+@font-face {
+  font-family: 'Nunito';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("fonts/84ef151e-74d6-4bc4-a9cb-82651ccd98a1.woff2") format('woff2');
+  unicode-range: U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+}
+/* cyrillic */
+@font-face {
+  font-family: 'Nunito';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("fonts/1acc7dfe-d5de-42c1-9e90-8fde9dca227b.woff2") format('woff2');
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+/* vietnamese */
+@font-face {
+  font-family: 'Nunito';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("fonts/224b7b6d-f272-4b52-8f46-b920a8a0d691.woff2") format('woff2');
+  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;
+}
+/* latin-ext */
+@font-face {
+  font-family: 'Nunito';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("fonts/2b863b29-36b1-4d3b-a1ef-750b31b37161.woff2") format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+  font-family: 'Nunito';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("fonts/772af1c4-62b0-497d-b206-eba4a5f76ff3.woff2") format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* cyrillic-ext */
+@font-face {
+  font-family: 'Nunito';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("fonts/84ef151e-74d6-4bc4-a9cb-82651ccd98a1.woff2") format('woff2');
+  unicode-range: U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+}
+/* cyrillic */
+@font-face {
+  font-family: 'Nunito';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("fonts/1acc7dfe-d5de-42c1-9e90-8fde9dca227b.woff2") format('woff2');
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+/* vietnamese */
+@font-face {
+  font-family: 'Nunito';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("fonts/224b7b6d-f272-4b52-8f46-b920a8a0d691.woff2") format('woff2');
+  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;
+}
+/* latin-ext */
+@font-face {
+  font-family: 'Nunito';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("fonts/2b863b29-36b1-4d3b-a1ef-750b31b37161.woff2") format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+  font-family: 'Nunito';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("fonts/772af1c4-62b0-497d-b206-eba4a5f76ff3.woff2") format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* cyrillic-ext */
+@font-face {
+  font-family: 'Nunito';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("fonts/84ef151e-74d6-4bc4-a9cb-82651ccd98a1.woff2") format('woff2');
+  unicode-range: U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+}
+/* cyrillic */
+@font-face {
+  font-family: 'Nunito';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("fonts/1acc7dfe-d5de-42c1-9e90-8fde9dca227b.woff2") format('woff2');
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+/* vietnamese */
+@font-face {
+  font-family: 'Nunito';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("fonts/224b7b6d-f272-4b52-8f46-b920a8a0d691.woff2") format('woff2');
+  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;
+}
+/* latin-ext */
+@font-face {
+  font-family: 'Nunito';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("fonts/2b863b29-36b1-4d3b-a1ef-750b31b37161.woff2") format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+  font-family: 'Nunito';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("fonts/772af1c4-62b0-497d-b206-eba4a5f76ff3.woff2") format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* cyrillic-ext */
+@font-face {
+  font-family: 'Nunito';
+  font-style: normal;
+  font-weight: 800;
+  font-display: swap;
+  src: url("fonts/84ef151e-74d6-4bc4-a9cb-82651ccd98a1.woff2") format('woff2');
+  unicode-range: U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+}
+/* cyrillic */
+@font-face {
+  font-family: 'Nunito';
+  font-style: normal;
+  font-weight: 800;
+  font-display: swap;
+  src: url("fonts/1acc7dfe-d5de-42c1-9e90-8fde9dca227b.woff2") format('woff2');
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+/* vietnamese */
+@font-face {
+  font-family: 'Nunito';
+  font-style: normal;
+  font-weight: 800;
+  font-display: swap;
+  src: url("fonts/224b7b6d-f272-4b52-8f46-b920a8a0d691.woff2") format('woff2');
+  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;
+}
+/* latin-ext */
+@font-face {
+  font-family: 'Nunito';
+  font-style: normal;
+  font-weight: 800;
+  font-display: swap;
+  src: url("fonts/2b863b29-36b1-4d3b-a1ef-750b31b37161.woff2") format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+  font-family: 'Nunito';
+  font-style: normal;
+  font-weight: 800;
+  font-display: swap;
+  src: url("fonts/772af1c4-62b0-497d-b206-eba4a5f76ff3.woff2") format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+</style>
+<style>
+body{margin:0}
+a{color:#f2a93b}
+a:hover{color:#ffc978}
+@keyframes boris-eyezoom-pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.07)}}
+</style>
+</helmet>
+<div style="font-family:'Nunito',system-ui,sans-serif;background:#10121a;color:#eef1f8;min-height:100vh;{{ previewVars }}">
+
+  <!-- COVER -->
+  <section style="padding:80px 24px 64px;background:radial-gradient(1100px 640px at 20% -10%,#1c2033 0,transparent 60%),radial-gradient(800px 560px at 105% 115%,rgba(52,211,153,.10),transparent 55%),var(--bg);display:flex;flex-direction:column;align-items:center;text-align:center;gap:10px">
+    <div style="width:220px;height:294px;position:relative;display:flex;align-items:flex-end;justify-content:center">
+      <x-import component-from-global-scope="Boris" size="220" reduced="{{ reduced }}" hint-size="220,294"></x-import>
+    </div>
+    <div style="font-family:'Fredoka',sans-serif;font-weight:600;font-size:56px;letter-spacing:-.5px;margin-top:4px;color:var(--ink)">Boris<span style="color:#f2a93b">+</span></div>
+    <div style="font-size:15px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted)">Treine com mercado real</div>
+    <div style="font-size:22px;font-weight:700;max-width:560px;line-height:1.4;color:var(--ink)">Aprenda a operar. Sem pôr dinheiro em risco.</div>
+    <div style="font-size:13px;font-weight:700;color:var(--muted2);margin-top:8px">Brand Book — identidade de marca</div>
+    <div style="font-size:12px;font-weight:800;color:var(--accent);margin-top:10px;padding:6px 14px;border-radius:999px;border:1px solid var(--line);background:var(--panel2)">{{ statusLabel }}</div>
+  </section>
+
+  <!-- PLATAFORMA -->
+  <section style="max-width:1040px;margin:0 auto;padding:64px 24px">
+    <div style="font-size:12px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:#f2a93b;margin-bottom:8px">Plataforma de marca</div>
+    <h2 style="font-family:'Fredoka',sans-serif;font-weight:600;font-size:30px;margin:0 0 28px">Por que o Boris+ existe</h2>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:16px">
+      <div style="background:linear-gradient(180deg,#1b1f2e,#171a27);border:1px solid #2c3245;border-radius:16px;padding:22px">
+        <div style="font-size:12px;font-weight:800;color:#9aa3bd;text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px">Posicionamento</div>
+        <div style="font-size:15px;line-height:1.55;font-weight:600">Simulador educacional que ensina a operar na B3 com cotações e indicadores <b style="color:#eef1f8">reais</b>, usando dinheiro <b style="color:#eef1f8">virtual</b> — guiado por Bóris, o mascote-coruja.</div>
+      </div>
+      <div style="background:linear-gradient(180deg,#1b1f2e,#171a27);border:1px solid #2c3245;border-radius:16px;padding:22px">
+        <div style="font-size:12px;font-weight:800;color:#9aa3bd;text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px">Público</div>
+        <div style="font-size:15px;line-height:1.55;font-weight:600">Iniciantes e intermediários que querem aprender a investir na bolsa brasileira sem arriscar capital de verdade.</div>
+      </div>
+      <div style="background:linear-gradient(180deg,#1b1f2e,#171a27);border:1px solid #2c3245;border-radius:16px;padding:22px">
+        <div style="font-size:12px;font-weight:800;color:#9aa3bd;text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px">Proposta de valor</div>
+        <div style="font-size:15px;line-height:1.55;font-weight:600">Mercado real + treino de decisão + dinheiro virtual. O aprendizado sem a perda.</div>
+      </div>
+      <div style="background:linear-gradient(180deg,#1b1f2e,#171a27);border:1px solid #2c3245;border-radius:16px;padding:22px">
+        <div style="font-size:12px;font-weight:800;color:#9aa3bd;text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px">Diferencial</div>
+        <div style="font-size:15px;line-height:1.55;font-weight:600">A IA é o meio — quem explica e comenta é o Bóris. A promessa é o mercado real, não a tecnologia.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- PERSONALIDADE -->
+  <section style="max-width:1040px;margin:0 auto;padding:0 24px 64px">
+    <div style="font-size:12px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:#f2a93b;margin-bottom:8px">Personalidade</div>
+    <h2 style="font-family:'Fredoka',sans-serif;font-weight:600;font-size:30px;margin:0 0 28px">O Bóris é, mas também não é</h2>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:16px">
+      <div style="background:#171a27;border:1px solid #2c3245;border-radius:16px;padding:20px">
+        <div style="font-family:'Fredoka',sans-serif;font-weight:600;font-size:17px;color:#34d399">Mentor</div>
+        <div style="font-size:13px;color:#6f7797;font-weight:700;margin-top:4px">não guru</div>
+      </div>
+      <div style="background:#171a27;border:1px solid #2c3245;border-radius:16px;padding:20px">
+        <div style="font-family:'Fredoka',sans-serif;font-weight:600;font-size:17px;color:#34d399">Real</div>
+        <div style="font-size:13px;color:#6f7797;font-weight:700;margin-top:4px">não hype</div>
+      </div>
+      <div style="background:#171a27;border:1px solid #2c3245;border-radius:16px;padding:20px">
+        <div style="font-family:'Fredoka',sans-serif;font-weight:600;font-size:17px;color:#34d399">Leve</div>
+        <div style="font-size:13px;color:#6f7797;font-weight:700;margin-top:4px">não infantil</div>
+      </div>
+      <div style="background:#171a27;border:1px solid #2c3245;border-radius:16px;padding:20px">
+        <div style="font-family:'Fredoka',sans-serif;font-weight:600;font-size:17px;color:#34d399">Direto</div>
+        <div style="font-size:13px;color:#6f7797;font-weight:700;margin-top:4px">não alarmista</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- IDENTIDADE VERBAL -->
+  <section style="max-width:1040px;margin:0 auto;padding:0 24px 64px">
+    <div style="font-size:12px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:#f2a93b;margin-bottom:8px">Identidade verbal</div>
+    <h2 style="font-family:'Fredoka',sans-serif;font-weight:600;font-size:30px;margin:0 0 12px">Nome, tagline e voz</h2>
+    <div style="background:linear-gradient(180deg,#1b1f2e,#171a27);border:1px solid #2c3245;border-radius:16px;padding:24px;margin-bottom:16px">
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:20px">
+        <div><div style="font-size:12px;font-weight:800;color:#9aa3bd;text-transform:uppercase;margin-bottom:6px">Nome</div><div style="font-family:'Fredoka',sans-serif;font-weight:600;font-size:20px">Boris<span style="color:#f2a93b">+</span></div></div>
+        <div><div style="font-size:12px;font-weight:800;color:#9aa3bd;text-transform:uppercase;margin-bottom:6px">Subtítulo (App Store)</div><div style="font-size:16px;font-weight:700">Treine com mercado real</div></div>
+        <div><div style="font-size:12px;font-weight:800;color:#9aa3bd;text-transform:uppercase;margin-bottom:6px">Tagline</div><div style="font-size:16px;font-weight:700">Aprenda a operar. Sem pôr dinheiro em risco.</div></div>
+      </div>
+      <div style="font-size:13.5px;line-height:1.6;color:#9aa3bd;font-weight:600;margin-top:16px;border-top:1px solid #2c3245;padding-top:16px">O "+" carrega dois sentidos: o candle de alta e o ganho de conhecimento — nunca promessa de lucro. "Mercado real" evita ambiguidade: dados de verdade, dinheiro virtual.</div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+      <div style="background:#171a27;border:1px solid #2c3245;border-radius:16px;padding:20px">
+        <div style="font-size:12px;font-weight:800;color:#34d399;text-transform:uppercase;margin-bottom:10px">Faça</div>
+        <div style="font-size:14px;line-height:1.6;font-weight:600;color:#eef1f8">"Booa! Carteira no verde é sempre bom. Segue firme no plano."</div>
+        <div style="font-size:14px;line-height:1.6;font-weight:600;color:#eef1f8;margin-top:10px">"Dia vermelho acontece. Respira, revisa a estratégia."</div>
+      </div>
+      <div style="background:#171a27;border:1px solid #2c3245;border-radius:16px;padding:20px">
+        <div style="font-size:12px;font-weight:800;color:#f26d6d;text-transform:uppercase;margin-bottom:10px">Não faça</div>
+        <div style="font-size:14px;line-height:1.6;font-weight:600;color:#9aa3bd">"Essa ação vai disparar, compra agora!"</div>
+        <div style="font-size:14px;line-height:1.6;font-weight:600;color:#9aa3bd;margin-top:10px">Jargão técnico sem explicação, tom de garantia de retorno.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- MASCOTE VIVO -->
+  <section style="max-width:1040px;margin:0 auto;padding:0 24px 64px">
+    <div style="font-size:12px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:#f2a93b;margin-bottom:8px">Identidade visual</div>
+    <h2 style="font-family:'Fredoka',sans-serif;font-weight:600;font-size:30px;margin:0 0 12px">O mascote — Bóris ao vivo</h2>
+    <div style="font-size:14.5px;line-height:1.6;color:#9aa3bd;font-weight:600;max-width:640px;margin-bottom:24px">Bóris é uma coruja-mentora com óculos redondos âmbar — a mesma animação usada dentro do app como bolha de contato. Pisca, respira e reage aos eventos da carteira; nunca é um ícone estático.</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;align-items:end">
+      <div style="background:linear-gradient(180deg,#1c2033,#10121a);border:1px solid #2c3245;border-radius:16px;padding:24px 16px 12px;display:flex;flex-direction:column;align-items:center;gap:10px">
+        <div style="width:150px;height:200px;position:relative;display:flex;align-items:flex-end;justify-content:center">
+          <x-import component-from-global-scope="Boris" size="150" reduced="{{ reduced }}" hint-size="150,200"></x-import>
+        </div>
+        <div style="font-size:12px;font-weight:800;color:#6f7797;text-transform:uppercase">Estado padrão</div>
+      </div>
+      <div style="background:#171a27;border:1px solid #2c3245;border-radius:16px;padding:24px 16px 12px;display:flex;flex-direction:column;align-items:center;gap:10px">
+        <div style="width:150px;height:150px;position:relative;overflow:hidden;border-radius:50%;display:flex;align-items:center;justify-content:center;background:#1b2437">
+          <div style="position:relative;top:-8px"><x-import component-from-global-scope="Boris" size="150" reduced="{{ reduced }}" hint-size="150,200"></x-import></div>
+        </div>
+        <div style="font-size:12px;font-weight:800;color:#6f7797;text-transform:uppercase">Avatar circular (chat/bolha)</div>
+      </div>
+      <div style="background:#171a27;border:1px solid #2c3245;border-radius:16px;padding:24px 16px 12px;display:flex;flex-direction:column;align-items:center;gap:10px">
+        <div style="width:90px;height:120px;position:relative;display:flex;align-items:flex-end;justify-content:center">
+          <x-import component-from-global-scope="Boris" size="90" reduced="{{ reduced }}" hint-size="90,120"></x-import>
+        </div>
+        <div style="font-size:12px;font-weight:800;color:#6f7797;text-transform:uppercase">Tamanho reduzido (64–90px)</div>
+      </div>
+      <div style="background:#171a27;border:1px solid #2c3245;border-radius:16px;padding:24px 16px 12px;display:flex;flex-direction:column;align-items:center;gap:10px">
+        <div style="width:150px;height:150px;position:relative;overflow:hidden;border-radius:50%;background:#1b2437">
+          <div style="position:absolute;left:0;top:0;width:490px;height:655px;transform:translate(-135.5px,-136.5px) scale(.62);transform-origin:210.5px 211.5px">
+            <div style="width:100%;height:100%;animation:boris-eyezoom-pulse 3.4s ease-in-out infinite;transform-origin:210.5px 211.5px">
+              <x-import component-from-global-scope="Boris" size="490" reduced="{{ reduced }}" hint-size="490,655"></x-import>
+            </div>
+          </div>
+        </div>
+        <div style="font-size:12px;font-weight:800;color:#6f7797;text-transform:uppercase">Zoom nos olhos (bolha reagindo)</div>
+      </div>
+    </div>
+    <div style="font-size:13px;line-height:1.6;color:#6f7797;font-weight:600;margin-top:16px">Regras de uso: nunca recortar os óculos âmbar; manter proporção do corpo (largura:altura ≈ 3:4); abaixo de 64px, usar só a versão estática (logo/símbolo) — a animação perde legibilidade. No avatar circular, o close-up nos olhos é o estado de destaque (evento importante, resposta chegando); o enquadramento de corpo inteiro é o estado padrão/ocioso.
+  </div></section>
+
+  <!-- LOGO -->
+  <section style="max-width:1040px;margin:0 auto;padding:0 24px 64px">
+    <h2 style="font-family:'Fredoka',sans-serif;font-weight:600;font-size:30px;margin:0 0 12px">Logo e símbolo estático</h2>
+    <div style="font-size:14.5px;line-height:1.6;color:#9aa3bd;font-weight:600;max-width:640px;margin-bottom:24px">Para contextos onde a animação não roda (favicon, e-mail, impresso, splash inicial), usa-se o símbolo estático: o rosto do Bóris com o "+" como selo de crescimento colado à armação dos óculos.</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px">
+      <div style="background:#171a27;border:1px solid #2c3245;border-radius:16px;padding:28px;display:flex;flex-direction:column;align-items:center;gap:16px">
+        <div style="display:flex;align-items:center;gap:14px">
+          <svg width="52" height="52" sc-camel-view-box="0 0 64 64" aria-hidden="true"><path d="M14 16 L22 27 L10 27 Z" fill="#2a3a6b"></path><path d="M50 16 L42 27 L54 27 Z" fill="#2a3a6b"></path><circle cx="32" cy="34" r="26" fill="#2a3a6b"></circle><circle cx="22" cy="32" r="10" fill="none" stroke="#f2a93b" stroke-width="3.2"></circle><circle cx="42" cy="32" r="10" fill="none" stroke="#f2a93b" stroke-width="3.2"></circle><path d="M30 32 Q32 29 34 32" fill="none" stroke="#f2a93b" stroke-width="3.2"></path><circle cx="22" cy="32" r="4" fill="#eef1f8"></circle><circle cx="42" cy="32" r="4" fill="#eef1f8"></circle><path d="M32 42 L27.5 49 L36.5 49 Z" fill="#f2a93b"></path><circle cx="51" cy="50" r="10" fill="#171a27"></circle><circle cx="51" cy="50" r="9" fill="#f2a93b"></circle><path d="M51 45.5V54.5M46.5 50H55.5" stroke="#171a27" stroke-width="2.4" stroke-linecap="round"></path></svg>
+          <div style="font-family:'Fredoka',sans-serif;font-weight:600;font-size:26px">Boris<span style="color:#f2a93b">+</span></div>
+        </div>
+        <div style="font-size:12px;font-weight:800;color:#6f7797;text-transform:uppercase">Principal</div>
+      </div>
+      <div style="background:#eef1f8;border:1px solid #2c3245;border-radius:16px;padding:28px;display:flex;flex-direction:column;align-items:center;gap:16px">
+        <svg width="60" height="60" sc-camel-view-box="0 0 64 64" aria-hidden="true"><path d="M14 16 L22 27 L10 27 Z" fill="#10121a"></path><path d="M50 16 L42 27 L54 27 Z" fill="#10121a"></path><circle cx="32" cy="34" r="26" fill="#10121a"></circle><circle cx="22" cy="32" r="10" fill="none" stroke="#eef1f8" stroke-width="3.2"></circle><circle cx="42" cy="32" r="10" fill="none" stroke="#eef1f8" stroke-width="3.2"></circle><path d="M30 32 Q32 29 34 32" fill="none" stroke="#eef1f8" stroke-width="3.2"></path><circle cx="22" cy="32" r="4" fill="#10121a"></circle><circle cx="42" cy="32" r="4" fill="#10121a"></circle><path d="M32 42 L27.5 49 L36.5 49 Z" fill="#eef1f8"></path><circle cx="51" cy="50" r="10" fill="#eef1f8"></circle><circle cx="51" cy="50" r="9" fill="#10121a"></circle><path d="M51 45.5V54.5M46.5 50H55.5" stroke="#eef1f8" stroke-width="2.4" stroke-linecap="round"></path></svg>
+        <div style="font-size:12px;font-weight:800;color:#6f7797;text-transform:uppercase">Monocromática</div>
+      </div>
+      <div style="background:linear-gradient(180deg,#1c2033,#10121a);border:1px solid #2c3245;border-radius:16px;padding:28px;display:flex;flex-direction:column;align-items:center;gap:16px">
+        <div style="width:60px;height:60px;border-radius:16px;background:#161927;display:flex;align-items:center;justify-content:center;border:1px solid #2c3245;overflow:hidden">
+          <img src="assets/icone-app.png" alt="Ícone do app Boris+" style="width:100%;height:100%;object-fit:cover;border-radius:16px">
+        </div>
+        <div style="font-size:12px;font-weight:800;color:#6f7797;text-transform:uppercase">Ícone do app</div>
+      </div>
+    </div>
+    <div style="font-size:13px;line-height:1.6;color:#6f7797;font-weight:600;margin-top:16px">Área de proteção mínima: altura de um "olho" do símbolo em todos os lados. Tamanho mínimo: 24px (símbolo isolado) / 88px de largura (lockup completo). Nunca recolorir os óculos fora do âmbar da marca ou distorcer as proporções do rosto.</div>
+  </section>
+
+  <!-- CORES -->
+  <section style="max-width:1040px;margin:0 auto;padding:0 24px 64px">
+    <div style="font-size:12px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:#f2a93b;margin-bottom:8px">Identidade visual</div>
+    <h2 style="font-family:'Fredoka',sans-serif;font-weight:600;font-size:30px;margin:0 0 12px">Cores</h2>
+    <div style="font-size:14.5px;line-height:1.6;color:#9aa3bd;font-weight:600;max-width:680px;margin-bottom:28px">Dois eixos independentes: <b style="color:#eef1f8">tema</b> (claro/escuro, sincronizado com o sistema operacional) e <b style="color:#eef1f8">modo de uso</b> (Operador vs Estudo). A base neutra muda com o tema; a cor de acento muda com o modo.</div>
+
+    <div style="font-size:12px;font-weight:800;color:#f2a93b;text-transform:uppercase;letter-spacing:.6px;margin-bottom:12px">Tema · segue o sistema operacional</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;margin-bottom:28px">
+      <div style="background:#10121a;border:1px solid #2c3245;border-radius:16px;padding:20px">
+        <div style="font-size:13px;font-weight:800;color:#eef1f8;margin-bottom:12px">🌙 Escuro · padrão</div>
+        <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px">
+          <div><div style="height:40px;border-radius:8px;background:#10121a;border:1px solid #2c3245"></div><div style="font-size:10px;color:#6f7797;font-weight:700;margin-top:4px">bg</div></div>
+          <div><div style="height:40px;border-radius:8px;background:#171a27"></div><div style="font-size:10px;color:#6f7797;font-weight:700;margin-top:4px">panel</div></div>
+          <div><div style="height:40px;border-radius:8px;background:#2c3245"></div><div style="font-size:10px;color:#6f7797;font-weight:700;margin-top:4px">line</div></div>
+          <div><div style="height:40px;border-radius:8px;background:#eef1f8"></div><div style="font-size:10px;color:#6f7797;font-weight:700;margin-top:4px">ink</div></div>
+          <div><div style="height:40px;border-radius:8px;background:#9aa3bd"></div><div style="font-size:10px;color:#6f7797;font-weight:700;margin-top:4px">muted</div></div>
+        </div>
+      </div>
+      <div style="background:#f7f8fc;border:1px solid #e2e5f0;border-radius:16px;padding:20px">
+        <div style="font-size:13px;font-weight:800;color:#10121a;margin-bottom:12px">☀️ Claro</div>
+        <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px">
+          <div><div style="height:40px;border-radius:8px;background:#f7f8fc;border:1px solid #e2e5f0"></div><div style="font-size:10px;color:#5b6178;font-weight:700;margin-top:4px">bg</div></div>
+          <div><div style="height:40px;border-radius:8px;background:#ffffff;border:1px solid #e2e5f0"></div><div style="font-size:10px;color:#5b6178;font-weight:700;margin-top:4px">panel</div></div>
+          <div><div style="height:40px;border-radius:8px;background:#e2e5f0"></div><div style="font-size:10px;color:#5b6178;font-weight:700;margin-top:4px">line</div></div>
+          <div><div style="height:40px;border-radius:8px;background:#10121a"></div><div style="font-size:10px;color:#5b6178;font-weight:700;margin-top:4px">ink</div></div>
+          <div><div style="height:40px;border-radius:8px;background:#5b6178"></div><div style="font-size:10px;color:#5b6178;font-weight:700;margin-top:4px">muted</div></div>
+        </div>
+      </div>
+    </div>
+
+    <div style="font-size:12px;font-weight:800;color:#f2a93b;text-transform:uppercase;letter-spacing:.6px;margin-bottom:12px">Modo de uso · independente do tema</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;margin-bottom:16px">
+<div style="background:linear-gradient(180deg,#1b1f2e,#171a27);border:1px solid #2c3245;border-radius:16px;padding:20px">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px"><div style="width:14px;height:14px;border-radius:4px;background:#34d399"></div><div style="font-family:'Fredoka',sans-serif;font-weight:600;font-size:16px">Operador</div></div>
+        <div style="font-size:13px;line-height:1.5;color:#9aa3bd;font-weight:600;margin-bottom:14px">Ordens, gráficos, book de ofertas. Acento verde, foco no dado ao vivo.</div>
+        <div style="display:flex;gap:8px">
+          <div style="flex:1;border-radius:10px;overflow:hidden;border:1px solid #2c3245"><div style="height:36px;background:#34d399"></div><div style="font-size:10px;color:#6f7797;font-weight:700;padding:4px 8px">#34d399 · escuro</div></div>
+          <div style="flex:1;border-radius:10px;overflow:hidden;border:1px solid #2c3245"><div style="height:36px;background:#0f9d63"></div><div style="font-size:10px;color:#6f7797;font-weight:700;padding:4px 8px">#0f9d63 · claro</div></div>
+        </div>
+      </div>
+      <div style="background:linear-gradient(180deg,#1b1f2e,#171a27);border:1px solid #2c3245;border-radius:16px;padding:20px">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px"><div style="width:14px;height:14px;border-radius:4px;background:#4f8cff"></div><div style="font-family:'Fredoka',sans-serif;font-weight:600;font-size:16px">Estudo</div></div>
+        <div style="font-size:13px;line-height:1.5;color:#9aa3bd;font-weight:600;margin-bottom:14px">Aulas, simulações guiadas, glossário. Acento frio, tom de progresso.</div>
+        <div style="display:flex;gap:8px">
+          <div style="flex:1;border-radius:10px;overflow:hidden;border:1px solid #2c3245"><div style="height:36px;background:#4f8cff"></div><div style="font-size:10px;color:#6f7797;font-weight:700;padding:4px 8px">#4f8cff · escuro</div></div>
+          <div style="flex:1;border-radius:10px;overflow:hidden;border:1px solid #2c3245"><div style="height:36px;background:#2f6fe0"></div><div style="font-size:10px;color:#6f7797;font-weight:700;padding:4px 8px">#2f6fe0 · claro</div></div>
+        </div>
+      </div>
+    </div>
+    <div style="font-size:13px;line-height:1.6;color:#6f7797;font-weight:600;margin-bottom:24px">O acento de modo substitui o âmbar em CTAs primárias e destaques daquela área; o âmbar segue reservado para a marca (logo, ícone, Bóris) em qualquer tela.</div>
+
+    <div style="font-size:12px;font-weight:800;color:#f2a93b;text-transform:uppercase;letter-spacing:.6px;margin-bottom:12px">Sinal universal · não muda com tema ou modo</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px">
+      <div style="border-radius:14px;overflow:hidden;border:1px solid #2c3245">
+        <div style="height:74px;background:#f2a93b"></div>
+        <div style="background:#171a27;padding:12px 14px"><div style="font-size:13px;font-weight:800">Âmbar (marca)</div><div style="font-size:12px;color:#6f7797;font-weight:700">#f2a93b · --brand-amber</div></div>
+      </div>
+      <div style="border-radius:14px;overflow:hidden;border:1px solid #2c3245">
+        <div style="height:74px;background:#34d399"></div>
+        <div style="background:#171a27;padding:12px 14px"><div style="font-size:13px;font-weight:800">Verde (compra)</div><div style="font-size:12px;color:#6f7797;font-weight:700">#34d399 · --brand-green</div></div>
+      </div>
+      <div style="border-radius:14px;overflow:hidden;border:1px solid #2c3245">
+        <div style="height:74px;background:#f26d6d"></div>
+        <div style="background:#171a27;padding:12px 14px"><div style="font-size:13px;font-weight:800">Rosa/vermelho (venda)</div><div style="font-size:12px;color:#6f7797;font-weight:700">#f26d6d · --brand-red</div></div>
+      </div>
+    </div>
+    <div style="font-size:13px;line-height:1.6;color:#6f7797;font-weight:600;margin-top:16px">Contraste verificado (WCAG AA, texto normal) em ambos os temas. Verde e rosa são só para sinal (valores/badges), nunca para blocos de texto corrido — use ink ou o acento do modo para leitura.</div>
+  </section>
+
+  <!-- TIPOGRAFIA -->
+  <section style="max-width:1040px;margin:0 auto;padding:0 24px 64px">
+    <div style="font-size:12px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:#f2a93b;margin-bottom:8px">Identidade visual</div>
+    <h2 style="font-family:'Fredoka',sans-serif;font-weight:600;font-size:30px;margin:0 0 24px">Tipografia</h2>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px">
+      <div style="background:#171a27;border:1px solid #2c3245;border-radius:16px;padding:24px">
+        <div style="font-size:12px;font-weight:800;color:#9aa3bd;text-transform:uppercase;margin-bottom:10px">Display · Fredoka 600</div>
+        <div style="font-family:'Fredoka',sans-serif;font-weight:600;font-size:34px">Boris+</div>
+        <div style="font-size:13px;color:#6f7797;font-weight:700;margin-top:10px">Títulos, nome da marca, números de destaque</div>
+      </div>
+      <div style="background:#171a27;border:1px solid #2c3245;border-radius:16px;padding:24px">
+        <div style="font-size:12px;font-weight:800;color:#9aa3bd;text-transform:uppercase;margin-bottom:10px">Texto · Nunito 600/700</div>
+        <div style="font-family:'Nunito',sans-serif;font-weight:700;font-size:20px">Aprenda a operar.</div>
+        <div style="font-size:13px;color:#6f7797;font-weight:700;margin-top:10px">Corpo de texto, botões, mensagens do Bóris</div>
+      </div>
+    </div>
+    <div style="background:#171a27;border:1px solid #2c3245;border-radius:16px;padding:24px;display:flex;flex-wrap:wrap;gap:20px;align-items:baseline">
+      <div style="font-size:12px;color:#9aa3bd;font-family:'Nunito',sans-serif;font-weight:800">12</div>
+      <div style="font-size:14px;color:#9aa3bd;font-family:'Nunito',sans-serif;font-weight:800">14</div>
+      <div style="font-size:16px;color:#eef1f8;font-family:'Nunito',sans-serif;font-weight:800">16</div>
+      <div style="font-size:20px;color:#eef1f8;font-family:'Nunito',sans-serif;font-weight:800">20</div>
+      <div style="font-size:24px;color:#eef1f8;font-family:'Fredoka',sans-serif;font-weight:600">24</div>
+      <div style="font-size:32px;color:#eef1f8;font-family:'Fredoka',sans-serif;font-weight:600">32</div>
+      <div style="font-size:40px;color:#eef1f8;font-family:'Fredoka',sans-serif;font-weight:600">40</div>
+    </div>
+  </section>
+
+  <!-- APLICAÇÕES -->
+  <section style="max-width:1040px;margin:0 auto;padding:0 24px 64px">
+    <div style="font-size:12px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:#f2a93b;margin-bottom:8px">Aplicações</div>
+    <h2 style="font-family:'Fredoka',sans-serif;font-weight:600;font-size:30px;margin:0 0 24px">A marca em uso</h2>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px">
+      <div style="background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:18px">
+        <div style="display:flex;align-items:center;gap:10px;padding-bottom:14px;border-bottom:1px solid var(--line);margin-bottom:14px">
+          <div style="width:34px;height:34px;border-radius:50%;overflow:hidden;position:relative;background:#1b2437;flex:none;display:flex;align-items:center;justify-content:center">
+            <div style="position:relative;top:-10px"><x-import component-from-global-scope="Boris" size="60" reduced="{{ reduced }}" hint-size="60,80"></x-import></div>
+          </div>
+          <div><div style="font-family:'Fredoka',sans-serif;font-weight:600;font-size:15px;color:var(--ink)">Bóris</div><div style="font-size:11px;color:var(--accent);font-weight:800">● online</div></div>
+        </div>
+        <div style="background:var(--bubble);border:1px solid var(--line);border-radius:12px;border-bottom-left-radius:4px;padding:10px 13px;font-size:13px;font-weight:600;max-width:85%;color:var(--ink)">Booa! Sua carteira simulada foi bem hoje.</div>
+        <div style="display:flex;justify-content:flex-end;margin-top:12px">
+          <div style="display:inline-flex;background:var(--pill);border:1px solid var(--line);border-radius:999px;padding:3px;gap:2px">
+            <div style="display:flex;align-items:center;gap:6px;padding:6px 12px;border-radius:999px;background:var(--accent);color:var(--accent-ink);font-size:12px;font-weight:800">Aa Texto</div>
+            <div style="display:flex;align-items:center;gap:6px;padding:6px 12px;border-radius:999px;color:var(--muted2);font-size:12px;font-weight:800">🎙 Voz</div>
+          </div>
+        </div>
+      </div>
+      <div style="background:linear-gradient(180deg,#1b1f2e,#171a27);border:1px solid #2c3245;border-radius:16px;padding:18px;display:flex;flex-direction:column;gap:10px;justify-content:center">
+        <button style="appearance:none;border:none;border-radius:10px;background:linear-gradient(180deg,#3ee0a6,#1eb37a);color:#04251a;font-weight:800;padding:12px;font-family:'Nunito',sans-serif;font-size:14px">Comprar</button>
+        <button style="appearance:none;border:none;border-radius:10px;background:linear-gradient(180deg,#f0776f,#d94b45);color:#fff;font-weight:800;padding:12px;font-family:'Nunito',sans-serif;font-size:14px">Vender</button>
+      </div>
+      <div style="background:linear-gradient(180deg,#1c2033,#10121a);border:1px solid #2c3245;border-radius:16px;padding:18px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px">
+        <div style="width:56px;height:56px;border-radius:14px;background:#161927;border:1px solid #2c3245;overflow:hidden">
+          <img src="assets/icone-app.png" alt="Ícone do app" style="width:100%;height:100%;object-fit:cover">
+        </div>
+        <div style="font-size:12px;font-weight:800;color:#6f7797">Boris+ · ícone iOS/Android</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- TOKENS -->
+  <section style="max-width:1040px;margin:0 auto;padding:0 24px 96px">
+    <div style="font-size:12px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:#f2a93b;margin-bottom:8px">Handoff</div>
+    <h2 style="font-family:'Fredoka',sans-serif;font-weight:600;font-size:30px;margin:0 0 20px">Design tokens</h2>
+    <pre style="background:#0c0e15;border:1px solid #2c3245;border-radius:14px;padding:22px;font-family:'JetBrains Mono',monospace;font-size:13px;line-height:1.7;color:#c9d1e6;overflow-x:auto">/* tema — segue prefers-color-scheme do SO */
+:root {
+  --brand-amber: #f2a93b;
+  --brand-amber-dark: #c9791b;
+  --brand-green: #34d399;
+  --brand-red: #f26d6d;
+  --font-display: 'Fredoka', sans-serif;
+  --font-text: 'Nunito', system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #10121a; --bg-2: #161927; --panel: #1b1f2e;
+    --line: #2c3245; --ink: #eef1f8; --muted: #9aa3bd; --muted-2: #6f7797;
+  }
+}
+@media (prefers-color-scheme: light) {
+  :root {
+    --bg: #f7f8fc; --bg-2: #eef0f7; --panel: #ffffff;
+    --line: #e2e5f0; --ink: #10121a; --muted: #5b6178; --muted-2: #7a8099;
+  }
+}
+
+/* modo de uso — setado via [data-mode] no , independente do tema */
+[data-mode="operador"] {
+  --mode-accent: #34d399;      /* light: #0f9d63 */
+}
+[data-mode="estudo"] {
+  --mode-accent: #4f8cff;      /* light: #2f6fe0 */
+}</pre>
+  </section>
+
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script="" data-props="{&quot;tema&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;claro&quot;,&quot;options&quot;:[&quot;escuro&quot;,&quot;claro&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Tweaks&quot;},&quot;modo&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;operador&quot;,&quot;options&quot;:[&quot;operador&quot;,&quot;estudo&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Tweaks&quot;},&quot;animacao&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;reduzida&quot;,&quot;options&quot;:[&quot;padrao&quot;,&quot;reduzida&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Tweaks&quot;}}">class Component extends DCLogic {
+  renderVals() {
+    const tema = this.props.tema ?? 'escuro';
+    const modo = this.props.modo ?? 'operador';
+    const anim = this.props.animacao ?? 'padrao';
+    const dark = tema !== 'claro';
+    const theme = dark
+      ? { bg:'#10121a', panel:'#1b1f2e', panel2:'#171a27', line:'#2c3245', ink:'#eef1f8', muted:'#9aa3bd', muted2:'#6f7797', bubble:'#222739', pill:'#0f1119' }
+      : { bg:'#f7f8fc', panel:'#ffffff', panel2:'#ffffff', line:'#e2e5f0', ink:'#10121a', muted:'#5b6178', muted2:'#7a8099', bubble:'#ffffff', pill:'#eef0f7' };
+    const accent = modo === 'estudo' ? (dark ? '#4f8cff' : '#2f6fe0') : (dark ? '#34d399' : '#0f9d63');
+    const accentInk = modo === 'estudo' ? '#eef4ff' : '#04251a';
+    const vars = `--bg:${theme.bg};--panel:${theme.panel};--panel2:${theme.panel2};--line:${theme.line};--ink:${theme.ink};--muted:${theme.muted};--muted2:${theme.muted2};--bubble:${theme.bubble};--pill:${theme.pill};--accent:${accent};--accent-ink:${accentInk}`;
+    return {
+      previewVars: vars,
+      reduced: anim === 'reduzida',
+      statusLabel: `Modo ${modo === 'estudo' ? 'Estudo' : 'Operador'} · Tema ${dark ? 'Escuro' : 'Claro'} · Animação ${anim === 'reduzida' ? 'Reduzida' : 'Padrão'}`
+    };
+  }
+}</script>
+
+
+</body></html>

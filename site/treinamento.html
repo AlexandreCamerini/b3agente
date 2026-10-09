@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Treinamento — Boris+</title>
+<meta name="description" content="Material de treinamento interativo do Boris+: tendência, risco, plano de trade, expectativa matemática e drawdown, com exercícios e quizzes. Conteúdo educacional.">
+<meta name="theme-color" content="#10121a">
+<link rel="icon" type="image/png" href="img/favicon.png">
+<link rel="stylesheet" href="css/site.css">
+<link rel="stylesheet" href="css/treinamento.css">
+</head>
+<body>
+<a class="skip" href="#conteudo">Ir para o conteúdo</a>
+
+<header class="top">
+  <a class="logo" href="index.html" aria-label="Boris+ — início">Boris<span class="plus">+</span></a>
+  <nav class="nav" aria-label="Principal">
+    <a href="tour.html">Tour do produto</a>
+    <a href="treinamento.html" aria-current="page">Treinamento</a>
+    <a href="index.html#modos">Modos</a>
+    <a href="index.html#faq">Dúvidas</a>
+    <a class="btn" href="index.html#baixar">Baixar</a>
+  </nav>
+</header>
+
+<main id="conteudo">
+  <section class="wrap" style="padding-top:24px;padding-bottom:8px">
+    <span class="eyebrow">Treinamento</span>
+    <h1 style="margin-top:20px">Aprenda o raciocínio, não a resposta.</h1>
+    <p class="lede" style="margin-top:14px;max-width:700px">Dez módulos curtos com exercícios que você manipula e perguntas com explicação. Todos os exemplos usam números fictícios. É conteúdo educacional: nada aqui é recomendação de investimento nem promessa de resultado.</p>
+  </section>
+
+  <div class="wrap train" id="treino">
+    <aside class="side" aria-label="Módulos do treinamento">
+      <div class="prog" aria-live="polite">
+        <div class="prog-row"><strong id="progTxt">0 de 10 módulos</strong><button type="button" class="link" id="reset">Reiniciar</button></div>
+        <div class="bar" role="progressbar" aria-label="Progresso do treinamento" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="bar"><span id="barFill"></span></div>
+      </div>
+      <ol class="toc" id="toc"></ol>
+      <p class="note" id="saveNote">O progresso fica salvo neste navegador.</p>
+    </aside>
+
+    <div class="lessons" id="lessons">
+
+<!-- ============ M1 ============ -->
+<section class="mod" id="m1" data-title="O que o Boris+ é (e não é)">
+  <p class="kicker">Módulo 1</p>
+  <h2>O que o Boris+ é (e não é)</h2>
+  <p>O Boris+ é um <strong>simulador educacional</strong>. Os preços e indicadores vêm do mercado real; o dinheiro é só virtual. Você treina a decisão (escolher, planejar, executar, rever) sem colocar patrimônio em risco.</p>
+  <ul class="check">
+    <li>Todo saldo é fictício e aparece identificado como tal.</li>
+    <li>Nenhuma ordem vai para corretora, bolsa ou conta bancária.</li>
+    <li>Cotações, saldo, preço médio, lucro e prejuízo são calculados por regra, nunca pela IA.</li>
+    <li>O Bóris (IA) explica os dados da tela. Ele não recomenda compra ou venda.</li>
+  </ul>
+  <div class="callout">Meta do treinamento: sair entendendo <em>por que</em> uma decisão faz sentido ou não, e não decorar uma resposta.</div>
+  <div class="quiz" data-quiz="m1"></div>
+</section>
+
+<!-- ============ M2 ============ -->
+<section class="mod" id="m2" data-title="Ler o dado: fonte, horário e estado">
+  <p class="kicker">Módulo 2</p>
+  <h2>Ler o dado: fonte, horário e estado</h2>
+  <p>Todo número de mercado tem uma origem e um horário. O Boris+ mostra a fonte, o momento da última atualização e se o dado é <strong>em tempo real</strong>, <strong>atrasado</strong> ou <strong>histórico</strong>. Se a fonte falha, o app não inventa valor.</p>
+  <div class="lab" data-lab="estado">
+    <p class="lab-title">Exercício: troque o estado do dado e veja o que o app faz</p>
+    <div class="seg" role="group" aria-label="Estado do dado">
+      <button type="button" data-v="rt" aria-pressed="true">Tempo real</button>
+      <button type="button" data-v="atraso" aria-pressed="false">Atrasado</button>
+      <button type="button" data-v="hist" aria-pressed="false">Histórico</button>
+      <button type="button" data-v="falha" aria-pressed="false">Fonte indisponível</button>
+    </div>
+    <div class="out" id="estadoOut" aria-live="polite"></div>
+  </div>
+  <div class="quiz" data-quiz="m2"></div>
+</section>
+
+<!-- ============ M3 ============ -->
+<section class="mod" id="m3" data-title="Tendência e médias móveis">
+  <p class="kicker">Módulo 3</p>
+  <h2>Tendência e médias móveis</h2>
+  <p><strong>Tendência</strong> é a direção predominante do preço. Uma <strong>média móvel</strong> suaviza o ruído: quanto maior a janela, mais lenta e mais “limpa” ela fica. Preço acima de uma média em alta sugere um regime de alta; abaixo de uma média em queda, o contrário. Sugere, não garante.</p>
+  <div class="lab" data-lab="tendencia">
+    <p class="lab-title">Exercício: mude a janela da média (preço fictício)</p>
+    <label class="rng">Janela da média: <output id="smaOut">20</output> candles
+      <input type="range" id="smaWin" min="5" max="40" value="20" aria-describedby="smaDesc">
+    </label>
+    <svg class="chart" id="trendSvg" viewBox="0 0 640 220" role="img" aria-label="Gráfico fictício de preço com média móvel"></svg>
+    <p class="out" id="smaDesc" aria-live="polite"></p>
+  </div>
+  <div class="quiz" data-quiz="m3"></div>
+</section>
+
+<!-- ============ M4 ============ -->
+<section class="mod" id="m4" data-title="Suporte, resistência e rompimento">
+  <p class="kicker">Módulo 4</p>
+  <h2>Suporte, resistência e rompimento</h2>
+  <p><strong>Suporte</strong> é uma região onde o preço costuma encontrar demanda; <strong>resistência</strong>, onde encontra oferta. Um <strong>rompimento</strong> acontece quando o preço sai da faixa. Rompimento sem confirmação é só uma hipótese: o plano define o que invalida a ideia.</p>
+  <div class="lab" data-lab="faixa">
+    <p class="lab-title">Exercício: mova o preço (fictício) pela faixa</p>
+    <label class="rng">Preço: R$ <output id="faixaOut">53,00</output>
+      <input type="range" id="faixaPx" min="44" max="62" step="0.5" value="53">
+    </label>
+    <svg class="chart" id="faixaSvg" viewBox="0 0 640 140" role="img" aria-label="Faixa entre suporte em 50 e resistência em 56, com o preço atual"></svg>
+    <p class="out" id="faixaDesc" aria-live="polite"></p>
+  </div>
+  <div class="quiz" data-quiz="m4"></div>
+</section>
+
+<!-- ============ M5 ============ -->
+<section class="mod" id="m5" data-title="Volatilidade">
+  <p class="kicker">Módulo 5</p>
+  <h2>Volatilidade</h2>
+  <p><strong>Volatilidade</strong> mede o tamanho típico das oscilações. Mais volatilidade significa movimentos maiores, para os dois lados, e portanto mais risco por posição, não mais retorno garantido.</p>
+  <div class="lab" data-lab="vol">
+    <p class="lab-title">Exercício: ajuste a oscilação diária típica (30 dias fictícios)</p>
+    <label class="rng">Oscilação diária típica: <output id="volOut">1,5</output>%
+      <input type="range" id="volPct" min="0.5" max="5" step="0.5" value="1.5">
+    </label>
+    <svg class="chart" id="volSvg" viewBox="0 0 640 160" role="img" aria-label="Barras de retorno diário fictício"></svg>
+    <p class="out" id="volDesc" aria-live="polite"></p>
+  </div>
+  <div class="quiz" data-quiz="m5"></div>
+</section>
+
+<!-- ============ M6 ============ -->
+<section class="mod" id="m6" data-title="Plano do trade e tamanho da posição">
+  <p class="kicker">Módulo 6</p>
+  <h2>Plano do trade e tamanho da posição</h2>
+  <p>Um plano responde antes de entrar: <strong>onde a ideia se invalida</strong> (stop), <strong>onde ela se confirma</strong> (gatilho/entrada) e <strong>até onde vale esperar</strong> (alvo). A <strong>relação risco-retorno (R:R)</strong> compara o ganho potencial ao risco assumido. O <strong>tamanho da posição</strong> sai do quanto você aceita perder, não de quanto quer ganhar.</p>
+  <div class="lab" data-lab="plano">
+    <p class="lab-title">Exercício: monte um plano de compra (valores fictícios)</p>
+    <div class="grid2">
+      <label>Capital virtual (R$)<input type="number" id="pCap" value="10000" min="100" step="100" inputmode="decimal"></label>
+      <label>Risco aceito por operação (%)<input type="number" id="pRisk" value="1" min="0.1" max="10" step="0.1" inputmode="decimal"></label>
+      <label>Entrada (R$)<input type="number" id="pEnt" value="40.00" min="0.01" step="0.01" inputmode="decimal"></label>
+      <label>Stop / invalidação (R$)<input type="number" id="pStop" value="38.00" min="0.01" step="0.01" inputmode="decimal"></label>
+      <label>Alvo (R$)<input type="number" id="pAlvo" value="44.00" min="0.01" step="0.01" inputmode="decimal"></label>
+    </div>
+    <div class="out" id="planoOut" aria-live="polite"></div>
+  </div>
+  <div class="quiz" data-quiz="m6"></div>
+</section>
+
+<!-- ============ M7 ============ -->
+<section class="mod" id="m7" data-title="Taxa de acerto × rentabilidade">
+  <p class="kicker">Módulo 7</p>
+  <h2>Taxa de acerto × rentabilidade</h2>
+  <p>Acertar muito não é o mesmo que ganhar dinheiro. A <strong>expectativa matemática</strong> por operação combina quanto você acerta com o tamanho médio do ganho e da perda: <code>E = p × ganho médio − (1 − p) × perda média</code>. Expectativa positiva ainda tem sequências ruins; expectativa negativa não se salva com sorte.</p>
+  <div class="lab" data-lab="exp">
+    <p class="lab-title">Exercício: varie acerto, ganho e perda (simulação fictícia de 100 operações)</p>
+    <div class="grid3">
+      <label class="rng">Taxa de acerto: <output id="eP">40</output>%<input type="range" id="eWin" min="10" max="90" step="1" value="40"></label>
+      <label class="rng">Ganho médio (R$): <output id="eG">300</output><input type="range" id="eGain" min="50" max="600" step="10" value="300"></label>
+      <label class="rng">Perda média (R$): <output id="eL">100</output><input type="range" id="eLoss" min="50" max="600" step="10" value="100"></label>
+    </div>
+    <svg class="chart" id="expSvg" viewBox="0 0 640 220" role="img" aria-label="Curva de capital simulada"></svg>
+    <div class="out" id="expOut" aria-live="polite"></div>
+    <button type="button" class="btn ghost small" id="expNew">Sortear outra sequência</button>
+  </div>
+  <div class="quiz" data-quiz="m7"></div>
+</section>
+
+<!-- ============ M8 ============ -->
+<section class="mod" id="m8" data-title="Drawdown e recuperação">
+  <p class="kicker">Módulo 8</p>
+  <h2>Drawdown e recuperação</h2>
+  <p><strong>Drawdown</strong> é a queda do pico até o fundo do patrimônio. O trecho cruel: a recuperação não é simétrica. Perder 50% exige ganhar 100% só para voltar ao ponto de partida: <code>ganho necessário = d ÷ (1 − d)</code>.</p>
+  <div class="lab" data-lab="dd">
+    <p class="lab-title">Exercício: escolha uma perda e veja o ganho necessário</p>
+    <label class="rng">Drawdown: <output id="ddOut">20</output>%<input type="range" id="ddPct" min="5" max="90" step="5" value="20"></label>
+    <div class="out" id="ddDesc" aria-live="polite"></div>
+    <div class="ddbars" id="ddBars" aria-hidden="true"></div>
+  </div>
+  <div class="quiz" data-quiz="m8"></div>
+</section>
+
+<!-- ============ M9 ============ -->
+<section class="mod" id="m9" data-title="Diversificação e risco-retorno">
+  <p class="kicker">Módulo 9</p>
+  <h2>Diversificação e risco-retorno</h2>
+  <p>Diversificar reduz o risco específico de um papel, mas não elimina o risco de mercado. E <strong>risco e retorno andam juntos</strong>: promessa de retorno alto sem risco alto é sinal de alerta, não de oportunidade.</p>
+  <div class="lab" data-lab="div">
+    <p class="lab-title">Exercício: quantos ativos na carteira? (modelo simplificado)</p>
+    <label class="rng">Número de ativos: <output id="dvOut">1</output><input type="range" id="dvN" min="1" max="20" step="1" value="1"></label>
+    <div class="out" id="dvDesc" aria-live="polite"></div>
+    <p class="note">Modelo didático: ativos iguais e independentes, em partes iguais. Na vida real os ativos se movem juntos em parte, então o ganho de diversificar é menor do que o mostrado.</p>
+  </div>
+  <div class="quiz" data-quiz="m9"></div>
+</section>
+
+<!-- ============ M10 ============ -->
+<section class="mod" id="m10" data-title="Seu ciclo no Boris+">
+  <p class="kicker">Módulo 10</p>
+  <h2>Seu ciclo no Boris+</h2>
+  <p>Juntando tudo: o mesmo ciclo em toda decisão. Marque cada etapa ao treinar. Veja como elas aparecem nas telas no <a href="tour.html">tour do produto</a>.</p>
+  <div class="lab" data-lab="ciclo">
+    <p class="lab-title">Checklist de uma decisão simulada</p>
+    <ul class="todo" id="cicloList">
+      <li><label><input type="checkbox"> Conferi a fonte, o horário e o estado do dado.</label></li>
+      <li><label><input type="checkbox"> Li o contexto: tendência, regime e volatilidade.</label></li>
+      <li><label><input type="checkbox"> Defini invalidação, entrada e alvo antes de enviar a ordem.</label></li>
+      <li><label><input type="checkbox"> Calculei o tamanho da posição pelo risco aceito.</label></li>
+      <li><label><input type="checkbox"> Enviei a ordem virtual e li o status da execução.</label></li>
+      <li><label><input type="checkbox"> Revi o resultado, o drawdown e o que aprendi, ganhando ou perdendo.</label></li>
+    </ul>
+    <p class="out" id="cicloOut" aria-live="polite"></p>
+  </div>
+  <div class="callout"><strong>Estudo × Operador.</strong> No <em>Modo Estudo</em> a IA orienta e você decide. No <em>Modo Operador</em> há ferramentas e automações com execução simulada, para quem já domina esta base.</div>
+  <div class="quiz" data-quiz="m10"></div>
+</section>
+
+      <div class="finish" id="finish" hidden>
+        <h2>Treinamento concluído</h2>
+        <p class="lede">Você passou pelos dez módulos. O próximo passo é praticar com saldo virtual e revisar cada decisão.</p>
+        <p class="actions"><a class="btn" href="index.html#baixar">Baixar o Boris+</a> <a class="btn ghost" href="tour.html">Rever o tour</a></p>
+      </div>
+    </div>
+  </div>
+  <p class="wrap note" style="margin-bottom:64px">Material educacional com dados e cenários fictícios. Não constitui recomendação de investimento, consultoria nem promessa de rentabilidade. Resultados simulados não garantem resultados reais.</p>
+</main>
+
+<footer class="foot">
+  <div class="wrap">
+    <div class="row">
+      <span class="logo" style="font-size:24px">Boris<span class="plus">+</span></span>
+      <nav aria-label="Rodapé">
+        <a href="index.html">Início</a>
+        <a href="tour.html">Tour do produto</a>
+        <a href="suporte.html">Suporte</a>
+        <a href="privacidade.html">Privacidade</a>
+        <a href="privacidade.html#termos">Termos de uso</a>
+      </nav>
+    </div>
+    <p>© <span class="ph">[ANO]</span> <span class="ph">[RAZÃO SOCIAL DO EDITOR]</span>. Todos os direitos reservados.</p>
+  </div>
+</footer>
+<script src="js/treinamento.js" defer></script>
+</body>
+</html>
