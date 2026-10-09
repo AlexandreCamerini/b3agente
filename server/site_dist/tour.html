@@ -8,6 +8,7 @@
 <meta name="theme-color" content="#10121a">
 <link rel="icon" type="image/png" href="img/favicon.png">
 <link rel="stylesheet" href="css/site.css">
+<link rel="stylesheet" href="css/tour.css">
 </head>
 <body>
 <a class="skip" href="#conteudo">Ir para o conteúdo</a>
@@ -28,10 +29,40 @@
   <section class="wrap" style="padding-top:32px;padding-bottom:24px">
     <span class="eyebrow">Tour do produto</span>
     <h1 style="margin-top:20px">Do primeiro acesso ao resultado.</h1>
-    <p class="lede" style="margin-top:16px;max-width:680px">Nove telas reais do Boris+, na ordem em que você as encontra. Tudo com dinheiro virtual: nenhuma ordem sai do app.</p>
+    <p class="lede" style="margin-top:16px;max-width:680px">Um canvas com as telas reais do Boris+, na ordem do fluxo, e ao lado de cada uma o que dá para fazer ali. Tudo com dinheiro virtual: nenhuma ordem sai do app.</p>
     <p class="note">Telas capturadas em 09/10/2026 (mercado fechado), com uma conta de teste e saldo virtual de R$ 10.000,00. Cotações e sinais mostrados são conteúdo educacional e mudam a cada dia; nada aqui é recomendação de investimento.</p>
   </section>
 
+  <section class="wrap" aria-labelledby="canvasT">
+    <div class="viewbar">
+      <div class="tabs2" role="group" aria-label="Modo de visualização">
+        <button type="button" data-setview="canvas" aria-pressed="true">Canvas</button>
+        <button type="button" data-setview="lista" aria-pressed="false">Lista</button>
+      </div>
+      <p class="hint">Arraste para mover · <kbd>Ctrl</kbd>/<kbd>⌘</kbd> + rolagem para zoom · clique num quadro para focar</p>
+    </div>
+    <div id="canvasWrap">
+      <h2 id="canvasT" class="sr-only" style="position:absolute;left:-999px">Canvas do produto</h2>
+      <div class="board" id="board" tabindex="0" role="region" aria-label="Canvas do produto: quadros das telas com o que dá para fazer em cada uma. Setas movem, + e − dão zoom, 0 ajusta à tela.">
+        <div class="world" id="world"></div>
+        <div class="layers closed" id="layers">
+          <button type="button" class="lbtn" id="layersToggle" aria-expanded="false">Páginas <span aria-hidden="true">☰</span></button>
+          <div class="lbody" id="layersBody"></div>
+        </div>
+        <div class="toolbar" role="toolbar" aria-label="Controles do canvas">
+          <button type="button" id="zOut" aria-label="Diminuir zoom">−</button>
+          <span class="zl" id="zoomLbl" aria-live="off">70%</span>
+          <button type="button" id="zIn" aria-label="Aumentar zoom">+</button>
+          <span class="sep"></span>
+          <button type="button" id="zFit">Ajustar</button>
+          <button type="button" id="zPins" aria-pressed="true"><span class="hide-s">Marcadores</span><span aria-hidden="true" class="hide-s"> </span>●</button>
+        </div>
+      </div>
+      <p class="legend"><span>● Marcadores numerados ligam o quadro às anotações.</span><span>As anotações descrevem o que dá para fazer em cada tela.</span></p>
+    </div>
+  </section>
+
+  <div id="lista" class="listview">
   <div class="wrap">
 
     <article class="step" id="passo-1">
@@ -165,6 +196,8 @@
     </div>
   </section>
 
+  </div>
+
   <div class="wrap">
     <section class="cta" id="baixar">
       <div>
@@ -192,5 +225,6 @@
     <p>© <span class="ph">[ANO]</span> <span class="ph">[RAZÃO SOCIAL DO EDITOR]</span>. Todos os direitos reservados.</p>
   </div>
 </footer>
+<script src="js/tour.js" defer></script>
 </body>
 </html>
