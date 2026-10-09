@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Guia das telas — Treinamento Boris+</title>
+<meta name="description" content="Treinamento tela a tela do Boris+: o que dá para fazer em cada tela, uma missão prática e um teste rápido. Feito para ler no celular.">
+<meta name="theme-color" content="#10121a">
+<link rel="icon" type="image/png" href="img/favicon.png">
+<link rel="stylesheet" href="css/site.css">
+<link rel="stylesheet" href="css/guia.css">
+</head>
+<body>
+<a class="skip" href="#viewer">Ir para a tela</a>
+
+<header class="top">
+  <a class="logo" href="index.html" aria-label="Boris+ — início">Boris<span class="plus">+</span></a>
+  <nav class="nav" aria-label="Principal">
+    <a href="tour.html">O app</a>
+    <a href="treinamento.html" aria-current="page">Treinamento</a>
+    <a href="index.html#modos">Modos</a>
+    <a href="index.html#faq">Dúvidas</a>
+    <a class="btn" href="index.html#baixar">Baixar</a>
+  </nav>
+</header>
+
+<main id="conteudo">
+  <section class="wrap" style="padding-top:20px">
+    <div class="subnav" role="group" aria-label="Treinamento">
+      <a href="treinamento.html">Conceitos de mercado</a>
+      <a href="guia-telas.html" aria-current="page">Guia das telas</a>
+    </div>
+    <h1 style="margin-top:22px;font-size:clamp(34px,6vw,56px)">Guia das telas</h1>
+    <p class="lede" style="margin-top:12px;max-width:700px">Um treinamento para cada tela do Boris+: o que dá para fazer ali, uma missão prática para repetir no app e um teste rápido. Todas as capturas usam dinheiro virtual.</p>
+    <noscript><p class="callout" style="margin-top:16px">Este guia usa JavaScript. Sem ele, veja as telas na página <a href="tour.html">O app</a>.</p></noscript>
+  </section>
+
+  <section class="wrap guia" id="guia" aria-label="Guia das telas">
+    <div class="gprog" aria-live="polite">
+      <div class="gprog-row"><strong id="gTxt">0 de 20 telas</strong><button type="button" class="link" id="gReset">Reiniciar</button></div>
+      <div class="bar" role="progressbar" aria-label="Progresso do guia" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="gBar"><span id="gFill"></span></div>
+    </div>
+    <nav class="mapa" id="mapa" aria-label="Mapa das telas"></nav>
+    <div id="viewer" class="viewer" tabindex="-1"></div>
+  </section>
+
+  <p class="wrap note" style="margin:8px auto 64px">Capturas de 09/10/2026 de um ambiente de desenvolvimento. Valores de opções vêm de um provedor de demonstração e são ilustrativos. Conteúdo educacional: nada aqui é recomendação de investimento.</p>
+</main>
+
+<footer class="foot">
+  <div class="wrap">
+    <div class="row">
+      <span class="logo" style="font-size:24px">Boris<span class="plus">+</span></span>
+      <nav aria-label="Rodapé">
+        <a href="index.html">Início</a>
+        <a href="tour.html">O app</a>
+        <a href="treinamento.html">Conceitos</a>
+        <a href="suporte.html">Suporte</a>
+        <a href="/privacidade">Privacidade</a>
+        <a href="privacidade.html#termos">Termos de uso</a>
+      </nav>
+    </div>
+    <p>© <span class="ph">[ANO]</span> <span class="ph">[RAZÃO SOCIAL DO EDITOR]</span>. Todos os direitos reservados.</p>
+  </div>
+</footer>
+<script src="js/telas-data.js"></script>
+<script src="js/guia.js" defer></script>
+</body>
+</html>

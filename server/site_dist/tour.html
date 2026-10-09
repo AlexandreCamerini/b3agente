@@ -3,12 +3,12 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Tour do produto — Boris+</title>
-<meta name="description" content="Do primeiro acesso ao resultado na carteira: o fluxo do Boris+ passo a passo, com telas reais do app e dinheiro virtual.">
+<title>O app por dentro — Boris+</title>
+<meta name="description" content="Conheça o Boris+ por dentro: as abas, o fluxo da primeira sessão ao resultado, os dois modos, a IA em duas camadas, o que o app garante e o que ele nunca faz.">
 <meta name="theme-color" content="#10121a">
 <link rel="icon" type="image/png" href="img/favicon.png">
 <link rel="stylesheet" href="css/site.css">
-<link rel="stylesheet" href="css/tour.css">
+<link rel="stylesheet" href="css/app.css">
 </head>
 <body>
 <a class="skip" href="#conteudo">Ir para o conteúdo</a>
@@ -16,53 +16,45 @@
 <header class="top">
   <a class="logo" href="index.html" aria-label="Boris+ — início">Boris<span class="plus">+</span></a>
   <nav class="nav" aria-label="Principal">
-    <a href="tour.html" aria-current="page">Tour do produto</a>
+    <a href="tour.html" aria-current="page">O app</a>
     <a href="treinamento.html">Treinamento</a>
-    <a href="index.html#modos">Modos</a>
-    <a href="index.html#transparencia">Transparência</a>
-    <a href="index.html#faq">Dúvidas</a>
-    <a class="btn" href="index.html#baixar">Baixar</a>
+    <a href="#modos">Modos</a>
+    <a href="#ia">IA</a>
+    <a href="#faq">Dúvidas</a>
+    <a class="btn" href="#baixar">Baixar</a>
   </nav>
 </header>
 
 <main id="conteudo">
-  <section class="wrap" style="padding-top:32px;padding-bottom:24px">
-    <span class="eyebrow">Tour do produto</span>
-    <h1 style="margin-top:20px">Do primeiro acesso ao resultado.</h1>
-    <p class="lede" style="margin-top:16px;max-width:680px">Um canvas com as telas reais do Boris+, na ordem do fluxo, e ao lado de cada uma o que dá para fazer ali. Tudo com dinheiro virtual: nenhuma ordem sai do app.</p>
-    <p class="note">Telas capturadas em 09/10/2026 (mercado fechado), com uma conta de teste e saldo virtual de R$ 10.000,00. Cotações e sinais mostrados são conteúdo educacional e mudam a cada dia; nada aqui é recomendação de investimento.</p>
+  <section class="wrap" style="padding-top:32px;padding-bottom:8px">
+    <span class="eyebrow">O app por dentro</span>
+    <h1 style="margin-top:20px">Tudo o que o Boris+ faz, tela a tela.</h1>
+    <p class="lede" style="margin-top:16px;max-width:720px">Um simulador educacional da B3 com dados reais e dinheiro virtual. Aqui você vê as abas, o fluxo da primeira sessão ao resultado, os dois modos de trabalho, como a IA entra e o que o app garante. Quer praticar cada tela? Vá ao <a href="guia-telas.html">Guia das telas</a>.</p>
+    <div class="actions" style="margin-top:20px">
+      <a class="btn" href="#baixar">Baixar na App Store</a>
+      <a class="btn ghost" href="guia-telas.html">Treinar cada tela</a>
+    </div>
+    <p class="note">Capturas de 09/10/2026 (app em desenvolvimento), com conta de teste e saldo virtual de R$ 10.000,00. Cotações e sinais mudam a cada dia; nada aqui é recomendação de investimento.</p>
   </section>
 
-  <section class="wrap" aria-labelledby="canvasT">
-    <div class="viewbar">
-      <div class="tabs2" role="group" aria-label="Modo de visualização">
-        <button type="button" data-setview="canvas" aria-pressed="true">Canvas</button>
-        <button type="button" data-setview="lista" aria-pressed="false">Lista</button>
-      </div>
-      <p class="hint">Arraste para mover · <kbd>Ctrl</kbd>/<kbd>⌘</kbd> + rolagem para zoom · clique num quadro para focar</p>
-    </div>
-    <div id="canvasWrap">
-      <h2 id="canvasT" class="sr-only" style="position:absolute;left:-999px">Canvas do produto</h2>
-      <div class="board" id="board" tabindex="0" role="region" aria-label="Canvas do produto: quadros das telas com o que dá para fazer em cada uma. Setas movem, + e − dão zoom, 0 ajusta à tela.">
-        <div class="world" id="world"></div>
-        <div class="layers closed" id="layers">
-          <button type="button" class="lbtn" id="layersToggle" aria-expanded="false">Páginas <span aria-hidden="true">☰</span></button>
-          <div class="lbody" id="layersBody"></div>
-        </div>
-        <div class="toolbar" role="toolbar" aria-label="Controles do canvas">
-          <button type="button" id="zOut" aria-label="Diminuir zoom">−</button>
-          <span class="zl" id="zoomLbl" aria-live="off">70%</span>
-          <button type="button" id="zIn" aria-label="Aumentar zoom">+</button>
-          <span class="sep"></span>
-          <button type="button" id="zFit">Ajustar</button>
-          <button type="button" id="zPins" aria-pressed="true"><span class="hide-s">Marcadores</span><span aria-hidden="true" class="hide-s"> </span>●</button>
-        </div>
-      </div>
-      <p class="legend"><span>● Marcadores numerados ligam o quadro às anotações.</span><span>As anotações descrevem o que dá para fazer em cada tela.</span></p>
-    </div>
+  <section class="wrap sec" id="abas" aria-labelledby="abasT">
+    <h2 id="abasT">As abas do app</h2>
+    <p class="lede">Cinco lugares, cada um com uma função. No Modo Operador, três deles mudam de nome (Mesa, Monitoramento e Posições), com o vocabulário de uma mesa de operações.</p>
+    <ul class="tabs">
+      <li class="tab"><span class="tn">Acompanhar</span><p>O resumo do seu dia: saldo virtual, setups da sua watchlist, curva do patrimônio simulado e o estado do mercado.</p><a href="guia-telas.html#acomp">Treinar esta tela →</a></li>
+      <li class="tab"><span class="tn">Radar <small>(Mesa)</small></span><p>Varre o universo de ativos com o motor de sinais e mostra quais condições técnicas estão ativas, ordenadas por confluência.</p><a href="guia-telas.html#radar">Treinar esta tela →</a></li>
+      <li class="tab"><span class="tn">Watchlist <small>(Monitoramento)</small></span><p>Seus ativos em estudo, com plano educacional, regime de mercado e a fonte e o horário de cada dado.</p><a href="guia-telas.html#watch">Treinar esta tela →</a></li>
+      <li class="tab"><span class="tn">Portfólio <small>(Posições)</small></span><p>Patrimônio, caixa, resultado aberto, histórico de operações e o acesso ao Operador IA.</p><a href="guia-telas.html#port">Treinar esta tela →</a></li>
+      <li class="tab"><span class="tn">Opções</span><p>Estude opções sobre as ações que você já tem: proteger de queda, gerar renda ou proteger com custo baixo, sempre vendo o pior caso antes.</p><a href="guia-telas.html#opc">Treinar esta tela →</a></li>
+    </ul>
   </section>
 
-  <div id="lista" class="listview">
+  <section class="wrap sec" id="fluxo">
+    <h2>Do primeiro acesso ao resultado</h2>
+    <p class="lede">O percurso completo, na ordem em que você o encontra. Cada passo depende do anterior.</p>
+  </section>
+
+
   <div class="wrap">
 
     <article class="step" id="passo-1">
@@ -236,15 +228,141 @@
     </div>
   </section>
 
-  </div>
+  <section class="wrap sec" id="modos" aria-labelledby="modosT">
+    <h2 id="modosT">Dois modos de trabalho</h2>
+    <p class="lede">O Estudo ensina; o Operador libera as decisões diretas. A troca fica em Perfil, pelo avatar no topo, e recarrega o app: é uma mudança de registro, não de tema.</p>
+    <div class="cmp">
+      <article class="mode estudo">
+        <span class="tag">Modo Estudo</span>
+        <h3>A IA ensina, você decide</h3>
+        <ul>
+          <li>A IA explica o raciocínio (indicador, correlação, decisão) e nunca executa.</li>
+          <li>Vocabulário de professor: Radar, Watchlist, Portfólio.</li>
+          <li>Compra e venda simuladas, feitas por você.</li>
+          <li>Acento azul-esverdeado.</li>
+        </ul>
+      </article>
+      <article class="mode operador">
+        <span class="tag">Modo Operador</span>
+        <h3>Decisões diretas, com disciplina</h3>
+        <ul>
+          <li>Vocabulário de mesa de operações: Mesa, Monitoramento, Posições.</li>
+          <li>Tudo do Estudo, mais o ciclo automático do Operador IA: trailing stop, alvo dinâmico e avisos de gatilho, com kill-switch para interromper tudo.</li>
+          <li>Antes de ativar, o Termo de Responsabilidade: o aceite só é liberado ao final da leitura.</li>
+          <li>Acento dourado.</li>
+        </ul>
+      </article>
+    </div>
+    <p class="note">Verde e vermelho nunca são cor de modo: nos dois, significam uma coisa só (compra e venda, ganho e perda). O Operador também executa de forma simulada, com dinheiro virtual.</p>
+  </section>
+
+  <section class="wrap sec" id="dados" aria-labelledby="dadosT">
+    <h2 id="dadosT">Dado confiável, estado honesto</h2>
+    <p class="lede">Todo número de mercado carrega a fonte, o horário e se é em tempo real, atrasado ou histórico. Quando algo falha, o app mostra o estado real em vez de inventar.</p>
+    <dl class="states">
+      <div><dt>Mercado fechado</dt><dd>Fora do pregão. Os preços são do último fechamento e o app diz isso.</dd></div>
+      <div><dt>Dado atrasado</dt><dd>A cotação chegou, mas não é do instante; o horário real da leitura aparece.</dd></div>
+      <div><dt>Frescor não medido</dt><dd>O app não conseguiu saber a idade do dado e não afirma que está em dia.</dd></div>
+      <div><dt>Quantidade inválida</dt><dd>A ordem é recusada inteira e a recusa entra no histórico com o motivo.</dd></div>
+      <div><dt>Ordem pendente</dt><dd>Com o mercado fechado, a ordem aguarda a abertura, e o caixa já fica reservado.</dd></div>
+      <div><dt>Não há dados suficientes para concluir</dt><dd>A resposta correta quando a evidência não sustenta uma conclusão. É recurso, não erro.</dd></div>
+    </dl>
+  </section>
+
+  <section class="wrap sec" id="ia" aria-labelledby="iaT">
+    <h2 id="iaT">A IA, em duas camadas</h2>
+    <p class="lede">O Bóris explica; quem calcula é o motor. A manchete do card vem do motor determinístico, e a IA explica o que está abaixo dela.</p>
+    <div class="cmp">
+      <article class="mode">
+        <span class="tag" style="color:var(--brand-amber)">Camada gratuita</span>
+        <h3>Verbetes escritos à mão</h3>
+        <p>Toque num termo sublinhado (gatilho, confluência, risco) e a explicação abre ali, sem sair da tela. Não passa por modelo de IA, responde na hora e funciona mesmo com a cota esgotada.</p>
+      </article>
+      <article class="mode">
+        <span class="tag" style="color:var(--brand-amber)">Camada com cota</span>
+        <h3>Análise e perguntas livres</h3>
+        <p>“Estudar este ativo” lê o pacote técnico que o motor já calculou e explica o que cada indicador marca, o que confirma, o que diverge e o que mudaria a leitura. Gasta uma análise da sua cota; se acabar, o app mostra a explicação automática e diz que é ela.</p>
+      </article>
+    </div>
+    <ul class="check">
+      <li>Toda resposta de IA traz o rótulo de conteúdo educacional, não recomendação.</li>
+      <li>A IA só cita número que está na tela. Se faltar, diz que a informação não aparece.</li>
+      <li>O Bóris lê as respostas em voz alta por padrão, e dá para desligar em Perfil.</li>
+      <li>Quem prefere pode usar a própria chave de modelo, assumindo o gasto no provedor.</li>
+      <li>Plano gratuito: cota mensal e diária de análises de IA <span class="ph">[CONFIRMAR COTAS E PLANOS ANTES DE PUBLICAR]</span>.</li>
+    </ul>
+  </section>
+
+  <section class="wrap sec" id="rotina" aria-labelledby="rotinaT">
+    <h2 id="rotinaT">Uma rotina de treino</h2>
+    <ol class="cards">
+      <li class="card"><span class="n">1</span><h3>Antes da abertura</h3><p>Olhe o Radar e não toque em nada. A varredura e o plano de cada candidato já estão montados: decidir antes é metade do treino.</p></li>
+      <li class="card"><span class="n">2</span><h3>Durante o pregão</h3><p>Responda ao gatilho, não ao preço. O app avisa quando a condição é atingida, com o carimbo da barra.</p></li>
+      <li class="card"><span class="n">3</span><h3>Depois do fechamento</h3><p>Confira o histórico, inclusive as ordens recusadas: elas ensinam mais que as aceitas.</p></li>
+      <li class="card"><span class="n">4</span><h3>Uma vez por semana</h3><p>Compare sua evolução com o benchmark e olhe a eficiência da IA: acerto, expectância e curva de risco, com aviso quando a amostra é pequena.</p></li>
+    </ol>
+  </section>
+
+  <section class="wrap sec" id="nunca" aria-labelledby="nuncaT">
+    <div class="trust">
+      <div class="lead">
+        <h2 id="nuncaT">O que o Boris+ nunca faz</h2>
+        <p>Algumas regras não mudam, em nenhum modo e em nenhum plano.</p>
+      </div>
+      <ul>
+        <li><span><strong>Enviar ordem real.</strong> Não existe caminho no produto para corretora, bolsa ou conta bancária.</span></li>
+        <li><span><strong>Deixar a IA calcular números financeiros.</strong> Saldo, preço médio, resultado, custo e drawdown vêm de regras determinísticas.</span></li>
+        <li><span><strong>Inventar valor.</strong> Se a fonte falha, mostra o estado real e impede a operação que dependeria do dado.</span></li>
+        <li><span><strong>Prometer resultado.</strong> Sem garantia de acerto, sem linguagem de enriquecimento rápido, sem esconder perda.</span></li>
+        <li><span><strong>Virar recomendação.</strong> Simulação é simulação: nada ali é recomendação de investimento.</span></li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="wrap sec" id="plataformas" aria-labelledby="platT">
+    <h2 id="platT">Plataformas e conta</h2>
+    <ul class="cards">
+      <li class="card"><h3>iPhone</h3><p>App nativo, com notificações e a voz do Bóris. A conta guarda a carteira virtual e o histórico entre aparelhos.</p></li>
+      <li class="card"><h3>Navegador</h3><p>O mesmo app em tela larga, com os cards em colunas, os mesmos avisos e o mesmo carimbo de dado.</p></li>
+      <li class="card"><h3>Conta</h3><p>Entrada com Apple, Google ou e-mail. Conta nova nasce limpa, sem posições de demonstração.</p></li>
+      <li class="card"><h3>Privacidade</h3><p>Veja a <a href="/privacidade">política de privacidade</a> e o <a href="suporte.html">suporte</a>.</p></li>
+    </ul>
+  </section>
+
+  <section class="wrap sec" id="glossario" aria-labelledby="glT">
+    <h2 id="glT">Vocabulário do app</h2>
+    <div class="gloss">
+      <details><summary>Setup</summary><p>Configuração técnica nomeada que o motor reconhece no gráfico. Quem decide se existe é regra determinística, nunca a IA.</p></details>
+      <details><summary>Confluência</summary><p>Quantos sinais independentes apontam para a mesma direção. É o critério de ordenação do Radar.</p></details>
+      <details><summary>Armado · Gatilho · Esticado</summary><p>Os três estados de timing: condição montada e não disparada; o momento do disparo; preço já corrido demais para a entrada original.</p></details>
+      <details><summary>Risco em R</summary><p>A distância entre entrada e stop, usada como unidade. Um alvo de 2R mira o dobro do que se arrisca.</p></details>
+      <details><summary>Trailing stop e alvo dinâmico</summary><p>O trailing stop acompanha o preço a favor e nunca contra, protegendo o ganho. O alvo dinâmico se estende quando o movimento continua, com freio por extensão e por relação risco-retorno.</p></details>
+      <details><summary>Kill-switch</summary><p>Interrupção geral do ciclo automático: o Operador IA fica parado até ser religado.</p></details>
+      <details><summary>Lastro e vigia (Opções)</summary><p>Lastro são as ações que ficam comprometidas com uma estrutura de opções. Vigia acompanha uma estrutura de interesse.</p></details>
+      <details><summary>Drawdown e expectância</summary><p>Drawdown é a maior queda do topo até o fundo no período. Expectância é quanto se ganha por operação, em média: pode ser negativa mesmo com taxa de acerto alta.</p></details>
+    </div>
+  </section>
+
+  <section class="wrap sec" id="faq" aria-labelledby="faqT">
+    <h2 id="faqT">Dúvidas sobre o app</h2>
+    <div class="gloss">
+      <details><summary>Preciso saber de bolsa para começar?</summary><p>Não. O Modo Estudo foi desenhado para quem está começando, com explicações dentro de cada card. Se quiser base antes, veja o <a href="treinamento.html">treinamento de conceitos</a>.</p></details>
+      <details><summary>O que acontece se eu perder tudo no simulador?</summary><p>Nada além do aprendizado: o saldo é virtual. O app mostra ganhos e perdas com o mesmo peso visual, para você aprender com os dois.</p></details>
+      <details><summary>Quanto custa?</summary><p>As funções básicas são gratuitas, com cota de análises de IA. Planos pagos ampliam a cota. <span class="ph">[VALORES E CONDIÇÕES A DEFINIR]</span></p></details>
+      <details><summary>As opções executam ordem de verdade?</summary><p>Não. Na aba Opções, o Estudo mostra como a estrutura funcionaria e o Operador executa de forma simulada, sempre com dinheiro virtual.</p></details>
+    </div>
+  </section>
 
   <div class="wrap">
     <section class="cta" id="baixar">
       <div>
-        <h2>Pronto para o primeiro treino?</h2>
-        <p>Disponível para iPhone. Gratuito para começar.</p>
+        <h2>Pronto para treinar?</h2>
+        <p>Baixe o app ou comece pelo guia: uma missão e um teste rápido para cada tela.</p>
       </div>
-      <a class="btn" href="#baixar" data-placeholder="LINK DA APP STORE">Baixar na App Store <span class="ph" style="margin-left:8px">[LINK DA APP STORE]</span></a>
+      <div class="actions">
+        <a class="btn" href="#baixar" data-placeholder="LINK DA APP STORE">Baixar na App Store <span class="ph" style="margin-left:8px">[LINK DA APP STORE]</span></a>
+        <a class="btn ghost" href="guia-telas.html">Guia das telas</a>
+      </div>
     </section>
   </div>
 </main>
@@ -256,6 +374,7 @@
       <nav aria-label="Rodapé">
         <a href="index.html">Início</a>
         <a href="treinamento.html">Treinamento</a>
+        <a href="guia-telas.html">Guia das telas</a>
         <a href="suporte.html">Suporte</a>
         <a href="/privacidade">Privacidade</a>
         <a href="privacidade.html#termos">Termos de uso</a>
@@ -265,6 +384,5 @@
     <p>© <span class="ph">[ANO]</span> <span class="ph">[RAZÃO SOCIAL DO EDITOR]</span>. Todos os direitos reservados.</p>
   </div>
 </footer>
-<script src="js/tour.js" defer></script>
 </body>
 </html>

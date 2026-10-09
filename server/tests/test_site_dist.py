@@ -22,7 +22,10 @@ def test_site_dist_mora_dentro_de_server():
 def test_paginas_do_site_respondem_em_site():
     for path, marca in [
         ("/site/", "Boris"),
-        ("/site/tour.html", "Tour do produto"),
+        ("/site/tour.html", "O app por dentro"),
+        ("/site/guia-telas.html", "Guia das telas"),
+        ("/site/js/telas-data.js", "window.TELAS"),
+        ("/site/js/guia.js", "boris-guia-v1"),
         ("/site/treinamento.html", "Treinamento"),
         ("/site/suporte.html", "Suporte"),
         ("/site/privacidade.html", "Termos de uso"),
