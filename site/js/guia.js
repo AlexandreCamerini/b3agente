@@ -46,83 +46,117 @@
     });
   }
 
-  /* ---------- tela ---------- */
+  /* ---------- tela ----------
+     Lente: a captura fica numa moldura fixa; a câmera dá zoom no ponto ativo, o resto escurece
+     (translúcido) e a explicação aparece num cartão de vidro colado ao ponto. Sem linhas, sem
+     marcadores cobrindo conteúdo. Abaixo da lente, abas: Pontos · Missão · Teste. */
   function render(t) {
-    var i = T.indexOf(t);
+    var i = T.indexOf(t), web = t.kind === "w", base = window.TELAS_BASE || "";
     viewer.textContent = "";
     var art = el("article", "tela");
-    art.appendChild(el("p", "kick", "Tela " + (i + 1) + " de " + T.length + " · " + t.grupo));
-    art.appendChild(el("h2", null, t.titulo));
-    var onde = el("p", "onde"); onde.appendChild(el("b", null, "Onde fica: ")); onde.appendChild(document.createTextNode(t.onde)); art.appendChild(onde);
-    art.appendChild(el("p", "obj", t.objetivo));
+    var head = el("header", "thead");
+    head.appendChild(el("p", "kick", "Tela " + (i + 1) + " de " + T.length + " · " + t.grupo));
+    head.appendChild(el("h2", null, t.titulo));
+    var onde = el("p", "onde"); onde.appendChild(el("b", null, "Onde fica: ")); onde.appendChild(document.createTextNode(t.onde)); head.appendChild(onde);
+    art.appendChild(head);
 
-    var cols = el("div", "cols" + (t.kind === "w" ? " web" : ""));
-    var sc = el("div", "shotcol"), base = window.TELAS_BASE || "";
-    var stage = el("div", "pstage" + (t.kind === "w" ? " w" : ""));
-    var pw = el("div", "pwrap" + (t.kind === "w" ? " w" : ""));
-    var img = new Image(); img.src = base + t.img; img.alt = t.alt; img.width = t.kind === "w" ? 800 : 780; img.height = t.kind === "w" ? 500 : 1688; img.draggable = false; pw.appendChild(img);
-    var over = el("div", "pover"); stage.appendChild(pw); stage.appendChild(over);
-    var pins = [], dots = [], items = [];
-    var note = el("p", "pinnote"); note.setAttribute("aria-live", "polite"); note.textContent = "Toque num número da captura para ver o que ele mostra.";
-    function pick(k, scroll) {
-      pins.forEach(function (p, j) { p.classList.toggle("on", j === k); if (dots[j]) dots[j].classList.toggle("on", j === k); });
+    var cols = el("div", "cols" + (web ? " web" : ""));
+    /* --- lente --- */
+    var sc = el("div", "shotcol");
+    var lens = el("div", "lens" + (web ? " w" : "")); lens.setAttribute("role", "group"); lens.setAttribute("aria-label", "Captura de " + t.titulo + " com os pontos explicados");
+    var cam = el("div", "cam");
+    var img = new Image(); img.src = base + t.img; img.alt = t.alt; img.draggable = false; cam.appendChild(img);
+    var ghosts = [];
+    t.can.forEach(function (c, k) {
+      var g = el("button", "ghost", String(k + 1)); g.type = "button"; g.style.left = c[1] + "%"; g.style.top = c[2] + "%";
+      g.setAttribute("aria-label", "Ponto " + (k + 1) + ": " + c[0]); g.addEventListener("click", function () { focusAt(k, true); }); cam.appendChild(g); ghosts.push(g);
+    });
+    var spot = el("div", "spot"), ring = el("div", "ring");
+    var glass = el("div", "glass"); glass.setAttribute("aria-live", "polite");
+    var gtop = el("div", "gtop"), gcount = el("span", "gcount"), gnav = el("span", "gnav");
+    var pv = el("button", "gb", "‹"); pv.type = "button"; pv.setAttribute("aria-label", "Ponto anterior");
+    var nx = el("button", "gb", "›"); nx.type = "button"; nx.setAttribute("aria-label", "Próximo ponto");
+    gnav.appendChild(pv); gnav.appendChild(nx); gtop.appendChild(gcount); gtop.appendChild(gnav);
+    var gtxt = el("p", "gtxt"); glass.appendChild(gtop); glass.appendChild(gtxt);
+    var wide = el("button", "wide", "Tela inteira"); wide.type = "button"; wide.setAttribute("aria-pressed", "false");
+    lens.appendChild(cam); lens.appendChild(spot); lens.appendChild(ring); lens.appendChild(glass);
+    sc.appendChild(lens);
+    var dots = el("div", "stepdots"); dots.setAttribute("role", "tablist"); dots.setAttribute("aria-label", "Pontos da tela");
+    var chips = t.can.map(function (c, k) { var b = el("button", null, String(k + 1)); b.type = "button"; b.setAttribute("aria-label", "Ir ao ponto " + (k + 1)); b.addEventListener("click", function () { focusAt(k, true); }); dots.appendChild(b); return b; });
+    var ctl = el("div", "ctl"); ctl.appendChild(dots); ctl.appendChild(wide); sc.appendChild(ctl);
+    cols.appendChild(sc);
+
+    var cur2 = 0, overview = false, natW = web ? 800 : 780, natH = web ? 500 : 1688;
+    function geom() { var vw = lens.clientWidth, vh = lens.clientHeight; return { vw: vw, vh: vh, fit: Math.min(vw / natW, vh / natH), w0: vw / natW }; }
+    function place(k) {
+      var g = geom(); if (!g.vw) return;
+      var c = t.can[k], s2, tx, ty, cxp, cyp;
+      if (overview) {
+        s2 = g.fit; cam.style.width = natW * s2 + "px"; cam.style.height = natH * s2 + "px";
+        tx = (g.vw - natW * s2) / 2; ty = (g.vh - natH * s2) / 2;
+      } else {
+        s2 = g.w0; cam.style.width = natW * s2 + "px"; cam.style.height = natH * s2 + "px";
+        var X = c[1] / 100 * natW * s2, Y = c[2] / 100 * natH * s2;
+        tx = g.vw / 2 - X; ty = g.vh * 0.36 - Y;
+        tx = Math.min(0, Math.max(g.vw - natW * s2, tx)); ty = Math.min(0, Math.max(g.vh - natH * s2, ty));
+        if (natW * s2 <= g.vw) tx = (g.vw - natW * s2) / 2;
+        if (natH * s2 <= g.vh) ty = (g.vh - natH * s2) / 2;
+        cxp = tx + X; cyp = ty + Y;
+        spot.style.top = (cyp - 46) + "px"; ring.style.left = cxp + "px"; ring.style.top = cyp + "px";
+        glass.classList.toggle("up", cyp > g.vh * 0.52);
+      }
+      cam.style.transform = "translate(" + tx + "px," + ty + "px)";
+    }
+    function focusAt(k, user) {
+      cur2 = k; if (overview) { overview = false; wide.setAttribute("aria-pressed", "false"); lens.classList.remove("ov"); }
+      place(k);
+      ghosts.forEach(function (g, j) { g.classList.toggle("on", j === k); });
+      chips.forEach(function (b, j) { b.classList.toggle("on", j === k); if (j === k) b.setAttribute("aria-current", "true"); else b.removeAttribute("aria-current"); });
       items.forEach(function (b, j) { b.classList.toggle("on", j === k); });
-      note.textContent = "";
-      var b = el("b", null, (k + 1) + ". "); note.appendChild(b); note.appendChild(document.createTextNode(t.can[k][0]));
-      if (scroll && items[k] && items[k].scrollIntoView) { var r = items[k].getBoundingClientRect(); if (r.top < 0 || r.bottom > innerHeight) items[k].scrollIntoView({ block: "center", behavior: "smooth" }); }
+      gcount.textContent = "Ponto " + (k + 1) + " de " + t.can.length; gtxt.textContent = t.can[k][0];
+      pv.disabled = k === 0; nx.disabled = k === t.can.length - 1;
     }
-    /* Marcadores fora da captura: o número fica na margem (esquerda ou direita), um ponto marca o alvo
-       e uma linha tracejada liga os dois. Nada cobre o conteúdo; pinos próximos se afastam. */
-    function layoutPins() {
-      over.textContent = ""; pins = []; dots = [];
-      var W = over.clientWidth, H = over.clientHeight; if (!W || !H) return;
-      var gx = parseFloat(getComputedStyle(over).getPropertyValue("--gx")) || 17, MIN = 27;
-      var order = t.can.map(function (c, k) { return k; }).sort(function (a, b) { return t.can[a][2] - t.can[b][2]; });
-      var used = { L: [], R: [] }, place = {};
-      function free(side, y) { return used[side].every(function (u) { return Math.abs(u - y) >= MIN; }); }
-      order.forEach(function (k) {
-        var x = t.can[k][1], y = t.can[k][2] / 100 * H, pref = x < 50 ? "L" : "R", alt = pref === "L" ? "R" : "L", side = pref, py = y;
-        if (!free(pref, y)) { if (free(alt, y)) side = alt; else { var last = Math.max.apply(null, used[pref]); py = Math.min(last + MIN, H - 12); } }
-        used[side].push(py); place[k] = { side: side, y: y, py: py, x: x / 100 * W };
-      });
-      t.can.forEach(function (c, k) {
-        var pl = place[k];
-        var ln = el("span", "ln h"); ln.style.top = pl.y + "px";
-        if (pl.side === "L") { ln.style.left = "0"; ln.style.width = pl.x + "px"; } else { ln.style.right = "0"; ln.style.width = (W - pl.x) + "px"; }
-        over.appendChild(ln);
-        if (Math.abs(pl.py - pl.y) > 1) { var vl = el("span", "ln v"); vl.style.top = Math.min(pl.y, pl.py) + "px"; vl.style.height = Math.abs(pl.py - pl.y) + "px"; vl.style[pl.side === "L" ? "left" : "right"] = "0"; over.appendChild(vl); }
-        var d = el("span", "dot"); d.style.left = pl.x + "px"; d.style.top = pl.y + "px"; over.appendChild(d); dots.push(d);
-        var p = el("button", "gpin", String(k + 1)); p.type = "button"; p.style.top = pl.py + "px";
-        if (pl.side === "L") p.style.left = (-gx) + "px"; else p.style.left = (W + gx) + "px";
-        p.setAttribute("aria-label", "Ponto " + (k + 1) + ": " + c[0]); p.addEventListener("click", function () { pick(k, false); }); over.appendChild(p); pins.push(p);
-      });
-    }
-    if (img.complete) setTimeout(layoutPins, 0); img.addEventListener("load", layoutPins);
-    var rz; window.addEventListener("resize", function () { clearTimeout(rz); rz = setTimeout(layoutPins, 120); });
-    var tg = el("button", "tgl", "Números na tela"); tg.type = "button"; tg.setAttribute("aria-pressed", "true");
-    tg.addEventListener("click", function () { var off = stage.classList.toggle("nopins"); tg.setAttribute("aria-pressed", String(!off)); });
-    sc.appendChild(stage); sc.appendChild(tg); sc.appendChild(note); cols.appendChild(sc);
+    pv.addEventListener("click", function () { if (cur2 > 0) focusAt(cur2 - 1, true); });
+    nx.addEventListener("click", function () { if (cur2 < t.can.length - 1) focusAt(cur2 + 1, true); });
+    wide.addEventListener("click", function () {
+      overview = !overview; wide.setAttribute("aria-pressed", String(overview)); lens.classList.toggle("ov", overview);
+      if (overview) place(cur2); else focusAt(cur2, true);
+    });
+    var rz; window.addEventListener("resize", function () { clearTimeout(rz); rz = setTimeout(function () { place(cur2); }, 100); });
 
+    /* --- abas: Pontos · Missão · Teste --- */
     var info = el("div", "info");
-    var s1 = el("section"); s1.appendChild(el("h3", null, "O que dá para fazer"));
+    var tabs = el("div", "tabs3"); tabs.setAttribute("role", "tablist");
+    var panels = {}, tabBtn = {};
+    [["pontos", "Pontos"], ["missao", "Missão"], ["teste", "Teste"]].forEach(function (d) {
+      var b = el("button", null, d[1]); b.type = "button"; b.setAttribute("role", "tab"); b.id = "tab-" + d[0]; b.setAttribute("aria-controls", "pn-" + d[0]);
+      b.addEventListener("click", function () { showTab(d[0]); }); tabs.appendChild(b); tabBtn[d[0]] = b;
+      var p = el("section", "panel"); p.id = "pn-" + d[0]; p.setAttribute("role", "tabpanel"); p.setAttribute("aria-labelledby", "tab-" + d[0]); panels[d[0]] = p;
+    });
+    function showTab(n) { Object.keys(panels).forEach(function (k) { panels[k].hidden = k !== n; tabBtn[k].setAttribute("aria-selected", String(k === n)); tabBtn[k].tabIndex = k === n ? 0 : -1; }); }
+    info.appendChild(tabs);
+
+    // Pontos
+    var items = [];
+    panels.pontos.appendChild(el("p", "obj", t.objetivo));
     var ol = el("ol", "can");
     t.can.forEach(function (c, k) {
       var li = el("li"), b = el("button"); b.type = "button"; b.appendChild(el("span", "n", String(k + 1))); b.appendChild(el("span", null, c[0]));
-      b.addEventListener("click", function () { pick(k, false); if (sc.getBoundingClientRect().bottom < 0) sc.scrollIntoView({ block: "center", behavior: "smooth" }); });
+      b.addEventListener("click", function () { focusAt(k, true); var r = lens.getBoundingClientRect(); if (r.top < 0 || r.bottom > innerHeight) lens.scrollIntoView({ block: "center", behavior: "smooth" }); });
       li.appendChild(b); ol.appendChild(li); items.push(b);
     });
-    s1.appendChild(ol); if (t.guard) s1.appendChild(el("p", "guardl", t.guard)); info.appendChild(s1);
+    panels.pontos.appendChild(ol); if (t.guard) panels.pontos.appendChild(el("p", "guardl", t.guard));
 
-    var s2 = el("section"); s2.appendChild(el("h3", null, "Missão prática: repita no app"));
+    // Missão
     var ul = el("ul", "mis"); mem.mis[t.id] = mem.mis[t.id] || [];
     t.missao.forEach(function (m, k) {
       var li = el("li"), lb = el("label"), cb = el("input"); cb.type = "checkbox"; cb.checked = !!mem.mis[t.id][k];
-      cb.addEventListener("change", function () { mem.mis[t.id][k] = cb.checked; save(); refresh(); });
+      cb.addEventListener("change", function () { mem.mis[t.id][k] = cb.checked; save(); refresh(); badge(); });
       lb.appendChild(cb); lb.appendChild(el("span", null, m)); li.appendChild(lb); ul.appendChild(li);
     });
-    s2.appendChild(ul); info.appendChild(s2);
+    panels.missao.appendChild(el("p", "obj", "Repita no app, com o saldo virtual:")); panels.missao.appendChild(ul);
 
-    var s3 = el("section"); s3.appendChild(el("h3", null, "Teste rápido"));
+    // Teste
     var fs = el("fieldset", "qz"); fs.appendChild(el("legend", null, t.quiz.q));
     var why = el("p", "why"); why.hidden = true; why.setAttribute("role", "status");
     t.quiz.o.forEach(function (txt, j) {
@@ -133,23 +167,32 @@
         Array.prototype.forEach.call(fs.querySelectorAll("label"), function (l) { l.classList.remove("ok", "bad"); });
         lb.classList.add(ok ? "ok" : "bad");
         why.hidden = false; why.className = "why " + (ok ? "ok" : "bad");
-        why.textContent = ok ? "Correto. " + t.quiz.why : "Ainda não. Releia “O que dá para fazer” e tente outra opção.";
-        if (ok) { mem.q[t.id] = true; save(); refresh(); }
+        why.textContent = ok ? "Correto. " + t.quiz.why : "Ainda não. Releia os pontos e tente outra opção.";
+        if (ok) { mem.q[t.id] = true; save(); refresh(); badge(); }
       });
       fs.appendChild(lb);
     });
     fs.appendChild(why);
     if (mem.q[t.id]) { var rs = fs.querySelectorAll("input"); rs[t.quiz.a].checked = true; fs.querySelectorAll("label")[t.quiz.a].classList.add("ok"); why.hidden = false; why.className = "why ok"; why.textContent = "Correto. " + t.quiz.why; }
-    s3.appendChild(fs); info.appendChild(s3);
+    panels.teste.appendChild(fs);
+
+    function badge() { // marca na aba o que já foi feito
+      tabBtn.missao.textContent = "Missão" + (misDone(t) ? " ✓" : ""); tabBtn.teste.textContent = "Teste" + (mem.q[t.id] ? " ✓" : "");
+    }
+    Object.keys(panels).forEach(function (k) { info.appendChild(panels[k]); });
+    showTab("pontos"); badge();
     cols.appendChild(info); art.appendChild(cols);
 
     var pg = el("div", "pager");
-    var pv = el("button", "btn ghost", "← Anterior"); pv.type = "button"; if (i === 0) pv.disabled = true; pv.addEventListener("click", function () { go(T[i - 1].id, true); });
-    var nx = el("button", "btn", i === T.length - 1 ? "Concluir" : "Próxima →"); nx.type = "button";
-    nx.addEventListener("click", function () { if (i === T.length - 1) { window.scrollTo({ top: 0, behavior: "smooth" }); } else go(T[i + 1].id, true); });
-    pg.appendChild(pv); pg.appendChild(nx); art.appendChild(pg);
-    art.appendChild(el("p", "hintm", "Dica: deslize para os lados para trocar de tela."));
+    var pvT = el("button", "btn ghost", "← Tela anterior"); pvT.type = "button"; if (i === 0) pvT.disabled = true; pvT.addEventListener("click", function () { go(T[i - 1].id, true); });
+    var nxT = el("button", "btn", i === T.length - 1 ? "Concluir" : "Próxima tela →"); nxT.type = "button";
+    nxT.addEventListener("click", function () { if (i === T.length - 1) { window.scrollTo({ top: 0, behavior: "smooth" }); } else go(T[i + 1].id, true); });
+    pg.appendChild(pvT); pg.appendChild(nxT); art.appendChild(pg);
     viewer.appendChild(art);
+    /* a lente só tem medida depois de montada e com a imagem carregada */
+    var go1 = function () { focusAt(0, false); };
+    if (img.complete) requestAnimationFrame(go1); else img.addEventListener("load", go1);
+    requestAnimationFrame(function () { requestAnimationFrame(go1); });
   }
 
   function go(id, focus) {
@@ -165,7 +208,7 @@
 
   /* swipe (celular) */
   var sx = null, sy = null;
-  viewer.addEventListener("touchstart", function (e) { if (e.touches.length !== 1 || e.target.closest("input,label,.gpin")) { sx = null; return; } sx = e.touches[0].clientX; sy = e.touches[0].clientY; }, { passive: true });
+  viewer.addEventListener("touchstart", function (e) { if (e.touches.length !== 1 || e.target.closest("input,label,.lens,.tabs3")) { sx = null; return; } sx = e.touches[0].clientX; sy = e.touches[0].clientY; }, { passive: true });
   viewer.addEventListener("touchend", function (e) {
     if (sx == null) return;
     var dx = e.changedTouches[0].clientX - sx, dy = e.changedTouches[0].clientY - sy; sx = null;
