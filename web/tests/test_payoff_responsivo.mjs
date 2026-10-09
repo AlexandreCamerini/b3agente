@@ -28,6 +28,8 @@
 // Cada regex carrega uma asserção de SANIDADE: sem ela, um typo (ou um
 // Unicode diferente) faria o assert passar por vacuidade, para sempre.
 //
+// Onda H2 (2026-10-08): itens 1, 6 e 8 reconciliados, ver NOTAs datadas.
+//
 // Roda sem build: `node web/tests/test_payoff_responsivo.mjs`.
 import { readFileSync } from "fs";
 import { fileURLToPath } from "url";
@@ -61,11 +63,23 @@ let m;
 while ((m = FONTSIZE_RE.exec(fonte))) {
   valoresFonte.push(m[1] != null ? parseFloat(m[1]) : valorConst(m[2], fonte));
 }
+// NOTA 2026-10-08 (quick 261008-w9i, Onda H2): a fonte do eixo agora vem de
+// FONTE_EIXO=12 em px reais (viewBox = largura medida) e a cor/tamanho de texto do SVG
+// passam por `style={{ fontSize: "12px" }}`; a exceção FONTE_MIN=11,5 deixou de existir.
+// A regex abaixo captura também a forma de style, mantendo piso >= 11 e >= 4 ocorrências.
+const FONTSIZE_STYLE_RE = /fontSize:\s*"([0-9]+(?:\.[0-9]+)?)px"/g;
+let ms;
+while ((ms = FONTSIZE_STYLE_RE.exec(fonte))) valoresFonte.push(parseFloat(ms[1]));
 ok("existem ocorrências de fontSize no SVG (o teste não está vazio)", valoresFonte.length >= 4);
 ok("toda fontSize resolvida é um número (literal ou constante existente)",
    valoresFonte.every((v) => typeof v === "number" && isFinite(v)));
 ok("toda fontSize de <text> no SVG tem piso >= 11 (D-07, legibilidade em 375px)",
    valoresFonte.length > 0 && valoresFonte.every((v) => v >= 11));
+ok("sanidade (H2): a regex de style pega fontSize: \"9px\" e o piso >= 11 o reprova",
+   (() => {
+     const r = /fontSize:\s*"([0-9]+(?:\.[0-9]+)?)px"/.exec('style={{ fontSize: "9px" }}');
+     return !!r && parseFloat(r[1]) === 9 && !(parseFloat(r[1]) >= 11);
+   })());
 ok("sanidade: a regex pega fontSize=\"9.5\" literal E resolve fontSize={CONST}",
    (() => {
      const lit = /fontSize=(?:"([0-9]+(?:\.[0-9]+)?)"|\{([A-Za-z_][A-Za-z0-9_]*)\})/.exec('fontSize="9.5"');
@@ -108,22 +122,32 @@ ok("sanidade: a regex de aritmética pega uma conta inventada",
    ARITMETICA_FINANCEIRA.test("const dobro = e.max_gain * 2;"));
 
 // ---- 6) a linha do breakeven nunca depende da mesma condição que suprime o texto
-// Marcadores de CÓDIGO (não de comentário — os comentários são removidos por
-// `semComentario`): plano 37-04 mesclou breakeven+strike num único array de
-// colisão (`tipoMarca: "breakeven"` é o discriminador que nasce nessa
-// mesclagem); o bloco vai dali até o início do `.map` dos cenários.
-const iniBe = fonte.indexOf('tipoMarca: "breakeven"');
-const iniCen = fonte.indexOf("cenarios.map((s, i)");
-const blocoBreakeven = iniBe >= 0 && iniCen > iniBe ? fonte.slice(iniBe, iniCen) : "";
-ok("o bloco de breakevens (agora mesclado com strikes, plano 37-04) foi localizado no fonte", blocoBreakeven.length > 0);
-ok("a <line> do breakeven não tem guarda condicional imediata (&&/`?` antes dela)",
-   /<line/.test(blocoBreakeven)
-   && !/&&\s*<line/.test(blocoBreakeven)
-   && !/\?\s*<line/.test(blocoBreakeven));
-ok("a supressão condicional existe e mira só o <text>",
-   /mostrarTexto \? \(/.test(blocoBreakeven) && /<text/.test(blocoBreakeven));
+// NOTA 2026-10-08 (quick 261008-w9i, Onda H2): o bloco âncora `tipoMarca: "breakeven"` ...
+// `cenarios.map((s, i)` deixou de existir. Agora o breakeven é um item de marcador
+// (`traco: "2 4"`) entregue a `montarGeometria(` e desenhado por `<MarcadoresVerticais`
+// (a <line> vertical vive em PayoffPrimitivas.jsx); a intenção — a linha do preço
+// nunca fica atrás de guarda condicional — é provada nos dois arquivos. A asserção
+// "supressão mira só o <text>" vira "nenhum texto de marcador no plot": não há mais
+// supressão de texto porque o texto saiu do SVG (legenda numerada abaixo).
+const iBe = fonte.indexOf('traco: "2 4"');
+const itemBe = iBe >= 0 ? fonte.slice(Math.max(0, iBe - 200), iBe + 20) : "";
+ok("o item de marcador do breakeven (traco: \"2 4\") foi localizado e alimenta montarGeometria(",
+   iBe >= 0 && /preco:/.test(itemBe) && /montarGeometria\(/.test(fonte));
+ok("<MarcadoresVerticais está presente sem guarda && / ? imediata antes dele",
+   /<MarcadoresVerticais/.test(fonte)
+   && !/&&\s*<MarcadoresVerticais/.test(fonte)
+   && !/\?\s*<MarcadoresVerticais/.test(fonte));
+const primFonte = semComentario(readFileSync(join(here, "..", "src", "opcoes", "PayoffPrimitivas.jsx"), "utf8"));
+const iMv = primFonte.indexOf("export function MarcadoresVerticais");
+const blocoMv = iMv >= 0 ? primFonte.slice(iMv, primFonte.indexOf("export function BadgeNumero")) : "";
+ok("em MarcadoresVerticais a <line> vertical não tem guarda condicional imediata",
+   /<line/.test(blocoMv) && !/&&\s*<line\s+x1=\{m\.x\}/.test(blocoMv) && !/\?\s*<line\s+x1=\{m\.x\}/.test(blocoMv));
+const TEXTO_MARCADOR = /<text[\s\S]{0,200}(?:s\.name|opcoesHojePrefixoEixo|fmt\(item\.valor\))/;
+ok("nenhum texto de marcador (valor/nome de cenário/hoje) dentro do plot", !TEXTO_MARCADOR.test(fonte));
 ok("sanidade: a regex de guarda pega `mostrarTexto && <line`",
    /&&\s*<line/.test("{mostrarTexto && <line x1={x} />}"));
+ok("sanidade: a regex de texto de marcador pega <text x={1}>{s.name}</text>",
+   TEXTO_MARCADOR.test("<text x={1}>{s.name}</text>"));
 
 // ---- 7) aria-label/<title> continuam completos (nada de dado se perde)
 ok("aria-label e <title> usam a mesma `descricao` (leitor de tela não perde nada)",
@@ -135,8 +159,12 @@ ok("a `descricao` lista TODOS os breakevens, não só os visíveis na tela",
 // importado. Cada asserção nova ganha sua companheira de SANIDADE, mesmo
 // padrão do resto do arquivo (ver comentário no topo) — sem ela, um typo na
 // regex faria o assert passar por vacuidade, pra sempre.
-ok("PAD_E cresceu para 48 (orçamento do rótulo do eixo Y, CHART-01)",
-   valorConst("PAD_E", fonte) === 48);
+// NOTA 2026-10-08 (quick 261008-w9i, Onda H2): "PAD_E cresceu para 48" deixou de valer —
+// a margem esquerda agora é calculada por `montarGeometria` a partir do maior rótulo do
+// eixo Y (sem constante PAD_E fixa). A asserção mantém a intenção (o rótulo mais largo
+// cabe) trocando "48 fixo" por "margem derivada, sem constante".
+ok("margem esquerda vem de montarGeometria (sem constante PAD_E fixa)",
+   !/\bPAD_E\b/.test(fonte) && /montarGeometria\(/.test(fonte));
 ok("sanidade: valorConst(PAD_E) resolve o valor ANTIGO corretamente contra uma fonte engenheirada (prova que a regex funciona, não vacuidade)",
    valorConst("PAD_E", "const PAD_E = 10, PAD_D = 10;") === 10);
 
@@ -145,10 +173,13 @@ ok("chave opcoesEixoZeroRotulo em uso (rótulo do zero no eixo Y)",
 ok("sanidade: a regex de opcoesEixoZeroRotulo não casa com fonte sem a chave",
    !/opcoesEixoZeroRotulo/.test("const x = c.opcoesOutraCoisa;"));
 
-ok('strokeDasharray "1 3" em uso (marca de strike, distinta do "2 4" do breakeven)',
-   /strokeDasharray=(?:"1 3"|\{[^}]*"1 3"[^}]*\})/.test(fonte));
-ok('sanidade: a regex de strokeDasharray "1 3" não casa quando só "2 4" existe',
-   !/strokeDasharray=(?:"1 3"|\{[^}]*"1 3"[^}]*\})/.test('strokeDasharray="2 4"'));
+// NOTA 2026-10-08 (quick 261008-w9i, Onda H2): o traço do strike deixou de ser
+// `strokeDasharray` no PayoffChart; vira o campo `traco: "1 3"` do marcador (repassado
+// à <line> por MarcadoresVerticais), ainda distinto do `traco: "2 4"` do breakeven.
+ok('strike tem traço próprio traco: "1 3", distinto do breakeven traco: "2 4"',
+   /traco: "1 3"/.test(fonte) && /traco: "2 4"/.test(fonte));
+ok('sanidade: a regex de traco "1 3" não casa quando só "2 4" existe',
+   !/traco: "1 3"/.test('{ preco: b, traco: "2 4" }'));
 
 ok("opcoesPerdaIlimitadaCurta aparece junto de uma seta aria-hidden (CHART-03)",
    (() => {
