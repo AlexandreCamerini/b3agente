@@ -86,6 +86,16 @@
         ["Entender o estado vazio e ir à Watchlist para a primeira compra simulada.", 50, 59],
         ["Abrir o histórico de operações.", 50, 81.6]],
       guard: "Carteira SIMULADA: ganhos e perdas aparecem sem maquiagem." },
+    { id: "opc", row: 2, kind: "m", img: "img/10-opcoes.png", title: "Opções", sub: "Estudo sobre a carteira",
+      alt: "Aba Opções: sem ações em carteira, a tela explica que as opções são estudadas sobre as ações da carteira virtual.",
+      can: [
+        ["Estudar opções sobre as ações que você já tem na carteira virtual.", 50, 49.5],
+        ["Ver o estado do pregão: com o pregão fechado, a tela avisa que os valores não são de agora.", 48, 29],
+        ["Ler o lembrete: dinheiro virtual, nenhuma ordem sai para corretora, bolsa ou banco.", 49, 33],
+        ["Ir à Carteira para comprar a primeira posição simulada.", 24, 57],
+        ["Abrir um ativo sem gastar consultas da sua cota.", 36, 64.6],
+        ["Saber quanto esta aba consome da sua cota.", 32, 81]],
+      guard: "Conteúdo educacional: dados de fim de pregão, possivelmente atrasados; nada aqui é ordem ou recomendação." },
     { id: "boris", row: 2, kind: "m", img: "img/03-boris-assistente.jpg", title: "Bóris, o assistente", sub: "Em qualquer tela do Estudo",
       alt: "Apresentação do Bóris: não recomenda compra ou venda e não envia ordem.",
       can: [
@@ -119,7 +129,7 @@
   var ARROWS = [
     ["boas", "acomp", "Entrar na mesa"], ["acomp", "radar", "aba Radar"], ["radar", "watch", "aba Watchlist"],
     ["watch", "plano", "Rolar até o plano"], ["plano", "ordem", "Simular compra…", "wrap"],
-    ["ordem", "pend", "Confirmar compra"], ["pend", "port", "aba Portfólio"], ["port", "boris", "coruja, em qualquer tela", "dash"]
+    ["ordem", "pend", "Confirmar compra"], ["pend", "port", "aba Portfólio"], ["port", "opc", "aba Opções"], ["opc", "boris", "coruja, em qualquer tela", "dash"]
   ];
   var ROWS = { 1: "Fluxo no celular · da escolha ao plano", 2: "Fluxo no celular · da ordem ao resultado", 3: "Versão web · o mesmo app no navegador" };
 
