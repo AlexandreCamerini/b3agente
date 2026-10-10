@@ -40,6 +40,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app import (
+    agent,
     candle_provider,
     mydata_client,
     opcoes_lastreadas,
@@ -181,6 +182,13 @@ def relogio_virado(monkeypatch):
     monkeypatch.setitem(globais_main, "datetime", _RelogioViradoEmUtc)
     monkeypatch.setattr(options_api, "datetime", _RelogioViradoEmUtc)
     monkeypatch.setattr(options_provider_mock, "datetime", _RelogioViradoEmUtc)
+    # NOTA 2026-10-10 (bomba-relógio, achada num sábado): `vencimento_pinado(30)` crava
+    # o vencimento em `_HOJE_BRT + 30` = 2026-10-09, e `lastreada/abrir` dispara o ciclo
+    # IMEDIATO do agente, que liquida posição lastreada com `expiration <= agent._today()`
+    # pelo relógio REAL. De 09/10/2026 em diante a posição era liquidada antes da proposta,
+    # o ramo de FECHAMENTO nunca rodava e o teste falhava com KeyError 'fechar'. O agente
+    # passa a ler o MESMO dia virtual dos demais relógios (sem enfraquecer nenhuma asserção).
+    monkeypatch.setattr(agent, "_today", lambda: _HOJE_BRT.isoformat())
 
 
 @pytest.fixture
