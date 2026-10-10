@@ -103,7 +103,7 @@ export default function ConfirmarEstrutura({
   }
 
   return (
-    <section style={{ padding: "16px", display: "flex", flexDirection: "column", gap: "16px", ...transicaoTela(reduzido()) }}>
+    <section style={{ padding: "16px 0", display: "flex", flexDirection: "column", gap: "16px", ...transicaoTela(reduzido()) }}>
       <div>
         <VoltarPadrao onClick={onVoltar} rotulo={tx("voltar")} {...comFoco} />
         <div style={{ ...TIPO.corpo, color: T.textSecondary }}>{tx("aviso_virtual")}</div>

@@ -132,7 +132,7 @@ export default function HubOpcoes({
   const nVigiasDe = (t) => vigias.filter((v) => v && v.ticker === t).length;
 
   return (
-    <section aria-label={cp && cp.tituloOpcoes} style={{ padding: "16px", display: "flex", flexDirection: "column", gap: "16px", ...transicaoTela(red) }}>
+    <section aria-label={cp && cp.tituloOpcoes} style={{ padding: "16px 0", display: "flex", flexDirection: "column", gap: "16px", ...transicaoTela(red) }}>
       <header>
         <h1 tabIndex={-1} style={{ margin: 0, ...TIPO.display, fontFamily: DISPLAY, color: T.textPrimary }}>
           {(cp && cp.tituloOpcoes) || "—"}
