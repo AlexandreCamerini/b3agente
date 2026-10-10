@@ -16,7 +16,7 @@ import { useEstadoMemorizado } from "./uiMemo.js";
 import VoltarPadrao from "./VoltarPadrao.jsx"; // Onda B (2026-10-08): Voltar único // Onda B (2026-10-08): estado de UI que sobrevive à troca de aba (só sessão)
 import { useDialogA11y } from "./useDialogA11y.js"; // Onda A (2026-10-08): Esc + foco + devolução nos modais
 import { defsDaBarra, telasDoTour, telasDaAjuda, telaDoAssistente } from "./telas.js";
-import { profundidade, subirNivel, reconciliarPilha, entradasOrfas, ehGestoVoltarBorda, chaveDeScroll, chaveDeTela, transicaoDe, classeDaTransicao } from "./navStack.js"; // Onda B (2026-10-08): voltar do sistema
+import { profundidade, profundidadeDeTela, modalDoTopo, campoDeTextoFocado, subirNivel, reconciliarPilha, entradasOrfas, ehGestoVoltarBorda, chaveDeScroll, chaveDeTela, transicaoDe, classeDaTransicao } from "./navStack.js"; // Onda B (2026-10-08): voltar do sistema
 import { Capacitor } from "@capacitor/core"; // Onda B: só getPlatform() p/ o gesto de borda no iOS
 import { Markdown, MdInline } from "./markdown.jsx";
 import { extentOf, linePath, lastVal } from "./chartutil.js";
@@ -8077,6 +8077,12 @@ function RadarScreen({ ctx }) {
   // FASE 2 (2.1): aprofundamento IA (N1) — leituras por ativo + lote top-N
   const [deep, setDeep] = useEstadoMemorizado(ctx.uiMemo, "radar.deep", {}, (d) => Object.fromEntries(Object.entries(d || {}).filter(([, x]) => x && !x.loading)));         // ticker -> {loading,res,error,cache,disclaimer}
   const [deepFor, setDeepFor] = useState(null); // ticker do modal aberto
+  // Onda J (J-D6): relata card/DeepModal abertos ao App e registra o fechamento (mesmos setters dos botões).
+  useEffect(() => { if (ctx.reportarNavRadar) ctx.reportarNavRadar(!!openTicker, !!deepFor); }, [openTicker, deepFor]);
+  useEffect(() => {
+    if (ctx.registrarFecharRadar) ctx.registrarFecharRadar((alvo) => { if (alvo === "deep") setDeepFor(null); else if (alvo === "card") setOpenTicker(null); });
+    return () => { if (ctx.registrarFecharRadar) ctx.registrarFecharRadar(null); if (ctx.reportarNavRadar) ctx.reportarNavRadar(false, false); };
+  }, []);
   const [batch, setBatch] = useState({ stage: "idle", busy: false, est: null, error: "" });
   const runDeep = useCallback(async (t) => {
     setDeepFor(t);
@@ -9041,6 +9047,8 @@ export default function App() {
   // Onda B (2026-10-08): nível das Opções relatado pelo filho (OpcoesScreen) e o "voltar" dele.
   const [opcoesNav, setOpcoesNav] = useState({ nivel: "hub", temTicker: false });
   const opcoesVoltarRef = useRef(null);
+  const [radarNav, setRadarNav] = useState({ card: false, deep: false }); // Onda J: RadarScreen relata card aberto/DeepModal
+  const radarFecharRef = useRef(null);
   // Fase 39 (NAV-01): pedido one-shot de aba inicial da tela Opções —
   // consumido e limpo pelo OpcoesScreen no mount; não é persistência (isso é
   // a Fase 40, ESTADO-01— que persiste em sessão via `opcoesMemoria` abaixo).
@@ -10322,8 +10330,13 @@ export default function App() {
     tab, carteiraView, perfilView,
     opcoes: tab === "opcoes" ? opcoesNav : null,
     conceito: conceitoAberto ? { trilha: (conceitoAberto.trilha || []).length } : null,
+    // Onda J (2026-10-10, quick 261010-f50): camadas como LISTA (J-D1), card expandido (J-D5/J-D6),
+    // StopAlvo e Auth incluídos (J-D7). Ordem real de z-index fica em navStack.ORDEM_CAMADAS.
+    modais: [catalogOpen && "catalog", buyModal && "buy", sellModal && "sell", stopAlvoFor && "stopAlvo", tab === "radar" && radarNav.deep && "radarDeep", aboutOpen && "about", tourOpen && "tour", authOpen && "auth", petOpen && "pet", borisIntroOpen && "borisIntro", techFor && "tech"].filter(Boolean),
+    cardExpandido: tab === "mercado" ? Object.values(expanded).some(Boolean) : tab === "radar" ? !!radarNav.card : false,
   };
   const profNav = profundidade(estadoNav);
+  const profTela = profundidadeDeTela(estadoNav); // J-D9: transição ignora modais/card/sheet
   const empurradasRef = useRef(0);
   const ignorarPopRef = useRef(0);
   const estadoNavRef = useRef(estadoNav);
@@ -10334,7 +10347,26 @@ export default function App() {
     else if (acao === "conceitoFechar") A.closeConceito();
     else if (acao === "carteiraMain") setCarteiraView("main");
     else if (acao === "perfilHub") setPerfilView("hub");
-    else if (acao === "opcoesVoltar") { if (opcoesVoltarRef.current) opcoesVoltarRef.current(); }
+    else if (acao === "opcoesVoltar") { if (!opcoesVoltarRef.current) return false; opcoesVoltarRef.current(); }
+    else if (acao === "fecharModal") {
+      // Onda J: mesmos handlers dos botões. `ctx` (const abaixo) só é lido quando o gesto ocorre, após o render.
+      const fecharCamada = {
+        catalog: A.closeCatalog, buy: A.closeBuy, sell: A.closeSell, stopAlvo: A.closeStopAlvo,
+        radarDeep: () => { if (radarFecharRef.current) radarFecharRef.current("deep"); },
+        about: A.closeAbout, tour: A.closeTour,
+        auth: () => setAuthOpen(false), pet: () => setPetOpen(false),
+        borisIntro: () => ctx.marcarBorisIntroVisto(),
+        tech: A.closeTech,
+      };
+      const fn = fecharCamada[modalDoTopo(estadoNavRef.current)];
+      if (!fn) return false;
+      fn();
+    } else if (acao === "recolherCard") {
+      if (tab === "mercado") Object.keys(expanded).filter((t) => expanded[t]).forEach((t) => A.toggleExpand(t));
+      else if (tab === "radar" && radarFecharRef.current) radarFecharRef.current("card");
+      else return false;
+    } else return false;
+    return true;
   };
   useEffect(() => {
     if (typeof window === "undefined" || !window.history) return;
@@ -10357,8 +10389,7 @@ export default function App() {
       if (empurradasRef.current <= 0) return;
       empurradasRef.current -= 1;
       const acao = subirNivel(estadoNavRef.current);
-      if (acao && aplicarSubidaRef.current) aplicarSubidaRef.current(acao);
-      else empurradasRef.current = 0;
+      if (!(acao && aplicarSubidaRef.current && aplicarSubidaRef.current(acao))) empurradasRef.current = 0;
     };
     window.addEventListener("popstate", onPop);
     // Android: backButton do Capacitor cai no MESMO popstate; na raiz sai do app (nativo).
@@ -10385,6 +10416,8 @@ export default function App() {
       const t = e.touches[0];
       // Onda G (2026-10-08): superconjunto — sliders (input range) e trilhos marcados não disparam o voltar.
       if (e.target && e.target.closest && e.target.closest("canvas, input[type=\"range\"], [data-sem-gesto-voltar]")) return;
+      const ae = typeof document !== "undefined" ? document.activeElement : null;
+      if (campoDeTextoFocado({ tag: e.target && e.target.tagName, type: e.target && e.target.type, editavel: !!(e.target && e.target.isContentEditable) }) || (ae && campoDeTextoFocado({ tag: ae.tagName, type: ae.type, editavel: !!ae.isContentEditable }))) return; // Onda J (J-D10): digitando, o swipe não volta
       ini = { x0: t.clientX, y0: t.clientY };
     };
     const onEnd = (e) => {
@@ -10419,18 +10452,21 @@ export default function App() {
   // Onda B (2026-10-08, decisão 3): classe de transição da tela, calculada em layout
   // effect sobre `chaveTela` (antes do paint). 1º mount e reduced-motion: sem classe.
   const chaveTela = chaveDeTela(estadoNav);
-  const transTelaRef = useRef({ tab, prof: profNav });
+  const transTelaRef = useRef({ tab, prof: profTela });
   const [classeTela, setClasseTela] = useState(undefined);
   useLayoutEffect(() => {
     const ant = transTelaRef.current;
-    transTelaRef.current = { tab, prof: profNav };
-    setClasseTela(REDUCE_MOTION ? undefined : classeDaTransicao(transicaoDe(ant, { tab, prof: profNav })));
+    transTelaRef.current = { tab, prof: profTela };
+    setClasseTela(REDUCE_MOTION ? undefined : classeDaTransicao(transicaoDe(ant, { tab, prof: profTela })));
   }, [chaveTela]);
 
   const ctx = {
     uiMemo: uiMemoRef.current,
     // Onda B (2026-10-08): OpcoesScreen relata nível e registra seu "voltar".
-    reportarNavOpcoes: (nivel, temTicker) => setOpcoesNav((p) => (p.nivel === nivel && p.temTicker === !!temTicker) ? p : { nivel, temTicker: !!temTicker }),
+    reportarNavOpcoes: (nivel, temTicker, sheet) => setOpcoesNav((p) => (p.nivel === nivel && p.temTicker === !!temTicker && (p.sheet || 0) === (sheet || 0)) ? p : { nivel, temTicker: !!temTicker, sheet: sheet || 0 }),
+    // Onda J (J-D6): canal do Radar (card aberto / DeepModal), mesmo padrão das Opções.
+    reportarNavRadar: (card, deep) => setRadarNav((p) => (p.card === !!card && p.deep === !!deep) ? p : { card: !!card, deep: !!deep }),
+    registrarFecharRadar: (fn) => { radarFecharRef.current = typeof fn === "function" ? fn : null; },
     registrarVoltarOpcoes: (fn) => { opcoesVoltarRef.current = typeof fn === "function" ? fn : null; },
     // qa/audit-2026-08-07 (item 5): fonte ÚNICA de "estamos em Modo Operador?"
     // Novo código lê `ctx.operador`, nunca redevira de data.config.appMode.

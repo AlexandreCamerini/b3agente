@@ -52,7 +52,7 @@ import MatrizVencimentos from "./MatrizVencimentos.jsx";
 import { reduzido, transicaoTela } from "./fluxoEstilo.js";
 import VoltarPadrao from "../VoltarPadrao.jsx"; // Onda B (2026-10-08): Voltar único
 const useIsoLayoutEffect = typeof window !== "undefined" ? useLayoutEffect : useEffect; // SSR dos guardiões não emite aviso
-import { profundidadeOpcoes, transicaoDe, classeDaTransicao } from "../navStack.js"; // Onda B (2026-10-08): transição entre níveis
+import { profundidadeOpcoes, profundidadeSheetsOpcoes, transicaoDe, classeDaTransicao } from "../navStack.js"; // Onda B (2026-10-08): transição entre níveis
 import { opcoesEscadaTxt } from "../copy.js";
 // Fase 27 (27-02): `finance.js` é módulo PURO — zero import de `App.jsx` —,
 // então o isolamento do ADR-027 continua intacto (o guardião proíbe importar
@@ -752,9 +752,19 @@ export default function OpcoesScreen({ ctx }) {
   }, [nav.nivel]);
 
   // Onda B (2026-10-08): relata nível ao App (voltar do sistema) e registra o "voltar" local.
-  useEffect(() => { if (ctx && ctx.reportarNavOpcoes) ctx.reportarNavOpcoes(nav.nivel, !!nav.ticker); }, [nav.nivel, nav.ticker]);
+  // Onda J (2026-10-10, J-D8): sheets locais (vigias/verbete) entram na pilha; o voltar fecha a sheet ANTES de subir o nível.
+  const sheetOpcoes = profundidadeSheetsOpcoes(vigiasAberto, verbeteAberto);
+  const sheetsRef = useRef(null);
+  sheetsRef.current = { vigiasAberto, verbeteAberto };
+  useEffect(() => { if (ctx && ctx.reportarNavOpcoes) ctx.reportarNavOpcoes(nav.nivel, !!nav.ticker, sheetOpcoes); }, [nav.nivel, nav.ticker, sheetOpcoes]);
   useEffect(() => {
-    if (ctx && ctx.registrarVoltarOpcoes) ctx.registrarVoltarOpcoes(() => setNav((n) => voltar(n)));
+    if (ctx && ctx.registrarVoltarOpcoes) ctx.registrarVoltarOpcoes(() => {
+      const s = sheetsRef.current || {};
+      if (s.verbeteAberto && s.verbeteAberto.trilha && s.verbeteAberto.trilha.length) setVerbeteAberto((v) => ({ cid: v.trilha[v.trilha.length - 1], trilha: v.trilha.slice(0, -1) }));
+      else if (s.verbeteAberto) setVerbeteAberto(null);
+      else if (s.vigiasAberto) setVigiasAberto(false);
+      else setNav((n) => voltar(n));
+    });
     return () => {
       if (ctx && ctx.registrarVoltarOpcoes) ctx.registrarVoltarOpcoes(null);
       if (ctx && ctx.reportarNavOpcoes) ctx.reportarNavOpcoes("hub", false);
