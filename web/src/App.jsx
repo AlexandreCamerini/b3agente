@@ -2384,6 +2384,9 @@ function EvolucaoScreen({ ctx }) {
         )}
       </div>
 
+      {/* Onda K (2026-10-10, quick 261010-f51): atalho — mesmo componente do Portfólio; nada novo calculado. */}
+      <OperadorIACard ctx={ctx} />
+
       {/* qa/mock v2: HERO-CARROSSEL das oportunidades — os setups da watchlist
           viram cards swipeable com anel de confluência (antes eram uma lista de
           texto dentro do Resumo). Mesma navegação (abre a Watchlist). */}
@@ -2805,10 +2808,11 @@ function ajudaSecoes(cp, operador) {
     // 2026-09-10 (aba-opcoes F2): "Operador IA" saiu da barra inferior; a
     // linha "Onde fica" existe porque, sem ela, o guia descreveria uma tela
     // que o usuário não acha mais na navegação principal.
+    // 2026-10-10 (Onda K): a linha-link virou cartão de destaque, também no Acompanhar.
     agente: ["Operador IA", [
       "Um agente que acompanha as posições da carteira simulada e age pelas regras que você define (proteger stop, realizar no alvo). Com conta, roda no servidor 24×5, mesmo com o app fechado.",
       "Você escolhe **Executar** (ele simula a saída no stop/alvo) ou **Apenas sinalizar** (só avisa), define regras e tetos, e o intervalo de reavaliação. Sempre sobre a carteira simulada.",
-      "Onde fica: abra o **Portfólio** e toque em **Abrir o Operador IA** no topo da tela.",
+      "Onde fica: toque no cartão **Operador IA** no topo do **Portfólio** ou no **Acompanhar**.",
     ]],
   };
   return [
@@ -10883,7 +10887,7 @@ export default function App() {
             ? (<><BackHeader title="Histórico de operações" onBack={() => setCarteiraView("main")} /><HistoricoScreen ctx={ctx} /></>)
             : carteiraView === "agente"
               ? (<><BackHeader title={cp.tituloOperadorIA || "Operador IA"} onBack={() => setCarteiraView("main")} /><AgenteScreen ctx={ctx} /></>)
-            : (<><div style={{ marginBottom: "14px" }}><button onClick={() => ctx.goAgente()} style={{ width: "100%", minHeight: "48px", padding: "13px", borderRadius: "13px", border: `1px solid ${T.borderSubtle}`, background: T.bgPanel, color: T.textSecondary, fontWeight: 700, fontSize: "14px", display: "flex", alignItems: "center", justifyContent: "space-between" }}><span>{cp.linkOperadorIA || "Abrir o Operador IA →"}</span><span aria-hidden style={{ color: T.textFaint }}>›</span></button></div><CarteiraScreen ctx={ctx} /><div style={{ marginTop: "14px" }}><button onClick={() => setCarteiraView("historico")} style={{ width: "100%", minHeight: "48px", padding: "13px", borderRadius: "13px", border: `1px solid ${T.borderSubtle}`, background: T.bgPanel, color: T.textSecondary, fontWeight: 700, fontSize: "14px", display: "flex", alignItems: "center", justifyContent: "space-between" }}><span>Ver histórico de operações</span><span aria-hidden style={{ color: T.textFaint }}>›</span></button></div></>))}
+            : (<><div style={{ marginBottom: `${SP[4]}px` }}><OperadorIACard ctx={ctx} /></div><CarteiraScreen ctx={ctx} /><div style={{ marginTop: "14px" }}><button onClick={() => setCarteiraView("historico")} style={{ width: "100%", minHeight: "48px", padding: "13px", borderRadius: "13px", border: `1px solid ${T.borderSubtle}`, background: T.bgPanel, color: T.textSecondary, fontWeight: 700, fontSize: "14px", display: "flex", alignItems: "center", justifyContent: "space-between" }}><span>Ver histórico de operações</span><span aria-hidden style={{ color: T.textFaint }}>›</span></button></div></>))}
           {tab === "perfil" && (perfilView === "plano"
             ? (<><BackHeader title={cp.planoTituloTela} onBack={() => setPerfilView("hub")} /><PlanoScreen ctx={ctx} /></>)
             : perfilView === "config"

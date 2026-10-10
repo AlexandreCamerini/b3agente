@@ -90,10 +90,12 @@ ok("goAgente leva a carteira + view agente",
 ok("a linha do Portfólio chama goAgente()", /onClick=\{\(\) => ctx\.goAgente\(\)\}/.test(app));
 
 // ---- 6) a linha de acesso no topo do Portfólio ------------------------------
+// NOTA 2026-10-10 (quick 261010-f51, Onda K): a "linha" do topo do Portfólio virou o cartão OperadorIACard (definido antes de CarteiraScreen, por isso é a 1ª ocorrência de ctx.goAgente()); cp.linkOperadorIA segue no aria-label e o alvo é 56px. Guardião do cartão: test_ui_onda_k.mjs.
 const linha = app.match(/onClick=\{\(\) => ctx\.goAgente\(\)\}[\s\S]{0,400}/);
 ok("a linha usa cp.linkOperadorIA", !!linha && /cp\.linkOperadorIA/.test(linha[0]));
 ok("a linha tem alvo de toque de ao menos 48px",
    !!linha && /minHeight: "(4[89]|[5-9]\d|\d{3,})px"/.test(linha[0]));
+ok("o Portfólio renderiza <OperadorIACard ctx={ctx} /> antes de CarteiraScreen", /<OperadorIACard ctx=\{ctx\} \/><\/div><CarteiraScreen ctx=\{ctx\} \/>/.test(app));
 ok("o botão de histórico continua onde estava",
    /setCarteiraView\("historico"\)/.test(app) && /Ver histórico de operações/.test(app));
 

@@ -4,7 +4,8 @@
     "data": "2026-09-25",
     "nota": "NÃO regenerar após a 41-02 (D-04) — este JSON é a verdade congelada do comportamento PRÉ-refactor.",
     "appPath": "/Users/acamerini/dev/borisv2/web/src/App.jsx",
-    "reancoragem_fase48": "2026-10-05 (Fase 48, plano 48-11): SÓ o passo 4 do tour e a seção Opções da Ajuda foram atualizados (Carteira no lugar de Watchlist, achado do ROADMAP); todo o resto segue congelado."
+    "reancoragem_fase48": "2026-10-05 (Fase 48, plano 48-11): SÓ o passo 4 do tour e a seção Opções da Ajuda foram atualizados (Carteira no lugar de Watchlist, achado do ROADMAP); todo o resto segue congelado.",
+    "reancoragem_2026_10_10": "2026-10-10 (quick 261010-f51, Onda K): SÓ a frase 'Onde fica' da seção Operador IA da Ajuda mudou (linha-link → cartão de destaque no Portfólio e no Acompanhar). Texto anterior: Onde fica: abra o **Portfólio** e toque em **Abrir o Operador IA** no topo da tela. switchPetSnapshot, barra, tour e petTela intocados."
   },
   "barra": {
     "estudo": [
@@ -209,7 +210,7 @@
         [
           "Um agente que acompanha as posições da carteira simulada e age pelas regras que você define (proteger stop, realizar no alvo). Com conta, roda no servidor 24×5, mesmo com o app fechado.",
           "Você escolhe **Executar** (ele simula a saída no stop/alvo) ou **Apenas sinalizar** (só avisa), define regras e tetos, e o intervalo de reavaliação. Sempre sobre a carteira simulada.",
-          "Onde fica: abra o **Portfólio** e toque em **Abrir o Operador IA** no topo da tela."
+          "Onde fica: toque no cartão **Operador IA** no topo do **Portfólio** ou no **Acompanhar**."
         ]
       ],
       [
@@ -292,7 +293,7 @@
         [
           "Um agente que acompanha as posições da carteira simulada e age pelas regras que você define (proteger stop, realizar no alvo). Com conta, roda no servidor 24×5, mesmo com o app fechado.",
           "Você escolhe **Executar** (ele simula a saída no stop/alvo) ou **Apenas sinalizar** (só avisa), define regras e tetos, e o intervalo de reavaliação. Sempre sobre a carteira simulada.",
-          "Onde fica: abra o **Portfólio** e toque em **Abrir o Operador IA** no topo da tela."
+          "Onde fica: toque no cartão **Operador IA** no topo do **Portfólio** ou no **Acompanhar**."
         ]
       ],
       [
@@ -375,7 +376,7 @@
         [
           "Um agente que acompanha as posições da carteira simulada e age pelas regras que você define (proteger stop, realizar no alvo). Com conta, roda no servidor 24×5, mesmo com o app fechado.",
           "Você escolhe **Executar** (ele simula a saída no stop/alvo) ou **Apenas sinalizar** (só avisa), define regras e tetos, e o intervalo de reavaliação. Sempre sobre a carteira simulada.",
-          "Onde fica: abra o **Portfólio** e toque em **Abrir o Operador IA** no topo da tela."
+          "Onde fica: toque no cartão **Operador IA** no topo do **Portfólio** ou no **Acompanhar**."
         ]
       ],
       [
@@ -458,7 +459,7 @@
         [
           "Um agente que acompanha as posições da carteira simulada e age pelas regras que você define (proteger stop, realizar no alvo). Com conta, roda no servidor 24×5, mesmo com o app fechado.",
           "Você escolhe **Executar** (ele simula a saída no stop/alvo) ou **Apenas sinalizar** (só avisa), define regras e tetos, e o intervalo de reavaliação. Sempre sobre a carteira simulada.",
-          "Onde fica: abra o **Portfólio** e toque em **Abrir o Operador IA** no topo da tela."
+          "Onde fica: toque no cartão **Operador IA** no topo do **Portfólio** ou no **Acompanhar**."
         ]
       ],
       [
