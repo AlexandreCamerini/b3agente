@@ -69,7 +69,7 @@
     var ghosts = [];
     t.can.forEach(function (c, k) {
       var g = el("button", "ghost", String(k + 1)); g.type = "button"; g.style.left = c[1] + "%"; g.style.top = c[2] + "%";
-      g.setAttribute("aria-label", "Ponto " + (k + 1) + ": " + c[0]); g.addEventListener("click", function () { focusAt(k, true); }); cam.appendChild(g); ghosts.push(g);
+      g.setAttribute("aria-label", "Ponto " + (k + 1) + ": " + c[5]); g.addEventListener("click", function () { focusAt(k, true); }); cam.appendChild(g); ghosts.push(g);
     });
     var spot = el("div", "spot");
     var glass = el("div", "glass"); glass.setAttribute("aria-live", "polite");
@@ -77,12 +77,12 @@
     var pv = el("button", "gb", "‹"); pv.type = "button"; pv.setAttribute("aria-label", "Ponto anterior");
     var nx = el("button", "gb", "›"); nx.type = "button"; nx.setAttribute("aria-label", "Próximo ponto");
     gnav.appendChild(pv); gnav.appendChild(nx); gtop.appendChild(gcount); gtop.appendChild(gnav);
-    var gtxt = el("p", "gtxt"); glass.appendChild(gtop); glass.appendChild(gtxt);
+    var gtit = el("p", "gtit"), gtxt = el("p", "gtxt"); glass.appendChild(gtop); glass.appendChild(gtit); glass.appendChild(gtxt);
     var wide = el("button", "wide", "Tela inteira"); wide.type = "button"; wide.setAttribute("aria-pressed", "false");
     lens.appendChild(cam); lens.appendChild(spot); lens.appendChild(glass);
     sc.appendChild(lens);
     var dots = el("div", "stepdots"); dots.setAttribute("role", "tablist"); dots.setAttribute("aria-label", "Pontos da tela");
-    var chips = t.can.map(function (c, k) { var b = el("button", null, String(k + 1)); b.type = "button"; b.setAttribute("aria-label", "Ir ao ponto " + (k + 1)); b.addEventListener("click", function () { focusAt(k, true); }); dots.appendChild(b); return b; });
+    var chips = t.can.map(function (c, k) { var b = el("button", null, String(k + 1)); b.type = "button"; b.setAttribute("aria-label", "Ir ao ponto " + (k + 1) + ": " + c[5]); b.addEventListener("click", function () { focusAt(k, true); }); dots.appendChild(b); return b; });
     var ctl = el("div", "ctl"); ctl.appendChild(dots); ctl.appendChild(wide); sc.appendChild(ctl);
     cols.appendChild(sc);
 
@@ -120,7 +120,7 @@
       ghosts.forEach(function (g, j) { g.classList.toggle("on", j === k); });
       chips.forEach(function (b, j) { b.classList.toggle("on", j === k); if (j === k) b.setAttribute("aria-current", "true"); else b.removeAttribute("aria-current"); });
       items.forEach(function (b, j) { b.classList.toggle("on", j === k); });
-      gcount.textContent = "Ponto " + (k + 1) + " de " + t.can.length; gtxt.textContent = t.can[k][0];
+      gcount.textContent = "Ponto " + (k + 1) + " de " + t.can.length; gtit.textContent = t.can[k][5]; gtxt.textContent = t.can[k][0];
       pv.disabled = k === 0; nx.disabled = k === t.can.length - 1;
     }
     pv.addEventListener("click", function () { if (cur2 > 0) focusAt(cur2 - 1, true); });
@@ -148,7 +148,7 @@
     panels.pontos.appendChild(el("p", "obj", t.objetivo));
     var ol = el("ol", "can");
     t.can.forEach(function (c, k) {
-      var li = el("li"), b = el("button"); b.type = "button"; b.appendChild(el("span", "n", String(k + 1))); b.appendChild(el("span", null, c[0]));
+      var li = el("li"), b = el("button"); b.type = "button"; b.appendChild(el("span", "n", String(k + 1))); var tx = el("span", "tx"); tx.appendChild(el("strong", null, c[5])); tx.appendChild(el("span", "dt", c[6])); b.appendChild(tx);
       b.addEventListener("click", function () { focusAt(k, true); var r = lens.getBoundingClientRect(); if (r.top < 0 || r.bottom > innerHeight) lens.scrollIntoView({ block: "center", behavior: "smooth" }); });
       li.appendChild(b); ol.appendChild(li); items.push(b);
     });
