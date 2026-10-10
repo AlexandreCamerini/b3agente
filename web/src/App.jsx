@@ -68,6 +68,7 @@ import { falarTexto, calarVoz, setVozConfig, listarVozes } from "./pet/vozBoris.
 // Fase 38 (38-02): camada de entendimento extraída para módulo terceiro —
 // importável também por opcoes/OpcoesScreen.jsx sem ciclo.
 import { AiNote, SUBLINHADO, SetorAlvo, ConceitoSheet } from "./entendimento.jsx";
+import { estadoOperadorIA } from "./operadorIA.js";
 // Fase 38 (38-03): ponte kb×conceito — helper puro que valida o catálogo da
 // KB buscado abaixo (ConceitoSheet importa o outro helper, verbeteDoCatalogo).
 // Fase 38 (38-04, KB-01): filtrarVerbetes/agruparPorFamilia — filtros puros
@@ -5745,6 +5746,29 @@ function LinhaChamadaOpcoes({ curadoria, cp, onIr }) {
         {texto}
       </span>
       <span style={{ color: T.textFaint }}>→</span>
+    </button>
+  );
+}
+
+// Onda K (2026-10-10, quick 261010-f51): cartão de destaque do Operador IA — ele ficava perdido no meio do
+// texto como uma linha-link neutra. Estado lido de data.agent como o card-herói do AgenteScreen
+// (serverEnabled && logado); NÃO chama agentStatus (sem requisição nova na home). Kill-switch global e
+// último ciclo ficam pendentes de decisão: por isso o rótulo diz "Ligado no servidor", nunca "rodando".
+function OperadorIACard({ ctx }) {
+  const { data, cp, operador } = ctx;
+  const est = estadoOperadorIA({ agent: data && data.agent, logado: !!ctx.authUser, operador: !!operador });
+  const E = cp.operadorIAEstado || {};
+  const linha = (est.modo ? `${E[est.codigo] || ""} · ${E[est.modo] || ""}` : (E[est.codigo] || "")).replace(/^ · | · $/g, "") || "—";
+  return (
+    <button type="button" onClick={() => ctx.goAgente()} aria-label={`${cp.linkOperadorIA || "Abrir o Operador IA"}. ${linha}`}
+      style={{ ...card, width: "100%", minHeight: "56px", border: `1px solid ${T.accent}`, padding: `${SP[3]}px ${SP[4]}px`, display: "flex", alignItems: "center", gap: `${SP[3]}px`, textAlign: "left", color: T.textPrimary, cursor: "pointer" }}>
+      <span aria-hidden style={{ display: "flex", flexShrink: 0 }}><NavIcon id="agente" size={22} color={T.accent} /></span>
+      <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: `${SP[1]}px` }}>
+        <span style={{ fontFamily: DISPLAY, fontSize: "15px", fontWeight: 800 }}>{cp.tituloOperadorIA || "Operador IA"}</span>
+        <span style={{ fontSize: "12px", fontWeight: 700, color: est.codigo === "ligado" ? T.accent : T.textMuted }}>{linha}</span>
+        <span style={{ fontSize: "12px", fontWeight: 400, color: T.textMuted, lineHeight: 1.45 }}>{cp.operadorIACardDescricao}</span>
+      </span>
+      <span aria-hidden style={{ flexShrink: 0, color: T.accent, fontWeight: 800, fontSize: "13px" }}>{cp.operadorIACardCta || "Abrir"} ›</span>
     </button>
   );
 }

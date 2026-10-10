@@ -99,7 +99,11 @@ export const COPY = {
     tituloOpcoes: "Opções",
     subtituloOpcoes: "Como o ativo vem se comportando e quais estruturas de opções fazem sentido estudar — leitura de fim de pregão, sem ordem nenhuma.",
     tituloOperadorIA: "Operador IA",
-    linkOperadorIA: "Abrir o Operador IA →",
+    linkOperadorIA: "Abrir o Operador IA",
+    // Onda K (2026-10-10, quick 261010-f51): cartão de destaque do Operador IA (Portfólio + Acompanhar). linkOperadorIA perdeu a seta: virou o aria-label do cartão.
+    operadorIACardDescricao: "Acompanha as posições da carteira simulada e avisa no stop e no alvo, pelas regras que você definir. No Modo Estudo ele só sinaliza; nenhuma ordem vai a corretora.",
+    operadorIACardCta: "Abrir",
+    operadorIAEstado: { indisponivel: "Estado indisponível agora — abra para conferir", semConta: "Sem conta: só funciona com o app aberto", ligado: "Ligado no servidor", desligado: "Desligado no servidor", executar: "Executar", sinalizar: "Apenas sinalizar" },
     opcoesLeituraTitulo: "LEITURA DO ATIVO",
     // Fase 27 (27-05) — a leitura do SERVIÇO virou clique. As duas chaves
     // abaixo são o convite: o botão e o que ele traz de diferente do bloco
@@ -1545,7 +1549,11 @@ export const COPY = {
     tituloOpcoes: "Opções",
     subtituloOpcoes: "Comportamento do ativo, estruturas do catálogo e os setups armados — leitura de fim de pregão. Nenhuma ordem sai daqui.",
     tituloOperadorIA: "Operador IA",
-    linkOperadorIA: "Abrir o Operador IA →",
+    linkOperadorIA: "Abrir o Operador IA",
+    // Onda K (2026-10-10, quick 261010-f51): cartão de destaque do Operador IA (Portfólio + Acompanhar). linkOperadorIA perdeu a seta: virou o aria-label do cartão.
+    operadorIACardDescricao: "Executa saídas simuladas no stop e no alvo, dentro das regras que você configurar. Nenhuma ordem vai a corretora.",
+    operadorIACardCta: "Abrir",
+    operadorIAEstado: { indisponivel: "Estado indisponível agora — abra para conferir", semConta: "Sem conta: só funciona com o app aberto", ligado: "Ligado no servidor", desligado: "Desligado no servidor", executar: "Executar", sinalizar: "Apenas sinalizar" },
     opcoesLeituraTitulo: "LEITURA DO ATIVO",
     // Fase 27 (27-05) — MESMA substância do ramo estudo, em voz de mesa: o que
     // o serviço acrescenta ao que o motor interno já entregou de graça.
