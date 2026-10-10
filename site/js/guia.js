@@ -86,7 +86,7 @@
     var ctl = el("div", "ctl"); ctl.appendChild(dots); ctl.appendChild(wide); sc.appendChild(ctl);
     cols.appendChild(sc);
 
-    var cur2 = 0, overview = false, natW = web ? 800 : 780, natH = web ? 500 : 1688;
+    var cur2 = 0, overview = false, natW = web ? 800 : 780, natH = t.nh || (web ? 500 : 1688); /* nh: altura real da captura, quando difere do padrão 390x844 @2x */
     function geom() { var vw = lens.clientWidth, vh = lens.clientHeight; return { vw: vw, vh: vh, fit: Math.min(vw / natW, vh / natH), w0: vw / natW }; }
     function place(k) {
       var g = geom(); if (!g.vw) return;

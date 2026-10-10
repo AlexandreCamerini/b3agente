@@ -1,4 +1,4 @@
-/* Dados das telas do Boris+ (guia de treinamento). Capturas de 09/10/2026, app local, dinheiro virtual.
+/* Dados das telas do Boris+ (guia de treinamento). Capturas de 09/10/2026 (08-portfolio, web-portfolio e web-acompanhar refeitas em 10/10/2026 com o cartão do Operador IA), app local, dinheiro virtual.
    Cada ponto: [frase curta, x%, y%, largura%, altura%, título, explicação] — a frase curta vai no cartão de vidro; título + explicação, na aba Pontos (sem repetir a frase). */
 window.TELAS = [
  {
@@ -534,52 +534,53 @@ window.TELAS = [
   "id": "port",
   "kind": "m",
   "img": "img/08-portfolio.jpg",
+  "nh": 1775,
   "alt": "Portfólio com patrimônio total, caixa disponível e indicação de carteira simulada.",
   "titulo": "Portfólio",
   "sub": "O resultado",
   "can": [
    [
-    "Abrir o Operador IA (modo avançado, também com execução simulada).",
-    50,
-    21,
-    94,
-    5.6,
+    "Ver o estado do Operador IA e abri-lo.",
+    47.3,
+    25.5,
+    88.5,
+    16.9,
     "Operador IA",
-    "Atalho para o agente do Modo Operador, que acompanha as posições e age pelas regras que você define. Você escolhe entre Executar e Apenas sinalizar; a execução segue simulada."
+    "O cartão no topo diz se o Operador IA está ligado ou desligado no servidor e se ele só avisa ou também executa. Descreve a configuração, não que ele esteja rodando agora. No Modo Estudo ele só sinaliza; no Modo Operador a execução segue simulada. Toque para abrir."
    ],
    [
     "Ver patrimônio total e resultado aberto.",
-    50,
-    41,
-    92,
-    5.6,
+    47.3,
+    50.1,
+    88.5,
+    6.2,
     "Patrimônio e resultado aberto",
     "Patrimônio total é caixa mais posições. Resultado aberto é o ganho ou a perda das posições que ainda não foram vendidas."
    ],
    [
     "Ver caixa disponível e valor em posições.",
-    50,
-    48.7,
-    92,
-    4.1,
+    47.3,
+    56.3,
+    88.5,
+    4.5,
     "Caixa e posições",
     "Dinheiro livre de um lado, valor em posições do outro. Se tudo está em posições, não sobra saldo para novas ordens."
    ],
    [
     "Entender o estado vazio e ir à Watchlist para a primeira compra simulada.",
-    50,
-    65.5,
-    94,
-    23,
+    47.3,
+    73.5,
+    88.5,
+    23.3,
     "Portfólio vazio",
     "Sem posições, o app indica o próximo passo: ir à Watchlist e simular a primeira compra."
    ],
    [
     "Abrir o histórico de operações.",
-    50,
-    81.6,
-    94,
-    5.6,
+    47.3,
+    89.4,
+    88.5,
+    5.2,
     "Histórico de operações",
     "Registra cada decisão, inclusive as ordens recusadas e o motivo. Rever as recusas ensina tanto quanto as aceitas."
    ]
@@ -1261,6 +1262,15 @@ window.TELAS = [
   "sub": "No navegador",
   "can": [
    [
+    "Ver o estado do Operador IA e abri-lo.",
+    48.7,
+    40.0,
+    85.5,
+    20.2,
+    "Operador IA",
+    "Cartão no Acompanhar com o estado do Operador IA (ligado ou desligado no servidor). Toque para abrir."
+   ],
+   [
     "Percorrer os setups da watchlist em carrossel, cada um com anel de confiança.",
     49,
     71,
@@ -1294,6 +1304,7 @@ window.TELAS = [
   "objetivo": "Usar o app em tela larga.",
   "missao": [
    "Abra o app no navegador.",
+   "Localize o cartão do Operador IA.",
    "Percorra o carrossel de setups."
   ],
   "quiz": {
@@ -1371,31 +1382,31 @@ window.TELAS = [
   "sub": "Carteira simulada",
   "can": [
    [
-    "Abrir o Operador IA.",
-    49,
-    36.4,
-    86,
-    9.6,
+    "Ver o estado do Operador IA e abri-lo.",
+    48.7,
+    41.5,
+    85.5,
+    20.6,
     "Operador IA",
-    "O atalho continua no Portfólio, também na tela larga."
+    "O cartão do Operador IA também aparece no topo do Portfólio na tela larga, com o mesmo estado (ligado ou desligado no servidor)."
    ],
    [
-    "Ver patrimônio total e caixa disponível.",
+    "Ver o patrimônio total.",
     28,
-    70,
-    44,
-    20,
-    "Patrimônio e caixa",
-    "Valor total e dinheiro livre da carteira simulada."
+    77.5,
+    42,
+    11,
+    "Patrimônio total",
+    "Valor total da carteira simulada: caixa mais posições. O caixa disponível fica sempre no topo da tela."
    ],
    [
-    "Ver resultado aberto e valor em posições.",
+    "Ver o resultado aberto.",
     71,
-    70,
+    77.5,
     42,
-    20,
-    "Resultado e posições",
-    "Resultado aberto e quanto está em posições."
+    11,
+    "Resultado aberto",
+    "Ganho ou perda das posições que ainda não foram vendidas. O valor em posições aparece logo abaixo, rolando a tela."
    ]
   ],
   "guard": "O aviso de carteira simulada acompanha todas as telas.",
@@ -1403,8 +1414,8 @@ window.TELAS = [
   "onde": "Navegador · Portfólio",
   "objetivo": "Ver a carteira simulada no navegador.",
   "missao": [
-   "Confira patrimônio e caixa.",
-   "Localize o acesso ao Operador IA."
+   "Confira o patrimônio total e o caixa disponível no topo.",
+   "Localize o cartão do Operador IA."
   ],
   "quiz": {
    "q": "O aviso de carteira simulada aparece:",
