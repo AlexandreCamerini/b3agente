@@ -1,4 +1,5 @@
-/* Dados das telas do Boris+ (guia de treinamento). Capturas de 09/10/2026, app local, dinheiro virtual. */
+/* Dados das telas do Boris+ (guia de treinamento). Capturas de 09/10/2026, app local, dinheiro virtual.
+   Cada ponto: [texto, x%, y%, largura%, altura%] — centro e tamanho do elemento na captura (o spotlight acompanha). */
 window.TELAS = [
  {
   "id": "boas",
@@ -11,22 +12,30 @@ window.TELAS = [
    [
     "Dizer como prefere ser chamado (opcional).",
     50,
-    51
+    51,
+    78,
+    5.2
    ],
    [
     "Definir o orçamento simulado inicial, em dinheiro virtual.",
     50,
-    60
+    60,
+    78,
+    4.8
    ],
    [
     "Escolher o perfil de risco: conservador, moderado ou agressivo.",
     50,
-    69
+    69,
+    78,
+    4.6
    ],
    [
     "Entrar na mesa e começar a treinar.",
     50,
-    76
+    76,
+    78,
+    5.4
    ]
   ],
   "guard": "Já na entrada: ferramenta educacional, nada é recomendação de investimento.",
@@ -61,37 +70,51 @@ window.TELAS = [
    [
     "Ver o saldo virtual e a variação do dia, sempre no topo.",
     62,
-    7.5
+    8.5,
+    36,
+    7
    ],
    [
     "Abrir perfil e configurações.",
     90,
-    10.5
+    10.5,
+    11.5,
+    5
    ],
    [
     "Saber se o mercado está aberto ou fechado e quando abre.",
     22,
-    13
+    13,
+    42,
+    3
    ],
    [
     "Ler o resumo do dia: carteira, acumulado e operações.",
     50,
-    37.5
+    45.5,
+    91,
+    21
    ],
    [
     "Acompanhar a curva do patrimônio simulado.",
     50,
-    62
+    73,
+    82,
+    11
    ],
    [
     "Ver estados honestos: sem histórico, o app diz “Não há dados suficientes para concluir”.",
     50,
-    78
+    84,
+    86,
+    8.5
    ],
    [
     "Navegar pelas abas: Acompanhar, Radar, Watchlist, Portfólio e Opções.",
     50,
-    96
+    96,
+    100,
+    7.5
    ]
   ],
   "guard": "Nada de número inventado: o que não existe aparece como vazio explicado.",
@@ -124,33 +147,45 @@ window.TELAS = [
   "can": [
    [
     "Pedir análise de IA para os melhores ativos (“IA no top-N”).",
-    70,
-    22
+    70.5,
+    21.8,
+    22.5,
+    5.4
    ],
    [
     "Buscar um ticker específico.",
     36,
-    41
+    41.4,
+    66,
+    5
    ],
    [
     "Ver o período em uso (ex.: 1 ano, 252 pregões).",
     33,
-    47
+    47,
+    59,
+    3.3
    ],
    [
     "Saber quantos ativos foram varridos e quantos ficaram sem dados.",
     45,
-    55
+    55,
+    84,
+    2.3
    ],
    [
     "Abrir “Como o Radar analisa” para entender o método.",
-    26,
-    60
+    50,
+    60,
+    91,
+    5
    ],
    [
     "Ler o card: plano educacional, confiança e o padrão detectado.",
     49,
-    78
+    78.5,
+    83,
+    11.4
    ]
   ],
   "guard": "O Radar mostra condições técnicas para estudo, sem recomendação.",
@@ -183,33 +218,45 @@ window.TELAS = [
   "can": [
    [
     "Editar a lista de ativos e atualizar as cotações.",
-    89,
-    21
+    82,
+    21,
+    24,
+    5.2
    ],
    [
     "Filtrar por Estudar alta, Estudar baixa ou Neutros.",
-    32,
-    40
+    47,
+    40,
+    89,
+    5.1
    ],
    [
     "Trocar o modelo de análise: Completo, Tendência, Price Action, Momentum, Volume…",
-    48,
-    51
+    50,
+    58.2,
+    90,
+    7.5
    ],
    [
     "Ver preço, variação e a fonte do dado de cada ativo.",
-    13,
-    70
+    63,
+    71.5,
+    22,
+    5.2
    ],
    [
     "Ler o plano educacional e a confiança do padrão.",
-    45,
-    80
+    49,
+    81,
+    83,
+    11.4
    ],
    [
     "Conferir o estado do pregão e o horário da última barra.",
-    26,
-    90
+    49,
+    89.8,
+    86,
+    3.6
    ]
   ],
   "guard": "O backend calcula; a IA interpreta dados históricos.",
@@ -243,27 +290,37 @@ window.TELAS = [
    [
     "Ver invalidação, gatilho e alvo, com o preço atual na régua.",
     49,
-    40
+    41,
+    83,
+    6.3
    ],
    [
     "Ler o regime (ex.: alta) e se o setup é a favor da tendência.",
-    19,
-    47.5
+    36,
+    47.6,
+    57,
+    2.8
    ],
    [
     "Ver o aviso de amostra insuficiente quando o histórico medido é pequeno.",
     31,
-    51
+    51.4,
+    48,
+    2.5
    ],
    [
     "Abrir o ticket com “Simular compra…”.",
     49,
-    66.5
+    66.5,
+    83,
+    5.2
    ],
    [
     "Estudar o ativo com o Bóris ou abrir os indicadores.",
-    26,
-    74
+    35,
+    74.3,
+    56,
+    2.6
    ]
   ],
   "guard": "Níveis calculados por regra, nunca pela IA. Stop e alvo nunca são vetados.",
@@ -297,32 +354,44 @@ window.TELAS = [
    [
     "Ajustar a quantidade (lotes de 100).",
     50,
-    37
+    37.4,
+    80,
+    5.2
    ],
    [
     "Ver o custo estimado antes de confirmar.",
     50,
-    44.5
+    44.4,
+    80,
+    5
    ],
    [
     "Ler o estado: com o mercado fechado, a ordem fica pendente até a abertura e o caixa já é reservado.",
     50,
-    54
+    53.6,
+    80,
+    11.3
    ],
    [
     "Saber que a execução é inteira ou nenhuma, sem preenchimento parcial.",
     49,
-    62
+    62,
+    78,
+    3.3
    ],
    [
     "Confirmar que é operação simulada: nenhuma ordem real é enviada.",
     49,
-    67.5
+    66.8,
+    78,
+    3.3
    ],
    [
     "Confirmar ou cancelar a compra.",
-    68,
-    74
+    50,
+    73.4,
+    80,
+    5.2
    ]
   ],
   "guard": "Dinheiro virtual, sempre. Nenhuma ordem chega a corretora, bolsa ou banco.",
@@ -357,12 +426,16 @@ window.TELAS = [
    [
     "Receber a confirmação: ordem pendente registrada, executa na abertura do próximo pregão.",
     50,
-    83.5
+    83.5,
+    50,
+    11
    ],
    [
     "Ver o caixa disponível já reduzido no topo (valor reservado).",
-    64,
-    12.5
+    66,
+    12.3,
+    31,
+    2.6
    ]
   ],
   "guard": "Cada ordem tem preço, quantidade, horário, tipo e status; rejeitadas mostram o motivo.",
@@ -396,27 +469,37 @@ window.TELAS = [
    [
     "Abrir o Operador IA (modo avançado, também com execução simulada).",
     50,
-    21
+    21,
+    94,
+    5.6
    ],
    [
     "Ver patrimônio total e resultado aberto.",
-    24,
-    41
+    50,
+    41,
+    92,
+    5.6
    ],
    [
     "Ver caixa disponível e valor em posições.",
-    23,
-    48.7
+    50,
+    48.7,
+    92,
+    4.1
    ],
    [
     "Entender o estado vazio e ir à Watchlist para a primeira compra simulada.",
     50,
-    59
+    65.5,
+    94,
+    23
    ],
    [
     "Abrir o histórico de operações.",
     50,
-    81.6
+    81.6,
+    94,
+    5.6
    ]
   ],
   "guard": "Carteira SIMULADA: ganhos e perdas aparecem sem maquiagem.",
@@ -450,32 +533,44 @@ window.TELAS = [
    [
     "Escolher um ativo da carteira: o card mostra quantas ações você tem e quantas estão livres como lastro.",
     50,
-    61.5
+    60,
+    83,
+    6.6
    ],
    [
     "Ver como a semana evoluiu: cada segmento é um pregão, colorido pelo regime medido naquele dia.",
     50,
-    68.7
+    69.5,
+    83,
+    4.8
    ],
    [
     "Ler as referências do ativo: volatilidade (HV21), suporte e resistência.",
-    35,
-    77
+    45,
+    77,
+    72,
+    7.3
    ],
    [
     "Saber se há estrutura aberta e quantas vigias você tem.",
     50,
-    82.3
+    82.3,
+    83,
+    2.4
    ],
    [
     "Abrir o card para escolher o que fazer com as ações.",
-    88,
-    58
+    86,
+    58,
+    10,
+    4
    ],
    [
     "Lembrete fixo: dinheiro virtual, nenhuma ordem sai para corretora, bolsa ou banco.",
     50,
-    29.7
+    31.6,
+    80,
+    6.5
    ]
   ],
   "guard": "Cada segmento mostra o regime medido naquele dia, não uma previsão do próximo.",
@@ -509,27 +604,37 @@ window.TELAS = [
    [
     "Escolher o objetivo: proteger de queda, gerar renda ou proteger com custo baixo.",
     50,
-    33.7
+    34.7,
+    84,
+    4.6
    ],
    [
     "Ler cada objetivo em linguagem simples, com o termo técnico entre parênteses.",
     50,
-    47
+    53,
+    84,
+    17
    ],
    [
     "Ver, antes de decidir, o que se perde em cada objetivo (o prêmio, ou o ganho acima do teto).",
     35,
-    58.7
+    58.7,
+    56,
+    2.2
    ],
    [
     "Tocar nos termos sublinhados para abrir uma explicação.",
-    60,
-    41
+    50,
+    41,
+    84,
+    2.8
    ],
    [
     "Voltar ao resumo da carteira.",
     10,
-    23
+    23,
+    14,
+    2.4
    ]
   ],
   "guard": "Você vê o pior caso antes de decidir.",
@@ -562,23 +667,31 @@ window.TELAS = [
   "can": [
    [
     "Escolher o vencimento (por exemplo, 42 ou 70 dias).",
-    30,
-    40
+    34,
+    40.2,
+    55,
+    6.6
    ],
    [
     "Comparar três níveis de piso: mais protegido, equilibrado e mais barato.",
     50,
-    48
+    66.5,
+    84,
+    43.5
    ],
    [
     "Ver a perda máxima de cada nível, em reais e em barras.",
-    80,
-    52
+    50,
+    52,
+    76,
+    3.6
    ],
    [
     "Ver o custo da proteção.",
-    80,
-    55.7
+    50,
+    56,
+    76,
+    3
    ]
   ],
   "guard": "Valores de opções nesta captura vêm de um ambiente de demonstração: são ilustrativos.",
@@ -612,32 +725,44 @@ window.TELAS = [
    [
     "Mover o controle e comparar “só as ações” com “com a estrutura” para um preço no vencimento.",
     49,
-    20.4
+    20.4,
+    74,
+    3.5
    ],
    [
     "Ver os dois resultados lado a lado, em reais.",
     50,
-    27
+    27,
+    76,
+    4.8
    ],
    [
     "Ler o pior caso, o melhor caso e o equilíbrio em linguagem direta.",
     50,
-    52
+    52.8,
+    88,
+    14.2
    ],
    [
     "Escolher a estrutura.",
     50,
-    65
+    65,
+    83,
+    5.7
    ],
    [
     "Ver o custo da escolha na sua cota (aqui: sem custo).",
-    24,
-    69.4
+    14,
+    69.4,
+    16,
+    2.2
    ],
    [
     "Ler o aviso: conteúdo educacional, dados de fim de pregão.",
     50,
-    78
+    78,
+    92,
+    6
    ]
   ],
   "guard": "O pior caso vem antes de qualquer decisão.",
@@ -670,23 +795,31 @@ window.TELAS = [
   "can": [
    [
     "Ler o gráfico: linha cheia com a estrutura, tracejada só com as ações.",
-    55,
-    24
+    50,
+    25.5,
+    84,
+    19.7
    ],
    [
     "Conferir os pontos numerados: piso, equilíbrio, perda máxima e preço médio.",
-    10,
-    37.5
+    50,
+    46.6,
+    88,
+    20.3
    ],
    [
     "Saber se há teto: “sem teto, o ganho acompanha a alta, menos o prêmio”.",
     50,
-    60
+    63,
+    84,
+    10.4
    ],
    [
     "Simular: “e se a ação fechar a tal preço no vencimento?”.",
     50,
-    73.5
+    80,
+    84,
+    20
    ]
   ],
   "guard": "Linguagem de cenário, nunca de promessa.",
@@ -720,27 +853,37 @@ window.TELAS = [
    [
     "Rever o pior e o melhor caso antes de qualquer decisão.",
     50,
-    44
+    44,
+    88,
+    14
    ],
    [
     "Conferir a estrutura: vencimento, perna comprada e prêmio.",
     50,
-    61.8
+    60,
+    84,
+    13.3
    ],
    [
     "Ver quantos contratos e ações entram e se as ações ficam livres como lastro.",
-    40,
-    70
+    45,
+    70.5,
+    76,
+    6.5
    ],
    [
     "Entender que, no Modo Estudo, nada é executado: é a leitura de como funcionaria.",
     50,
-    79.4
+    79.5,
+    90,
+    5
    ],
    [
     "Criar uma vigia para acompanhar a estrutura.",
     50,
-    86.6
+    86.5,
+    83,
+    5.2
    ]
   ],
   "guard": "No Estudo você aprende a estrutura; executar fica para o Modo Operador.",
@@ -774,22 +917,30 @@ window.TELAS = [
    [
     "Ler o termo até o fim: o Operador é ferramenta de decisão e disciplina, não recomendação.",
     50,
-    40
+    45.5,
+    80,
+    33.9
    ],
    [
     "Saber que o texto precisa ser rolado até o fim para liberar o aceite.",
     50,
-    64
+    64.2,
+    60,
+    2.4
    ],
    [
     "Marcar que leu e entende que pode perder dinheiro operando por conta e risco.",
-    14,
-    67.5
+    50,
+    68.5,
+    84,
+    4.7
    ],
    [
     "Continuar no Estudo ou ativar o Modo Operador.",
     50,
-    76
+    76,
+    80,
+    6.6
    ]
   ],
   "guard": "As decisões diretas só são liberadas depois da leitura e do aceite.",
@@ -823,27 +974,37 @@ window.TELAS = [
    [
     "Ver que a carteira tem uma estrutura aberta sobre o ativo.",
     50,
-    74.8
+    75.7,
+    77,
+    4.4
    ],
    [
     "Notar que as 100 ações passam a ficar travadas como lastro (0 livres).",
-    45,
-    54
+    35,
+    54,
+    56,
+    2.1
    ],
    [
     "Acompanhar a semana, a volatilidade, o suporte e a resistência do ativo.",
     50,
-    67
+    66.4,
+    77,
+    12.7
    ],
    [
     "Ver quantas vigias há.",
-    88,
-    74.8
+    81,
+    75.2,
+    14,
+    2.4
    ],
    [
     "Abrir o card do ativo.",
-    88,
-    50.7
+    50,
+    51.3,
+    84,
+    4
    ]
   ],
   "guard": "Execução simulada. Códigos “MOCK” indicam o ambiente de demonstração.",
@@ -877,22 +1038,30 @@ window.TELAS = [
    [
     "Saber o que ele não faz: não recomenda compra ou venda e não envia ordem.",
     50,
-    44
+    47.5,
+    80,
+    11.8
    ],
    [
     "Contar com a base de estudo: indicadores, estrutura de preço, setups e vocabulário da B3.",
     50,
-    58.6
+    60,
+    80,
+    9.2
    ],
    [
     "Chamá-lo pela coruja flutuante, em qualquer tela do Estudo.",
     50,
-    70
+    70,
+    80,
+    6.8
    ],
    [
     "Conversar agora ou deixar para depois.",
     50,
-    79
+    82.1,
+    80,
+    11.3
    ]
   ],
   "guard": "O Bóris é o professor, nunca o operador.",
@@ -925,18 +1094,24 @@ window.TELAS = [
   "can": [
    [
     "Percorrer os setups da watchlist em carrossel, cada um com anel de confiança.",
-    27,
-    66
+    49,
+    71,
+    84,
+    22
    ],
    [
     "Ver o estado do mercado e do horário de pregão.",
-    50,
-    24
+    34,
+    23,
+    64,
+    3.2
    ],
    [
     "Ver o saldo virtual e o caixa no topo.",
-    85,
-    17
+    83,
+    17,
+    16,
+    10
    ]
   ],
   "guard": "Mesmo conteúdo do celular, em layout largo.",
@@ -968,18 +1143,24 @@ window.TELAS = [
   "can": [
    [
     "Comparar o plano de dois ativos lado a lado.",
-    30,
-    33
+    50,
+    36,
+    88,
+    12.4
    ],
    [
     "Ler regime e amostra de cada setup.",
-    30,
-    54
+    50,
+    52,
+    88,
+    10.6
    ],
    [
     "Abrir a compra simulada direto do card.",
     50,
-    80
+    81,
+    88,
+    8.6
    ]
   ],
   "guard": "Em telas largas, os cards se organizam em colunas.",
@@ -1011,18 +1192,24 @@ window.TELAS = [
   "can": [
    [
     "Abrir o Operador IA.",
-    50,
-    36
+    49,
+    36.4,
+    86,
+    9.6
    ],
    [
     "Ver patrimônio total e caixa disponível.",
-    22,
-    64
+    28,
+    70,
+    44,
+    20
    ],
    [
     "Ver resultado aberto e valor em posições.",
-    62,
-    64
+    71,
+    70,
+    42,
+    20
    ]
   ],
   "guard": "O aviso de carteira simulada acompanha todas as telas.",

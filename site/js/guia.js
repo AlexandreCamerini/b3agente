@@ -71,7 +71,7 @@
       var g = el("button", "ghost", String(k + 1)); g.type = "button"; g.style.left = c[1] + "%"; g.style.top = c[2] + "%";
       g.setAttribute("aria-label", "Ponto " + (k + 1) + ": " + c[0]); g.addEventListener("click", function () { focusAt(k, true); }); cam.appendChild(g); ghosts.push(g);
     });
-    var spot = el("div", "spot"), ring = el("div", "ring");
+    var spot = el("div", "spot");
     var glass = el("div", "glass"); glass.setAttribute("aria-live", "polite");
     var gtop = el("div", "gtop"), gcount = el("span", "gcount"), gnav = el("span", "gnav");
     var pv = el("button", "gb", "‹"); pv.type = "button"; pv.setAttribute("aria-label", "Ponto anterior");
@@ -79,7 +79,7 @@
     gnav.appendChild(pv); gnav.appendChild(nx); gtop.appendChild(gcount); gtop.appendChild(gnav);
     var gtxt = el("p", "gtxt"); glass.appendChild(gtop); glass.appendChild(gtxt);
     var wide = el("button", "wide", "Tela inteira"); wide.type = "button"; wide.setAttribute("aria-pressed", "false");
-    lens.appendChild(cam); lens.appendChild(spot); lens.appendChild(ring); lens.appendChild(glass);
+    lens.appendChild(cam); lens.appendChild(spot); lens.appendChild(glass);
     sc.appendChild(lens);
     var dots = el("div", "stepdots"); dots.setAttribute("role", "tablist"); dots.setAttribute("aria-label", "Pontos da tela");
     var chips = t.can.map(function (c, k) { var b = el("button", null, String(k + 1)); b.type = "button"; b.setAttribute("aria-label", "Ir ao ponto " + (k + 1)); b.addEventListener("click", function () { focusAt(k, true); }); dots.appendChild(b); return b; });
@@ -97,12 +97,19 @@
       } else {
         s2 = g.w0; cam.style.width = natW * s2 + "px"; cam.style.height = natH * s2 + "px";
         var X = c[1] / 100 * natW * s2, Y = c[2] / 100 * natH * s2;
-        tx = g.vw / 2 - X; ty = g.vh * 0.36 - Y;
+        var sw = (c[3] || 0) / 100 * natW * s2, sh = (c[4] || 0) / 100 * natH * s2;
+        if (!sw || !sh) { sw = g.vw; sh = 92 - 14; }
+        sw += 14; sh += 14; // margem em volta do elemento
+        // elementos altos sobem menos para o cartão de vidro não cobri-los por inteiro
+        var alvo = sh > g.vh * 0.42 ? 0.30 : 0.36;
+        tx = g.vw / 2 - X; ty = g.vh * alvo - Y;
         tx = Math.min(0, Math.max(g.vw - natW * s2, tx)); ty = Math.min(0, Math.max(g.vh - natH * s2, ty));
         if (natW * s2 <= g.vw) tx = (g.vw - natW * s2) / 2;
         if (natH * s2 <= g.vh) ty = (g.vh - natH * s2) / 2;
         cxp = tx + X; cyp = ty + Y;
-        spot.style.top = (cyp - 46) + "px"; ring.style.left = cxp + "px"; ring.style.top = cyp + "px";
+        var l0 = Math.max(0, cxp - sw / 2), t0 = Math.max(0, cyp - sh / 2), r0 = Math.min(g.vw, cxp + sw / 2), b0 = Math.min(g.vh, cyp + sh / 2);
+        spot.style.width = (r0 - l0) + "px"; spot.style.height = (b0 - t0) + "px"; // nunca vaza da moldura
+        spot.style.left = l0 + "px"; spot.style.top = t0 + "px";
         glass.classList.toggle("up", cyp > g.vh * 0.52);
       }
       cam.style.transform = "translate(" + tx + "px," + ty + "px)";

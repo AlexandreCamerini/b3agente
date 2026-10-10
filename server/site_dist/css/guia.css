@@ -29,7 +29,7 @@
 .tela{background:var(--panel);border:1px solid var(--line);border-radius:24px;padding:clamp(14px,3.5vw,32px);animation:gfade .25s ease}
 @keyframes gfade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
 @keyframes gpulse{0%,100%{box-shadow:0 0 0 4px rgba(242,169,59,.28)}50%{box-shadow:0 0 0 10px rgba(242,169,59,.06)}}
-@media (prefers-reduced-motion:reduce){.tela{animation:none}.bar span{transition:none}.cam,.spot,.ring{transition:none!important}.ring{animation:none!important}}
+@media (prefers-reduced-motion:reduce){.tela{animation:none}.bar span{transition:none}.cam,.spot{transition:none!important}}
 .thead{margin-bottom:12px}
 .thead h2{font-size:clamp(26px,5vw,38px);margin-top:2px}
 .kick{font-size:12px;font-weight:800;letter-spacing:1.3px;text-transform:uppercase;color:var(--brand-amber)}
@@ -46,9 +46,8 @@
 .ghost.on{opacity:0}
 .lens.ov .ghost{opacity:1;width:26px;height:26px;background:rgba(242,169,59,.9);color:#10121a;border-color:#10121a;font-size:12px}
 .lens.ov .ghost.on{background:#fff}
-.spot{position:absolute;left:0;right:0;height:92px;border-radius:16px;pointer-events:none;box-shadow:0 0 0 9999px rgba(8,10,16,.64);transition:top .5s cubic-bezier(.2,.7,.2,1),opacity .3s;z-index:2}
-.ring{position:absolute;width:30px;height:30px;transform:translate(-50%,-50%);border-radius:50%;border:2px solid #f2a93b;pointer-events:none;transition:left .5s cubic-bezier(.2,.7,.2,1),top .5s cubic-bezier(.2,.7,.2,1),opacity .3s;z-index:2;animation:gpulse 1.8s ease-in-out infinite}
-.lens.ov .spot,.lens.ov .ring{opacity:0}
+.spot{position:absolute;left:0;top:0;width:0;height:0;border-radius:14px;pointer-events:none;box-shadow:0 0 0 2px rgba(242,169,59,.95),0 0 0 9999px rgba(8,10,16,.64);transition:left .5s cubic-bezier(.2,.7,.2,1),top .5s cubic-bezier(.2,.7,.2,1),width .5s cubic-bezier(.2,.7,.2,1),height .5s cubic-bezier(.2,.7,.2,1),opacity .3s;z-index:2}
+.lens.ov .spot{opacity:0}
 .glass{position:absolute;left:8px;right:8px;bottom:8px;z-index:4;background:rgba(14,16,24,.56);-webkit-backdrop-filter:blur(14px) saturate(1.35);backdrop-filter:blur(14px) saturate(1.35);border:1px solid rgba(255,255,255,.17);border-radius:18px;padding:8px 8px 12px 14px;transition:opacity .25s}
 .glass.up{bottom:auto;top:8px}
 .lens.ov .glass{opacity:0;pointer-events:none}
