@@ -5,6 +5,7 @@
 // e, no `popstate`, aplica `subirNivel(e)`. Módulo PURO: sem DOM, sem React, sem I/O.
 // Níveis das Opções espelham navOpcoes.NIVEIS (o teste cruza os dois).
 // Navegação pura: nenhum dado financeiro passa por aqui.
+// Onda J (2026-10-10, quick 261010-f50): camadas (modais/sheets) e card expandido entram na pilha; ver decisões J-D1..J-D10 no PLAN.
 
 // Onda G (2026-10-08, quick 261008-iuz): 20/60/40 falhava no iPhone real (simulador aceitava x=8); ampliado para 32/50/60.
 // Zona maior => trilhos/sliders na borda precisam de exclusão (App.jsx closest).
@@ -32,18 +33,74 @@ function baseDe(e) {
   return 0;
 }
 
-export function profundidade(e) {
+// Ordem crescente de z-index: catalog 50, buy 50, sell 50, stopAlvo 55, radarDeep 55, about 70,
+// tour 75, auth 82, pet 86, conceito 86 (ConceitoSheet global, renderizada depois do PetSheet), borisIntro 87, tech 1000.
+export const ORDEM_CAMADAS = Object.freeze(["catalog", "buy", "sell", "stopAlvo", "radarDeep", "about", "tour", "auth", "pet", "conceito", "borisIntro", "tech"]);
+
+function modaisDe(e) {
+  if (!e || !Array.isArray(e.modais)) return [];
+  return [...new Set(e.modais.filter((m) => m !== "conceito" && ORDEM_CAMADAS.includes(m)))];
+}
+
+export function camadaDoTopo(e) {
+  if (!e) return null;
+  const m = modaisDe(e);
+  for (let i = ORDEM_CAMADAS.length - 1; i >= 0; i--) {
+    const id = ORDEM_CAMADAS[i];
+    if (id === "conceito" ? !!e.conceito : m.includes(id)) return id;
+  }
+  return null;
+}
+
+export function modalDoTopo(e) {
+  if (!e) return null;
+  const m = modaisDe(e);
+  for (let i = ORDEM_CAMADAS.length - 1; i >= 0; i--) {
+    if (m.includes(ORDEM_CAMADAS[i])) return ORDEM_CAMADAS[i];
+  }
+  return null;
+}
+
+const sheetDe = (e) => (e && e.tab === "opcoes" && e.opcoes ? n0(e.opcoes.sheet) : 0);
+
+// Profundidade só das telas (base + conceito): é o que dirige a animação tela-entrar/voltar.
+export function profundidadeDeTela(e) {
   if (!e) return 0;
   return baseDe(e) + (e.conceito ? 1 + n0(e.conceito.trilha) : 0);
 }
 
+export function profundidade(e) {
+  if (!e) return 0;
+  return profundidadeDeTela(e) + sheetDe(e) + modaisDe(e).length + (e.cardExpandido ? 1 : 0);
+}
+
+// Prioridade: camada visualmente do topo > sub-tela/sheet > card expandido.
+// A função registrada pelo OpcoesScreen fecha a sheet local antes de subir o nível.
 export function subirNivel(e) {
   if (!e) return null;
-  if (e.conceito) return n0(e.conceito.trilha) > 0 ? "conceitoVoltar" : "conceitoFechar";
+  const topo = camadaDoTopo(e);
+  if (topo === "conceito") return n0(e.conceito.trilha) > 0 ? "conceitoVoltar" : "conceitoFechar";
+  if (topo) return "fecharModal";
   if (e.tab === "carteira" && e.carteiraView && e.carteiraView !== "main") return "carteiraMain";
   if (e.tab === "perfil" && e.perfilView && e.perfilView !== "hub") return "perfilHub";
-  if (e.tab === "opcoes" && e.opcoes && profundidadeOpcoes(e.opcoes.nivel, e.opcoes.temTicker) > 0) return "opcoesVoltar";
+  if (e.tab === "opcoes" && e.opcoes && (profundidadeOpcoes(e.opcoes.nivel, e.opcoes.temTicker) > 0 || sheetDe(e) > 0)) return "opcoesVoltar";
+  if (e.cardExpandido) return "recolherCard";
   return null;
+}
+
+export function profundidadeSheetsOpcoes(vigiasAberto, verbete) {
+  if (verbete && typeof verbete === "object") return 1 + (Array.isArray(verbete.trilha) ? verbete.trilha.length : 0);
+  return vigiasAberto === true ? 1 : 0;
+}
+
+const TIPOS_SEM_TEXTO = ["range", "checkbox", "radio", "button", "submit", "reset", "image", "color", "file", "hidden"];
+export function campoDeTextoFocado(arg) {
+  const { tag, type, editavel } = arg || {};
+  if (editavel === true) return true;
+  const t = typeof tag === "string" ? tag.toUpperCase() : "";
+  if (t === "TEXTAREA" || t === "SELECT") return true;
+  if (t === "INPUT") return !TIPOS_SEM_TEXTO.includes(typeof type === "string" ? type.toLowerCase() : "");
+  return false;
 }
 
 export function reconciliarPilha(empurradas, prof) {
