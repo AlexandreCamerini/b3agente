@@ -1,4 +1,4 @@
-/* Dados das telas do Boris+ (guia de treinamento). Capturas de 09/10/2026 (08-portfolio, web-portfolio e web-acompanhar refeitas em 10/10/2026 com o cartão do Operador IA), app local, dinheiro virtual.
+/* Dados das telas do Boris+ (guia de treinamento). Capturas de 09/10/2026 (02-acompanhar, 08-portfolio, web-portfolio e web-acompanhar refeitas em 10/10/2026 com o cartão do Operador IA), app local, dinheiro virtual.
    Cada ponto: [frase curta, x%, y%, largura%, altura%, título, explicação] — a frase curta vai no cartão de vidro; título + explicação, na aba Pontos (sem repetir a frase). */
 window.TELAS = [
  {
@@ -103,29 +103,38 @@ window.TELAS = [
     "Aberto ou fechado, com o horário de abertura. Fora do pregão, os preços são os do último fechamento, e o app avisa."
    ],
    [
+    "Ver o estado do Operador IA e abri-lo.",
+    48.7,
+    25.5,
+    91.3,
+    18.2,
+    "Operador IA",
+    "Cartão no Acompanhar com o estado do Operador IA: ligado ou desligado no servidor e se ele só avisa ou também executa. Descreve a configuração, não que ele esteja rodando agora. No Modo Estudo ele só sinaliza. Toque para abrir."
+   ],
+   [
     "Ler o resumo do dia: carteira, acumulado e operações.",
-    50,
-    45.5,
-    91,
-    21,
+    48.7,
+    47.3,
+    91.3,
+    21.3,
     "Resumo do dia",
     "Resultado da carteira no dia, acumulado e número de operações. Numa conta nova tudo começa zerado."
    ],
    [
     "Acompanhar a curva do patrimônio simulado.",
-    50,
-    73,
-    82,
-    11,
+    48.7,
+    75.2,
+    82.6,
+    10.8,
     "Curva do patrimônio",
     "Cada dia que você abre o app vira um ponto. Com poucos dias a curva é curta: o app prefere dizer isso a desenhar uma linha estimada."
    ],
    [
     "Ver estados honestos: sem histórico, o app diz “Não há dados suficientes para concluir”.",
-    50,
-    84,
+    48.7,
+    86.3,
     86,
-    8.5,
+    9.5,
     "Vazio explicado",
     "Sem dados, a tela diz “Não há dados suficientes para concluir”. É regra do produto: nunca preencher o vazio com número inventado."
    ],
@@ -145,6 +154,7 @@ window.TELAS = [
   "objetivo": "Ler o estado do seu dia de relance.",
   "missao": [
    "Confira se o mercado está aberto ou fechado.",
+   "Localize o cartão do Operador IA e veja se está ligado ou desligado no servidor.",
    "Leia o resumo do dia.",
    "Localize a curva do patrimônio e leia a mensagem quando ainda não há histórico."
   ],

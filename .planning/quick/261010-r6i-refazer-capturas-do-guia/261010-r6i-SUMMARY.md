@@ -31,3 +31,9 @@ commits: []
 
 ## Incidente durante a captura
 - O painel do navegador embutido mudou de estado sozinho duas vezes (Modo Operador ativado com "Termo aceito", e navegação para `/site/app/guia.html`). O usuário compartilha esse painel; não foi uma ação desta sessão. A conta era descartável e o banco temporário foi apagado.
+
+## Atualização (mesmo dia): 02-acompanhar mobile refeita
+- `site/img/02-acompanhar.jpg` refeita em 780x1688 (padrão): app em Modo Estudo, mercado fechado, rolada 155px e capturada no estado "Mercado sem setups claros" (o app o exibe antes de os setups carregarem; com setups o carrossel empurra resumo e curva para fora da tela). Mostra cartão do Operador IA, Resumo do dia, Patrimônio simulado, curva e a mensagem de vazio; o título "Vamos estudar..." fica rolado para fora.
+- `telas-data.js` (`acomp`): 8 pontos reancorados (Operador IA novo, entre Estado do mercado e Resumo do dia) e missão com o passo do cartão. `?v=7` → `?v=8` no `telas-data.js`.
+- Conferido no guia servido localmente: spotlight de cada um dos 8 pontos cai sobre o elemento medido. `test_site_dist.py`: 5 passed; `site/` == `server/site_dist`.
+- Lacuna anterior ("02-acompanhar não refeita") fechada. Não publicado: falta bump de `SERVER_BUILD_ID` e push.
