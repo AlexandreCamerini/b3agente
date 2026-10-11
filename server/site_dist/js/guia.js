@@ -9,11 +9,13 @@
   var $ = function (id) { return document.getElementById(id); };
   var el = function (tag, cls, txt) { var e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; };
 
+  /* Progresso (quick 261011-l5x): payload {v:2, mis:{id:true}, q:{id:true}}. Sem v:2 (formato antigo,
+     missão com várias caixas) a missão é descartada e o teste (q) é mantido. Mesma chave do app. */
   function load() {
-    try { var r = localStorage.getItem(KEY); if (r) { var o = JSON.parse(r); if (o && typeof o === "object") mem = { mis: o.mis || {}, q: o.q || {} }; } } catch (e) {}
+    try { var r = localStorage.getItem(KEY); if (r) { var o = JSON.parse(r); if (o && typeof o === "object") mem = { mis: o.v === 2 && o.mis ? o.mis : {}, q: o.q || {} }; } } catch (e) {}
   }
-  function save() { try { localStorage.setItem(KEY, JSON.stringify(mem)); } catch (e) {} }
-  function misDone(t) { var m = mem.mis[t.id] || []; return t.missao.every(function (_, i) { return m[i]; }); }
+  function save() { try { localStorage.setItem(KEY, JSON.stringify({ v: 2, mis: mem.mis, q: mem.q })); } catch (e) {} }
+  function misDone(t) { return !!mem.mis[t.id]; }
   function isDone(t) { return !!mem.q[t.id] && misDone(t); }
 
   /* ---------- mapa ---------- */
@@ -67,9 +69,9 @@
     var cam = el("div", "cam");
     var img = new Image(); img.src = base + t.img; img.alt = t.alt; img.draggable = false; cam.appendChild(img);
     var ghosts = [];
-    t.can.forEach(function (c, k) {
-      var g = el("button", "ghost", String(k + 1)); g.type = "button"; g.style.left = c[1] + "%"; g.style.top = c[2] + "%";
-      g.setAttribute("aria-label", "Ponto " + (k + 1) + ": " + c[5]); g.addEventListener("click", function () { focusAt(k, true); }); cam.appendChild(g); ghosts.push(g);
+    t.pontos.forEach(function (p, k) {
+      var g = el("button", "ghost", String(k + 1)); g.type = "button"; g.style.left = p.x + "%"; g.style.top = p.y + "%";
+      g.setAttribute("aria-label", "Ponto " + (k + 1) + ": " + p.titulo); g.addEventListener("click", function () { focusAt(k, true); }); cam.appendChild(g); ghosts.push(g);
     });
     var spot = el("div", "spot");
     var glass = el("div", "glass"); glass.setAttribute("aria-live", "polite");
@@ -82,7 +84,7 @@
     lens.appendChild(cam); lens.appendChild(spot); lens.appendChild(glass);
     sc.appendChild(lens);
     var dots = el("div", "stepdots"); dots.setAttribute("role", "tablist"); dots.setAttribute("aria-label", "Pontos da tela");
-    var chips = t.can.map(function (c, k) { var b = el("button", null, String(k + 1)); b.type = "button"; b.setAttribute("aria-label", "Ir ao ponto " + (k + 1) + ": " + c[5]); b.addEventListener("click", function () { focusAt(k, true); }); dots.appendChild(b); return b; });
+    var chips = t.pontos.map(function (p, k) { var b = el("button", null, String(k + 1)); b.type = "button"; b.setAttribute("aria-label", "Ir ao ponto " + (k + 1) + ": " + p.titulo); b.addEventListener("click", function () { focusAt(k, true); }); dots.appendChild(b); return b; });
     var ctl = el("div", "ctl"); ctl.appendChild(dots); ctl.appendChild(wide); sc.appendChild(ctl);
     cols.appendChild(sc);
 
@@ -90,14 +92,14 @@
     function geom() { var vw = lens.clientWidth, vh = lens.clientHeight; return { vw: vw, vh: vh, fit: Math.min(vw / natW, vh / natH), w0: vw / natW }; }
     function place(k) {
       var g = geom(); if (!g.vw) return;
-      var c = t.can[k], s2, tx, ty, cxp, cyp;
+      var c = t.pontos[k], s2, tx, ty, cxp, cyp;
       if (overview) {
         s2 = g.fit; cam.style.width = natW * s2 + "px"; cam.style.height = natH * s2 + "px";
         tx = (g.vw - natW * s2) / 2; ty = (g.vh - natH * s2) / 2;
       } else {
         s2 = g.w0; cam.style.width = natW * s2 + "px"; cam.style.height = natH * s2 + "px";
-        var X = c[1] / 100 * natW * s2, Y = c[2] / 100 * natH * s2;
-        var sw = (c[3] || 0) / 100 * natW * s2, sh = (c[4] || 0) / 100 * natH * s2;
+        var X = c.x / 100 * natW * s2, Y = c.y / 100 * natH * s2;
+        var sw = (c.w || 0) / 100 * natW * s2, sh = (c.h || 0) / 100 * natH * s2;
         if (!sw || !sh) { sw = g.vw; sh = 92 - 14; }
         sw += 14; sh += 14; // margem em volta do elemento
         // elementos altos sobem menos para o cartão de vidro não cobri-los por inteiro
@@ -120,11 +122,11 @@
       ghosts.forEach(function (g, j) { g.classList.toggle("on", j === k); });
       chips.forEach(function (b, j) { b.classList.toggle("on", j === k); if (j === k) b.setAttribute("aria-current", "true"); else b.removeAttribute("aria-current"); });
       items.forEach(function (b, j) { b.classList.toggle("on", j === k); });
-      gcount.textContent = "Ponto " + (k + 1) + " de " + t.can.length; gtit.textContent = t.can[k][5]; gtxt.textContent = t.can[k][0];
-      pv.disabled = k === 0; nx.disabled = k === t.can.length - 1;
+      gcount.textContent = "Ponto " + (k + 1) + " de " + t.pontos.length; gtit.textContent = t.pontos[k].titulo; gtxt.textContent = t.pontos[k].texto;
+      pv.disabled = k === 0; nx.disabled = k === t.pontos.length - 1;
     }
     pv.addEventListener("click", function () { if (cur2 > 0) focusAt(cur2 - 1, true); });
-    nx.addEventListener("click", function () { if (cur2 < t.can.length - 1) focusAt(cur2 + 1, true); });
+    nx.addEventListener("click", function () { if (cur2 < t.pontos.length - 1) focusAt(cur2 + 1, true); });
     wide.addEventListener("click", function () {
       overview = !overview; wide.setAttribute("aria-pressed", String(overview)); lens.classList.toggle("ov", overview);
       if (overview) place(cur2); else focusAt(cur2, true);
@@ -147,20 +149,20 @@
     var items = [];
     panels.pontos.appendChild(el("p", "obj", t.objetivo));
     var ol = el("ol", "can");
-    t.can.forEach(function (c, k) {
-      var li = el("li"), b = el("button"); b.type = "button"; b.appendChild(el("span", "n", String(k + 1))); var tx = el("span", "tx"); tx.appendChild(el("strong", null, c[5])); tx.appendChild(el("span", "dt", c[6])); b.appendChild(tx);
+    t.pontos.forEach(function (p, k) {
+      var li = el("li"), b = el("button"); b.type = "button"; b.appendChild(el("span", "n", String(k + 1))); var tx = el("span", "tx"); tx.appendChild(el("strong", null, p.titulo)); b.appendChild(tx);
       b.addEventListener("click", function () { focusAt(k, true); var r = lens.getBoundingClientRect(); if (r.top < 0 || r.bottom > innerHeight) lens.scrollIntoView({ block: "center", behavior: "smooth" }); });
       li.appendChild(b); ol.appendChild(li); items.push(b);
     });
-    panels.pontos.appendChild(ol); if (t.guard) panels.pontos.appendChild(el("p", "guardl", t.guard));
+    panels.pontos.appendChild(ol);
 
     // Missão
-    var ul = el("ul", "mis"); mem.mis[t.id] = mem.mis[t.id] || [];
-    t.missao.forEach(function (m, k) {
-      var li = el("li"), lb = el("label"), cb = el("input"); cb.type = "checkbox"; cb.checked = !!mem.mis[t.id][k];
-      cb.addEventListener("change", function () { mem.mis[t.id][k] = cb.checked; save(); refresh(); badge(); });
-      lb.appendChild(cb); lb.appendChild(el("span", null, m)); li.appendChild(lb); ul.appendChild(li);
-    });
+    var ul = el("ul", "mis");
+    (function () {
+      var li = el("li"), lb = el("label"), cb = el("input"); cb.type = "checkbox"; cb.checked = !!mem.mis[t.id];
+      cb.addEventListener("change", function () { mem.mis[t.id] = cb.checked; save(); refresh(); badge(); });
+      lb.appendChild(cb); lb.appendChild(el("span", null, t.missao)); li.appendChild(lb); ul.appendChild(li);
+    })();
     panels.missao.appendChild(el("p", "obj", "Repita no app, com o saldo virtual:")); panels.missao.appendChild(ul);
 
     // Teste
