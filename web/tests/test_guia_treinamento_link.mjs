@@ -20,8 +20,18 @@ const fn = fnIni >= 0 ? src.slice(fnIni, src.indexOf("\n}\n", fnIni) + 3) : "";
 ok("função abrirTreinamento existe", fnIni >= 0);
 ok("destino é /site/app/<pagina> na origem do servidor", /"\/site\/app\/" \+ pagina/.test(fn));
 ok("nativo usa Browser.open (browser in-app) com PROD_BASE de fallback", /Browser\.open\(\{ url \}\)/.test(fn) && /PROD_BASE/.test(fn));
-const corpoWeb = fn.slice(fn.indexOf("} else {"));
-ok("web: window.open noopener, sem await antes do clique", /window\.open\(url, "_blank", "noopener"\)/.test(fn) && !/await/.test(corpoWeb));
+const corpoWeb = fn.slice(fn.indexOf("else if (janela)"));
+const fnCodigo = fn.replace(/\/\/.*$/gm, ""); // sem comentários
+// Nota 2026-10-11 (quick 261011-l5x): a asserção original ("window.open noopener, sem await
+// antes do clique") evoluiu. Um SW antigo servia a casca do app em /site/app/*; agora o ramo
+// web abre about:blank SÍNCRONO, zera opener, atualiza o SW (best-effort) e só então navega.
+// O invariante (nenhum await antes do window.open) continua travado em (a).
+const iOpen = fnCodigo.indexOf("window.open(");
+const iAwait = fnCodigo.indexOf("await");
+ok("web: window.open síncrono ANTES do primeiro await", iOpen >= 0 && iAwait > iOpen);
+ok("web: opener = null (noopener na janela about:blank)", /opener = null/.test(fn));
+ok("web: atualizarServiceWorker no ramo web", /atualizarServiceWorker\(\)/.test(corpoWeb));
+ok("URL leva ?v= + BUILD_ID", /"\?v=" \+ encodeURIComponent\(BUILD_ID\)/.test(fn));
 ok("falha mostra flash em PT-BR em vez de silenciar", /ctx\.flash\("Não foi possível abrir o treinamento/.test(fn));
 
 const ajuda = src.indexOf('<div style={hubGroup}>Ajuda</div>');

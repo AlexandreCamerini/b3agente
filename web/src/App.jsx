@@ -55,6 +55,7 @@ import { useLarguraMedida, LegendaMarcadores } from "./opcoes/PayoffPrimitivas.j
 // `SubAbaOperar` (web/src/opcoes/OpcoesScreen.jsx) importa os dois módulos
 // diretamente.
 import { BUILD_ID } from "./version.js";
+import { atualizarServiceWorker } from "./swUpdate.js";
 // carimbo no console: prova de qual build está rodando (device/web)
 try { console.log("[b3] build", BUILD_ID); } catch { /* noop */ }
 import { canAddTicker, canAnalyze, erroDeLimiteWatchlist, limiteDeWatchlist } from "./plan.js";
@@ -2980,15 +2981,26 @@ async function abrirAdminMobile(ctx) {
 // (sem await antes do window.open, senão o navegador bloqueia como popup).
 async function abrirTreinamento(ctx, pagina) {
   const origem = isNative ? (getApiBase() !== "(mesma origem)" ? getApiBase() : PROD_BASE) : window.location.origin;
-  const url = origem.replace(/\/$/, "") + "/site/app/" + pagina;
+  // Quick 261011-l5x: ?v=BUILD_ID fura o cache HTTP; o denylist do SW não muda com a query.
+  const url = origem.replace(/\/$/, "") + "/site/app/" + pagina + "?v=" + encodeURIComponent(BUILD_ID);
+  // Web: a aba abre JÁ, no gesto síncrono do clique (about:blank); o await do
+  // atualizarServiceWorker vem DEPOIS do window.open, senão o navegador bloqueia o popup.
+  // Um SW antigo ainda ativo serviu a casca do app em /site/app/* (ver swUpdate.js);
+  // update() best-effort (<= 1,5 s) e só então navega a aba já aberta.
+  const janela = !isNative ? window.open("about:blank", "_blank") : null;
+  if (janela) janela.opener = null;
   try {
     if (isNative) {
       const mod = await import("@capacitor/browser");
       await mod.Browser.open({ url });
+    } else if (janela) {
+      await atualizarServiceWorker();
+      janela.location.href = url;
     } else {
-      window.open(url, "_blank", "noopener");
+      window.open(url, "_blank", "noopener"); // popup bloqueado: tenta mesmo assim
     }
   } catch (e) {
+    if (janela) janela.close();
     ctx.flash("Não foi possível abrir o treinamento: " + ((e && e.message) || e));
   }
 }
