@@ -415,7 +415,7 @@ window.TELAS = [
  {
   "id": "opc",
   "kind": "m",
-  "img": "img/10-opcoes.png",
+  "img": "img/10-opcoes.jpg",
   "alt": "Aba Opções com PETR4 em carteira: 100 ações livres para lastro, evolução da semana, volatilidade, suporte e resistência.",
   "titulo": "Opções",
   "sub": "Estudo sobre a carteira",
@@ -463,7 +463,7 @@ window.TELAS = [
  {
   "id": "opcobj",
   "kind": "m",
-  "img": "img/11-opcoes-objetivos.png",
+  "img": "img/11-opcoes-objetivos.jpg",
   "alt": "Objetivos para as 100 ações de PETR4: proteger de queda, gerar renda e proteger com custo baixo.",
   "titulo": "Opções · objetivos",
   "sub": "O que fazer com as ações",
@@ -511,7 +511,7 @@ window.TELAS = [
  {
   "id": "opcpiso",
   "kind": "m",
-  "img": "img/12-opcoes-piso.png",
+  "img": "img/12-opcoes-piso.jpg",
   "alt": "Escolha do piso da proteção: vencimentos, três níveis de put, perda máxima e custo da proteção.",
   "titulo": "Opções · escolher o piso",
   "sub": "Proteger de queda",
