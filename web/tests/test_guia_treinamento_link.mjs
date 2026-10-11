@@ -38,7 +38,16 @@ const ajuda = src.indexOf('<div style={hubGroup}>Ajuda</div>');
 const fimAjuda = src.indexOf("Notificações {notifOn", ajuda);
 const fatia = ajuda >= 0 ? src.slice(ajuda, fimAjuda) : "";
 ok("tile 'Guia de treinamento' está no grupo Ajuda", /title="Guia de treinamento"/.test(fatia));
-ok("tile do guia abre guia.html", /abrirTreinamento\(ctx, "guia\.html"\)/.test(fatia));
+// Nota 2026-10-11 (quick 261011-l5x): o tile do guia deixou de abrir guia.html (aba nova/browser
+// in-app) e passou a abrir a folha in-app (perfilView "guia"). A asserção antiga evoluiu em duas;
+// Conceitos de mercado continua abrindo /site/app/conceitos.html.
+ok("tile do guia chama onOpen(\"guia\") e App.jsx renderiza <GuiaTelas quando perfilView === \"guia\"",
+  /title="Guia de treinamento"/.test(fatia) && /onOpen\("guia"\)[^\n]*title="Guia de treinamento"/.test(fatia)
+  && !/abrirTreinamento\(ctx, "guia\.html"\)/.test(fatia)
+  && /perfilView === "guia"\s*\n?\s*\? <GuiaTelas /.test(src));
+const guiaJsx = readFileSync(join(here, "..", "src", "GuiaTelas.jsx"), "utf8");
+ok("GuiaTelas.jsx não contém Browser.open, window.open nem dangerouslySetInnerHTML, e importa DISCLAIMERS",
+  !/Browser\.open|window\.open|dangerouslySetInnerHTML/.test(guiaJsx) && /import \{ DISCLAIMERS \} from "\.\/disclaimers\.js"/.test(guiaJsx));
 ok("tile Conceitos de mercado abre conceitos.html", /title="Conceitos de mercado"/.test(fatia) && /abrirTreinamento\(ctx, "conceitos\.html"\)/.test(fatia));
 ok("grupo Ajuda mantém Como funciona e Glossário", /title="Como funciona"/.test(fatia) && /title="Glossário"/.test(fatia));
 ok("PWA não sequestra /site (navigateFallbackDenylist)", /navigateFallbackDenylist:[^\]]*\/\^\\\/site\//.test(vite));

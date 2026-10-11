@@ -56,6 +56,7 @@ import { useLarguraMedida, LegendaMarcadores } from "./opcoes/PayoffPrimitivas.j
 // diretamente.
 import { BUILD_ID } from "./version.js";
 import { atualizarServiceWorker } from "./swUpdate.js";
+import GuiaTelas from "./GuiaTelas.jsx"; // quick 261011-l5x: guia das telas in-app (folha de tela cheia)
 // carimbo no console: prova de qual build está rodando (device/web)
 try { console.log("[b3] build", BUILD_ID); } catch { /* noop */ }
 import { canAddTicker, canAnalyze, erroDeLimiteWatchlist, limiteDeWatchlist } from "./plan.js";
@@ -3229,10 +3230,11 @@ function PerfilHub({ ctx, onOpen }) {
       <ProfileTile wide onClick={() => onOpen("glossario")} title="Glossário" sub={ctx.cp.glossarioSub(ctx.kbCatalogo && ctx.kbCatalogo.verbetes ? ctx.kbCatalogo.verbetes.length : 0)} icon={
         <svg width="19" height="19" viewBox="0 0 24 24" aria-hidden><path d="M5 4.5c0-.8.7-1.5 1.5-1.5H12v18H6.5A1.5 1.5 0 0 1 5 19.5v-15Z" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" /><path d="M19 4.5c0-.8-.7-1.5-1.5-1.5H12v18h5.5a1.5 1.5 0 0 0 1.5-1.5v-15Z" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" /></svg>
       } />
-      {/* Quick 261009-ukl: Guia de treinamento (site/app/) — tela a tela, com missões e testes.
-          Abre fora do app (aba nova na web, browser in-app no nativo): é conteúdo estático
-          servido pelo servidor, não uma tela do bundle. */}
-      <ProfileTile wide onClick={() => abrirTreinamento(ctx, "guia.html")} title="Guia de treinamento" sub="Tela a tela, com missões e testes — abre em janela própria" icon={
+      {/* Quick 261009-ukl: Guia de treinamento — tela a tela, com missões e testes.
+          Quick 261011-l5x: deixou de abrir URL (aba nova/browser in-app) e passou a ser uma folha
+          DENTRO do app (GuiaTelas.jsx, perfilView "guia"): offline no iOS, mesma fonte de dados do
+          site (site/js/telas-data.js). Conceitos de mercado segue abrindo /site/app/. */}
+      <ProfileTile wide onClick={() => onOpen("guia")} title="Guia de treinamento" sub="Tela a tela, com missões e testes" icon={
         <svg width="19" height="19" viewBox="0 0 24 24" aria-hidden><path d="M3 9.5 12 5l9 4.5-9 4.5-9-4.5Z" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" /><path d="M7 12v4c0 1.1 2.2 2 5 2s5-.9 5-2v-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" /></svg>
       } />
       {/* Tile "Conceitos de mercado": 10 módulos interativos (tendência, risco, plano, expectativa,
@@ -9082,7 +9084,7 @@ export default function App() {
   const [quotesLoading, setQuotesLoading] = useState(false);
   const [tab, setTab] = useState("evolucao");
   const [carteiraView, setCarteiraView] = useState("main"); // main | historico | agente
-  const [perfilView, setPerfilView] = useState("hub");       // hub | plano | config | ia | notificacoes | eficiencia | logs
+  const [perfilView, setPerfilView] = useState("hub");       // hub | plano | config | ia | notificacoes | eficiencia | logs | guia
   const navigate = (t) => { setCarteiraView("main"); setPerfilView("hub"); setTab(t); };
   // Onda B (2026-10-08): nível das Opções relatado pelo filho (OpcoesScreen) e o "voltar" dele.
   const [opcoesNav, setOpcoesNav] = useState({ nivel: "hub", temTicker: false });
@@ -10900,7 +10902,9 @@ export default function App() {
             : carteiraView === "agente"
               ? (<><BackHeader title={cp.tituloOperadorIA || "Operador IA"} onBack={() => setCarteiraView("main")} /><AgenteScreen ctx={ctx} /></>)
             : (<><div style={{ marginBottom: `${SP[4]}px` }}><OperadorIACard ctx={ctx} /></div><CarteiraScreen ctx={ctx} /><div style={{ marginTop: "14px" }}><button onClick={() => setCarteiraView("historico")} style={{ width: "100%", minHeight: "48px", padding: "13px", borderRadius: "13px", border: `1px solid ${T.borderSubtle}`, background: T.bgPanel, color: T.textSecondary, fontWeight: 700, fontSize: "14px", display: "flex", alignItems: "center", justifyContent: "space-between" }}><span>Ver histórico de operações</span><span aria-hidden style={{ color: T.textFaint }}>›</span></button></div></>))}
-          {tab === "perfil" && (perfilView === "plano"
+          {tab === "perfil" && (perfilView === "guia"
+            ? <GuiaTelas onClose={() => setPerfilView("hub")} />
+            : perfilView === "plano"
             ? (<><BackHeader title={cp.planoTituloTela} onBack={() => setPerfilView("hub")} /><PlanoScreen ctx={ctx} /></>)
             : perfilView === "config"
             ? (<><BackHeader title="Preferências" onBack={() => setPerfilView("hub")} /><ConfigScreen ctx={ctx} /></>)
