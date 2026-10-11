@@ -1,4 +1,4 @@
-import { defineConfig } from "vite";
+import { defineConfig, searchForWorkspaceRoot } from "vite";
 import react from "@vitejs/plugin-react";
 import { VitePWA } from "vite-plugin-pwa";
 
@@ -56,6 +56,9 @@ export default defineConfig({
     // quem chama. Sem isto, dois worktrees do mesmo projeto não sobem juntos.
     port: Number(process.env.PORT) || 5174,
     strictPort: true,
+    // Quick 261011-l5x: o guia in-app importa site/js/telas-data.js (?raw) e site/img/* — fora
+    // do root do Vite (web/). Só o dev server precisa liberar o acesso; o build não.
+    fs: { allow: [searchForWorkspaceRoot(process.cwd()), "../site"] },
     proxy: {
       "/api": { target: "http://localhost:8787", changeOrigin: true },
     },
