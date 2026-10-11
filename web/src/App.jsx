@@ -2986,7 +2986,7 @@ async function abrirTreinamento(ctx, pagina) {
   const url = origem.replace(/\/$/, "") + "/site/app/" + pagina + "?v=" + encodeURIComponent(BUILD_ID);
   // Web: a aba abre JÁ, no gesto síncrono do clique (about:blank); o await do
   // atualizarServiceWorker vem DEPOIS do window.open, senão o navegador bloqueia o popup.
-  // Um SW antigo ainda ativo serviu a casca do app em /site/app/* (ver swUpdate.js);
+  // Um SW antigo ainda ativo serviu a casca do app nas páginas de /site/app (ver swUpdate.js);
   // update() best-effort (<= 1,5 s) e só então navega a aba já aberta.
   const janela = !isNative ? window.open("about:blank", "_blank") : null;
   if (janela) janela.opener = null;
