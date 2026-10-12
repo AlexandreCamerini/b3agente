@@ -64,7 +64,7 @@ import re
 import unicodedata
 from typing import Optional
 
-from . import conceitos, indicators, mercado_ref, skill_ref
+from . import analysis_outcomes, conceitos, indicators, mercado_ref, skill_ref
 from .technical_models import MODELS
 
 
@@ -1772,6 +1772,51 @@ _KPIS = [
 ]
 
 
+# quick 261012-09v (2026-10-12): a seção "Eficiência da IA" da tela "Como
+# funciona" (removida) virou verbete. Lista própria, NÃO `_KPIS`: o espelho de
+# `_KPIS` é amarrado a `kpi._MAPS` (`id == "kpi-"+campo`) e este verbete não é
+# campo de KPI. Números interpolados de `analysis_outcomes` (nunca literal),
+# mesmo precedente da tributação com `mercado_ref`. `veja` só leva ao verbete
+# manual `expectativa-matematica` (presente com a didática desligada). Os
+# termos NÃO incluem "taxa de acerto"/"expectância": esses já levam a
+# `expectativa-matematica` e a busca não é roubada.
+_ESTADOS_APP_EXTRA = [
+    {
+        "id": "app-eficiencia-ia",
+        "titulo": _titulo("Eficiência da IA"),
+        "termos": (
+            "eficiência da ia", "eficiencia da ia", "autoavaliação da ia",
+            "autoavaliacao da ia", "calibração da confiança", "calibracao",
+            "n insuficiente", "aguardando o prazo", "r acumulado",
+        ),
+        "texto": {
+            "educacional": (
+                "A Eficiência da IA é a autoavaliação do passado: cada análise da IA "
+                "que traz stop e alvo é conferida depois, num prazo fixo de "
+                + str(analysis_outcomes.HORIZON_PREGOES)
+                + " pregões — o desfecho é alvo, stop ou prazo encerrado. Quando o "
+                "preço nunca chega ao gatilho, a análise fica de fora da conta: não "
+                "vira acerto nem erro. Com isso o app calcula a taxa de acerto, a "
+                "expectância (a média do resultado em R), o profit factor, a "
+                "calibração da confiança declarada e a curva de R acumulado. Com menos "
+                "de " + str(analysis_outcomes.MIN_N) + " análises avaliadas aparece "
+                "'n insuficiente' (ou 'aguardando o prazo') no lugar de uma "
+                "porcentagem. É retrato do que já aconteceu, não garantia do que vem."
+            ),
+            "operador": (
+                "Eficiência da IA: cada análise com stop e alvo é conferida em "
+                + str(analysis_outcomes.HORIZON_PREGOES)
+                + " pregões (alvo, stop ou prazo encerrado; sem gatilho não conta). "
+                "Vira taxa de acerto, expectância, profit factor, calibração da "
+                "confiança e R acumulado. Abaixo de " + str(analysis_outcomes.MIN_N)
+                + " avaliadas: 'n insuficiente'. Retrato do passado, não garantia."
+            ),
+        },
+        "veja": ["expectativa-matematica"],
+    },
+]
+
+
 # =============================================================================
 # Catálogo consolidado.
 # =============================================================================
@@ -1800,6 +1845,7 @@ def _construir() -> list:
     out += _marcar_familia(_FUNDAMENTOS_EXTRA, "fundamentos")
     out += _marcar_familia(_MERCADO_B3, "mercado_b3")
     out += _marcar_familia(_KPIS, "estados_app")
+    out += _marcar_familia(_ESTADOS_APP_EXTRA, "estados_app")
     return out
 
 

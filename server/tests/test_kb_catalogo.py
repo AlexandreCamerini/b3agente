@@ -58,7 +58,8 @@ def test_catalogo_sem_auth_devolve_83_verbetes_e_9_familias(cli):
     # Fase 48 (2026-10-05), onda 1: +2 (opc-premio, opc-perda-maxima) (89 -> 91).
     # Fase 48, onda 2: +2 (opc-put-protetora, opc-collar) (91 -> 93).
     # Fase 47 (2026-10-06, DIDA-01): +1 verbete manual expectativa-matematica (93 -> 94).
-    assert len(body["verbetes"]) == 94
+    # quick 261012-09v (2026-10-12): +1 verbete manual app-eficiencia-ia (94 -> 95).
+    assert len(body["verbetes"]) == 95
     assert len(body["familias"]) == 9
     assert body["familias"] == [{"id": fid, "rotulo": rotulo} for fid, rotulo in kb.FAMILIAS]
 
@@ -107,7 +108,8 @@ def test_didatica_desligada_exclui_verbetes_derivados_de_conceitos(cli, monkeypa
     # Fase 48 (2026-10-05), onda 1: +2 verbetes opc-* manuais, independentes da didática (80 -> 82).
     # Fase 48, onda 2: +2 verbetes opc-* manuais (82 -> 84).
     # Fase 47 (2026-10-06, DIDA-01): +1 verbete manual expectativa-matematica (84 -> 85).
-    assert len(body["verbetes"]) == 85
+    # quick 261012-09v (2026-10-12): +1 verbete manual app-eficiencia-ia (85 -> 86).
+    assert len(body["verbetes"]) == 86
     ids = {v["id"] for v in body["verbetes"]}
     conceito_ids = set(kb._FAMILIA_DO_CONCEITO.keys())
     assert conceito_ids.isdisjoint(ids), \
