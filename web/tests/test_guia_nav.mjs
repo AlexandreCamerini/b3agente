@@ -25,6 +25,10 @@ ok("anterior: ponto 1 -> 0", eq(anterior({ tela: 0, ponto: 1 }, T), { tela: 0, p
 ok("anterior: ponto 0 da tela 1 -> Na prática da tela 0", eq(anterior({ tela: 1, ponto: 0 }, T), { tela: 0, ponto: 2 }));
 ok("anterior: ponto 0 da tela 0 devolve o mesmo", eq(anterior({ tela: 0, ponto: 0 }, T), { tela: 0, ponto: 0 }));
 ok("anterior: Na prática -> último ponto", eq(anterior({ tela: 2, ponto: 3 }, T), { tela: 2, ponto: 2 }));
+// Nota 2026-10-12 (quick 261012-09v): ponto -1 = cartão "Visão geral" (guia aberto pelo Bóris).
+ok("proximo: Visão geral (-1) -> ponto 0", eq(proximo({ tela: 1, ponto: -1 }, T), { tela: 1, ponto: 0 }));
+ok("anterior: Visão geral da tela 0 devolve o mesmo", eq(anterior({ tela: 0, ponto: -1 }, T), { tela: 0, ponto: -1 }));
+ok("anterior: Visão geral da tela 2 -> Na prática da tela 1", eq(anterior({ tela: 2, ponto: -1 }, T), { tela: 1, ponto: 1 }));
 // irParaTela / rótulo
 ok("irParaTela faz clamp e zera o ponto", eq(irParaTela({ tela: 0, ponto: 1 }, 99, T), { tela: 2, ponto: 0 }) && eq(irParaTela({ tela: 1, ponto: 0 }, -3, T), { tela: 0, ponto: 0 }));
 const reais = parseTelasData(readFileSync(join(here, "..", "..", "site", "js", "telas-data.js"), "utf8"));

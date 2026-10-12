@@ -2,8 +2,12 @@
 // Puro: sem React, sem DOM, sem Vite — testável no Node (web/tests/test_guia_nav.mjs).
 //
 // Estado: { tela, ponto }. `ponto === telas[tela].pontos.length` é o cartão "Na prática"
-// (missão + teste), depois do último ponto da tela.
+// (missão + teste), depois do último ponto da tela. `ponto === -1` é o cartão "Visão
+// geral" (campo `visao` da tela): só existe quando o guia é aberto pelo Bóris
+// (quick 261012-09v); `proximo` leva -1 -> 0 e `anterior` de -1 vai ao "Na prática" da
+// tela anterior (ou fica, na tela 0).
 import { BORDA_PX, DX_MIN, DY_MAX } from "./navStack.js";
+import { telaDoAssistente } from "./telas.js";
 
 export const TOPO_PX = 44;
 export const RODAPE_PX = 32;
@@ -26,6 +30,60 @@ export function anterior(e, telas) {
   if (e.ponto > 0) return { tela: e.tela, ponto: e.ponto - 1 };
   if (e.tela > 0) return { tela: e.tela - 1, ponto: nPontos(telas, e.tela - 1) }; // "Na prática" da tela anterior
   return e;
+}
+
+// ---- ponte tela do app -> tela do guia (quick 261012-09v) ----
+// Toda tela do registro (web/src/telas.js) tem decisão explícita aqui: o id do guia que a
+// explica, ou null ("ainda não tem tour": o guia abre com o aviso). Tela nova em telas.js
+// reprova web/tests/test_guia_mapa.mjs até ganhar linha. Sem dado do guia embutido: o
+// índice é resolvido contra os dados em estadoInicialGuia.
+export const GUIA_DA_TELA_APP = Object.freeze({
+  evolucao: "acomp", radar: "radar", mercado: "watch", carteira: "port", opcoes: "opc",
+  agente: "opia", historico: null, perfil: null,
+});
+// Opções por nível (navOpcoes.NIVEIS). `confirmar` depende do modo: no Estudo é `confest`;
+// no Operador o resultado de confirmar é a estrutura aberta (`opcaberta`) — `confest` tem o
+// ponto "Estudo não executa", errado para quem está no Operador.
+export const GUIA_DO_NIVEL_OPCOES = Object.freeze({
+  hub: "opc", objetivo: "opcobj", escada: "opcpiso",
+  confirmar: Object.freeze({ estudo: "confest", operador: "opcaberta" }),
+  montar: "opc",
+});
+const tem = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
+
+export function guiaIdDaTelaApp({ tab, carteiraView, opcoesNivel, operador } = {}) {
+  const id = telaDoAssistente(tab, carteiraView);
+  if (id === "opcoes") {
+    // Nível desconhecido cai em `opc`, mesmo fallback do navOpcoes (inválido -> hub).
+    const alvo = tem(GUIA_DO_NIVEL_OPCOES, opcoesNivel) ? GUIA_DO_NIVEL_OPCOES[opcoesNivel] : GUIA_DO_NIVEL_OPCOES.hub;
+    return typeof alvo === "object" ? (operador ? alvo.operador : alvo.estudo) : alvo;
+  }
+  return typeof id === "string" && tem(GUIA_DA_TELA_APP, id) ? GUIA_DA_TELA_APP[id] : null;
+}
+
+// 1º uso (camada "tour"): abre em Boas-vindas, sem o cartão Visão geral.
+export const ABERTURA_PRIMEIRO_USO = Object.freeze({ id: "boas", visao: false, n: 0 });
+
+// Cada toque em "Me mostra esta tela" gera identidade nova (`n` cresce, mesmo com o mesmo
+// id): o App usa `n` como `key` do GuiaTelas para remontar e reler o estado inicial com o
+// guia já aberto em Perfil.
+export function novaAberturaBoris(anterior, id) {
+  return { id: id ?? null, visao: true, n: ((anterior && anterior.n) || 0) + 1 };
+}
+
+// Estado inicial do guia: primeira tela não concluída (0 se todas concluídas) quando não há
+// abertura; com abertura, a tela `abertura.id` (no ponto -1 se `visao` e a tela tem `visao`,
+// senão no 0). Id nulo/inexistente = sem tour: 1ª não concluída + semTour (aviso na folha).
+export function estadoInicialGuia(telas, progresso, abertura) {
+  const lista = Array.isArray(telas) ? telas : [];
+  const prim = lista.findIndex((t) => !telaConcluida(progresso, t && t.id));
+  const base = Math.max(0, prim);
+  if (!abertura) return { tela: base, ponto: 0, semTour: false };
+  const i = abertura.id ? lista.findIndex((t) => t && t.id === abertura.id) : -1;
+  if (i < 0) return { tela: base, ponto: 0, semTour: true };
+  const t = lista[i];
+  const comVisao = abertura.visao === true && typeof t.visao === "string" && t.visao.trim() !== "";
+  return { tela: i, ponto: comVisao ? -1 : 0, semTour: false };
 }
 
 export function irParaTela(e, i, telas) {
