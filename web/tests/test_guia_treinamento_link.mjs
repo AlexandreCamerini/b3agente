@@ -48,6 +48,15 @@ ok("tile do guia chama onOpen(\"guia\") e App.jsx renderiza <GuiaTelas quando pe
 const guiaJsx = readFileSync(join(here, "..", "src", "GuiaTelas.jsx"), "utf8");
 ok("GuiaTelas.jsx não contém Browser.open, window.open nem dangerouslySetInnerHTML, e importa DISCLAIMERS",
   !/Browser\.open|window\.open|dangerouslySetInnerHTML/.test(guiaJsx) && /import \{ DISCLAIMERS \} from "\.\/disclaimers\.js"/.test(guiaJsx));
+// Nota 2026-10-12 (quick 261012-09v): guardiões das três superfícies novas do guia único.
+ok("PetSheet tem o botão 'Me mostra esta tela' sempre visível (fora de r/erro/ligada) e liga onMostrarTela",
+  /Me mostra esta tela<\/button>|Me mostra esta tela\s*\n\s*<\/button>/.test(src)
+  && /aria-label="Me mostra esta tela no guia de treinamento"/.test(src)
+  && /onMostrarTela=\{abrirGuiaDaTela\}/.test(src));
+ok("GuiaTelas mostra o rótulo VISÃO GERAL e o aviso 'Esta tela ainda não tem tour.' em role=status",
+  /VISÃO GERAL/.test(guiaJsx) && /role="status"[^>]*>\s*\n?\s*<b[^>]*>Esta tela ainda não tem tour\./.test(guiaJsx));
+ok("abrirGuiaDaTela fecha a folha, abre o guia no Perfil e usa novaAberturaBoris",
+  /const abrirGuiaDaTela = \(\) => \{[\s\S]{0,420}setPetOpen\(false\)[\s\S]{0,200}novaAberturaBoris\(prev, id\)[\s\S]{0,120}setPerfilView\("guia"\)[\s\S]{0,60}setTab\("perfil"\)/.test(src));
 ok("tile Conceitos de mercado abre conceitos.html", /title="Conceitos de mercado"/.test(fatia) && /abrirTreinamento\(ctx, "conceitos\.html"\)/.test(fatia));
 // Nota 2026-10-12 (quick 261012-09v): o tile "Como funciona" saiu (guia único). O grupo Ajuda passa a
 // ter Guia de treinamento (1º tile), Glossário e Conceitos de mercado, sem o tile antigo.

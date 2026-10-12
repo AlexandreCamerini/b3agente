@@ -1128,7 +1128,8 @@ export const COPY = {
       ordem_rejeitada: "Ordem rejeitada: {motivo}",
       toast_executada: "Ordem simulada registrada. Nenhuma ordem real foi enviada.",
     },
-    // Fase 48: texto de front da Ajuda/tour (consumido em App.jsx pelo plano 48-11).
+    // Fase 48: aqui viviam opcoesTourPasso/opcoesAjudaEstuda (Ajuda/tour). Nota 2026-10-12 (quick
+    // 261012-09v): saíram com o guia único; o conteúdo de Opções vive em site/js/telas-data.js.
     // Fase 46 (CART6-06/07): espelho byte a byte de skill_ref.CARTAO_POSICAO e CARTAO_DIDATICA.
     // Texto novo nasce no .py primeiro; guardião test_cartao_posicao_espelho.mjs.
     cartaoPosicao: {
@@ -2435,7 +2436,8 @@ export const COPY = {
       ordem_rejeitada: "Ordem rejeitada: {motivo}",
       toast_executada: "Ordem simulada registrada. Nenhuma ordem real foi enviada.",
     },
-    // Fase 48: texto de front da Ajuda/tour (consumido em App.jsx pelo plano 48-11).
+    // Fase 48: aqui viviam opcoesTourPasso/opcoesAjudaEstuda (Ajuda/tour). Nota 2026-10-12 (quick
+    // 261012-09v): saíram com o guia único; o conteúdo de Opções vive em site/js/telas-data.js.
     // Fase 46 (CART6-06/07): espelho byte a byte de skill_ref.CARTAO_POSICAO.
     // Texto novo nasce no .py primeiro; guardião test_cartao_posicao_espelho.mjs.
     cartaoPosicao: {
