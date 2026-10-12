@@ -28,7 +28,9 @@ ok("anterior: Na prática -> último ponto", eq(anterior({ tela: 2, ponto: 3 }, 
 // irParaTela / rótulo
 ok("irParaTela faz clamp e zera o ponto", eq(irParaTela({ tela: 0, ponto: 1 }, 99, T), { tela: 2, ponto: 0 }) && eq(irParaTela({ tela: 1, ponto: 0 }, -3, T), { tela: 0, ponto: 0 }));
 const reais = parseTelasData(readFileSync(join(here, "..", "..", "site", "js", "telas-data.js"), "utf8"));
-ok("rotuloSeletor({tela:2}) === '3/20' nas telas reais", rotuloSeletor({ tela: 2, ponto: 0 }, reais) === "3/20");
+// Nota 2026-10-12 (quick 261012-09v): 20 -> 22 telas (modos e opia entraram por inserção; o shape não mudou).
+ok("rotuloSeletor({tela:2}) === '3/22' nas telas reais", rotuloSeletor({ tela: 2, ponto: 0 }, reais) === "3/22");
+ok("22 telas reais", reais.length === 22);
 
 // progresso
 ok("chave de progresso é a do guia web", CHAVE_PROGRESSO === "boris-guia-v1");

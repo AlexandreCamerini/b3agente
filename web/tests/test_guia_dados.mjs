@@ -14,8 +14,9 @@ const texto = readFileSync(arq, "utf8");
 let fails = 0;
 const ok = (name, cond, extra) => { console.log((cond ? "ok " : "FALHOU ") + name + (cond || !extra ? "" : " — " + extra)); if (!cond) fails++; };
 
-// Orçamento por tela (PLAN 261011-l5x, soma 57). O guardião trava 50..60 no total e cada tela <= orçamento.
-const ORCAMENTO = { boas: 2, acomp: 4, radar: 5, watch: 3, plano: 5, ordem: 3, pend: 2, port: 3, opc: 3, opcobj: 3,
+// Orçamento por tela (PLAN 261011-l5x, soma 57). O guardião trava o total e cada tela <= orçamento.
+// Nota 2026-10-12 (quick 261012-09v): 22 telas, soma 64 (modos: 3, opia: 3 novas; opc 3 -> 4); total 50..65.
+const ORCAMENTO = { boas: 2, acomp: 4, modos: 3, radar: 5, watch: 3, plano: 5, ordem: 3, pend: 2, port: 3, opia: 3, opc: 4, opcobj: 3,
   opcpiso: 3, pior: 3, payoff: 3, confest: 4, termo: 2, opcaberta: 2, boris: 3, web1: 1, web2: 2, web3: 1 };
 
 // 1) paridade: o site executa o arquivo como script (window.TELAS); o app faz parse do mesmo texto.
@@ -24,14 +25,17 @@ vm.runInNewContext(texto, ctx);
 const viaSite = JSON.parse(JSON.stringify(ctx.window.TELAS));
 const viaApp = parseTelasData(texto);
 ok("paridade site<->web: parseTelasData == avaliação do script", JSON.stringify(viaSite) === JSON.stringify(viaApp));
-ok("20 telas", viaApp.length === 20);
+// Nota 2026-10-12 (quick 261012-09v): 20 -> 22 telas (modos e opia).
+ok("22 telas", viaApp.length === 22);
 ok("orçamento cobre exatamente as telas do guia", JSON.stringify(Object.keys(ORCAMENTO).sort()) === JSON.stringify(viaApp.map((t) => t.id).sort()));
 
 // 2) regras de conteúdo
 const viol = validarGuia(viaApp, ORCAMENTO, (img) => existsSync(join(site, img)));
 ok("validarGuia devolve []", viol.length === 0, viol.join(" | "));
 const total = viaApp.reduce((s, t) => s + t.pontos.length, 0);
-ok("total de pontos entre 50 e 60 (" + total + ")", total >= 50 && total <= 60);
+// Nota 2026-10-12 (quick 261012-09v): teto 60 -> 65 (telas modos e opia + 1 ponto em opc).
+ok("total de pontos entre 50 e 65 (" + total + ")", total >= 50 && total <= 65);
+ok("toda tela tem visao string 1..220", viaApp.every((t) => typeof t.visao === "string" && t.visao.trim() && t.visao.length <= 220));
 
 // 3) sanidade da métrica, com os textos antigos fixados como fixture
 const antigoAcomp = "Cartão no Acompanhar com o estado do Operador IA: ligado ou desligado no servidor e se ele só avisa ou também executa. Descreve a configuração, não que ele esteja rodando agora. No Modo Estudo ele só sinaliza. Toque para abrir.";
@@ -47,6 +51,14 @@ ok("LIMIAR_SOBREPOSICAO = 0,35", LIMIAR_SOBREPOSICAO === 0.35);
 const base = JSON.parse(JSON.stringify(viaApp));
 const ruim = JSON.parse(JSON.stringify(base)); ruim[0].guard = "x"; ruim[0].pontos[0].titulo = "Voltar";
 ok("validarGuia acusa guard e navegação pura", validarGuia(ruim, ORCAMENTO).length >= 2);
+
+// visao (2026-10-12, quick 261012-09v): casos sintéticos
+const comVisao = (fn) => { const c = JSON.parse(JSON.stringify(base)); fn(c); return validarGuia(c, ORCAMENTO).filter((x) => /visão|visao/.test(x)); };
+ok("validarGuia acusa tela sem visao", comVisao((c) => { delete c[0].visao; }).length >= 1);
+ok("validarGuia acusa visao de 221 caracteres", comVisao((c) => { c[0].visao = "a".repeat(221); }).length >= 1);
+ok("validarGuia acusa visao com promessa (garantia)", comVisao((c) => { c[0].visao = "Uma garantia de aprendizado."; }).length >= 1);
+ok("validarGuia acusa visao igual a um ponto da mesma tela", comVisao((c) => { c[0].visao = c[0].pontos[0].texto; }).length >= 1);
+ok("validarGuia aceita visao curta e distinta", comVisao((c) => { c[0].visao = "Painel inicial para conhecer o app."; }).length === 0);
 
 // 4) fonte única: o loader do app importa o MESMO arquivo e não duplica dado
 const loader = join(here, "..", "src", "guiaTelas.js");

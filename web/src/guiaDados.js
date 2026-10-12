@@ -80,6 +80,20 @@ export function validarGuia(telas, orcamento = {}, existeImg = null) {
     else textos.push({ id, rot: id + ":missão", texto: t.missao });
     const q = t.quiz;
     if (!q || !Array.isArray(q.o) || typeof q.a !== "number" || !q.o[q.a] || !q.why) v.push(id + ": quiz inválido (quiz.a deve apontar para quiz.o)");
+    // visao (2026-10-12, quick 261012-09v): cartão "Visão geral" do guia aberto pelo Bóris.
+    if (typeof t.visao !== "string" || !t.visao.trim()) v.push(id + ": visao deve ser uma string não vazia");
+    else {
+      const vr = id + ":visão";
+      if (t.visao.length > 220) v.push(vr + ": visao > 220 caracteres");
+      if (RE_AVISO.test(t.visao)) v.push(vr + ": aviso legal dentro da visão");
+      if (RE_PROMESSA.test(t.visao)) v.push(vr + ": linguagem de promessa na visão");
+      if (RE_FRACAO_EXEMPLO.test(t.visao)) v.push(vr + ": fração 'N de M' de exemplo na visão");
+      // Compara só com os pontos da MESMA tela (não com outras telas nem com a missão).
+      for (const p of pontos) {
+        const sv = sobreposicao(t.visao, p.texto);
+        if (sv >= LIMIAR_SOBREPOSICAO) v.push("sobreposição " + sv.toFixed(2) + " entre " + vr + " e " + id + ":" + p.titulo);
+      }
+    }
     if (existeImg && !existeImg(t.img)) v.push(id + ": imagem inexistente " + t.img);
     for (const p of pontos) {
       const rot = id + ":" + p.titulo;
@@ -93,7 +107,8 @@ export function validarGuia(telas, orcamento = {}, existeImg = null) {
       textos.push({ id, rot, texto: p.texto });
     }
   }
-  if (total < 50 || total > 60) v.push("total de pontos " + total + " fora de 50..60");
+  // 2026-10-12 (quick 261012-09v): teto 60 -> 65 (telas modos e opia + 1 ponto em opc; soma real 64).
+  if (total < 50 || total > 65) v.push("total de pontos " + total + " fora de 50..65");
   for (const nome of UNICOS) {
     const n = telas.reduce((s, t) => s + (t.pontos || []).filter((p) => p.titulo === nome).length, 0);
     if (n > 1) v.push("título '" + nome + "' aparece em " + n + " pontos (máx. 1)");
