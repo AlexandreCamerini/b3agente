@@ -2,6 +2,7 @@
 // A linha-botão neutra "Abrir o Operador IA →" virou o cartão OperadorIACard (Portfólio + Acompanhar),
 // com estado lido só de data.agent/authUser/operador (operadorIA.js, puro). Sem estado inventado.
 import { readFileSync } from "node:fs";
+import { parseTelasData } from "../src/guiaDados.js"; // nota 2026-10-12 (quick 261012-09v)
 import { COPY } from "../src/copy.js";
 
 let falhas = 0;
@@ -89,9 +90,13 @@ ok("OperadorIACard definida antes de CarteiraScreen",
   src.indexOf("function OperadorIACard(") >= 0 && src.indexOf("function OperadorIACard(") < src.indexOf("function CarteiraScreen("));
 
 // F) ajuda
-const ajuda = functionBody("ajudaSecoes") || "";
-ok("ajuda aponta para o cartão", ajuda.includes("cartão **Operador IA**"));
-ok("ajuda sem a frase antiga", !ajuda.includes("toque em **Abrir o Operador IA**"));
+// Nota 2026-10-12 (quick 261012-09v): `ajudaSecoes` saiu (guia único). As duas asserções liam o texto
+// da seção "Operador IA" da Ajuda; passam a ler a tela `opia` do Guia (site/js/telas-data.js):
+// ela existe, seu `onde` aponta para o cartão e nenhum texto do guia usa a frase antiga.
+const guiaOnda = parseTelasData(readFileSync(new URL("../../site/js/telas-data.js", import.meta.url), "utf8"));
+const opia = guiaOnda.find((t) => t.id === "opia");
+ok("guia tem a tela opia e ela aponta para o cartão", !!opia && /cartão/i.test(opia.onde));
+ok("guia sem a frase antiga", !JSON.stringify(guiaOnda).includes("Abrir o Operador IA"));
 
 // G) invariantes
 ok("CARD_PAD_X px === 30", conta(src, "${CARD_PAD_X}px") === 30);

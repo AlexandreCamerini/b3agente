@@ -5,7 +5,7 @@
 // Opções (objetivo -> escada -> gráfico -> confirmar); `COPY[modo].opcoesEscada`
 // (web/src/copy.js) é o espelho byte a byte. Lê o .py como TEXTO (nunca importa
 // Python). Também trava: mesmo conjunto de chaves nos dois modos, vocabulário
-// proibido (CVM), chaves de Ajuda/tour sem "Watchlist" e ausência de ordem parcial.
+// proibido (CVM), ausência das chaves de Ajuda/tour (saíram em 261012-09v) e ausência de ordem parcial.
 //
 // Roda isolado: `node web/tests/test_opcoes_escada_espelho.mjs`.
 // Prova negativa: B3_SKILL_REF_PATH=/nao/existe.py node web/tests/test_opcoes_escada_espelho.mjs
@@ -75,12 +75,12 @@ for (const modoPy of ["educacional", "operador"]) {
   ok(`COPY.${modoJs}.opcoesEscada sem chave de ordem parcial (C-14)`, !Object.keys(objJs).some((k) => /parcial/i.test(k)));
   ok(`COPY.${modoJs}: frase de risco usa Pior caso / Melhor caso`,
      /^Pior caso/.test(objJs.risco_pior || "") && /^Melhor caso/.test(objJs.risco_melhor || ""));
-  ok(`COPY.${modoJs}.opcoesTourPasso existe e sem Watchlist`,
-     typeof COPY[modoJs].opcoesTourPasso === "string" && COPY[modoJs].opcoesTourPasso.length > 0 && !SITE.test(COPY[modoJs].opcoesTourPasso));
-  ok(`COPY.${modoJs}.opcoesTourPasso preserva fim de pregão e sem ordem`,
-     /fim de pregão/.test(COPY[modoJs].opcoesTourPasso) && /sem ordem nenhuma/.test(COPY[modoJs].opcoesTourPasso));
-  ok(`COPY.${modoJs}.opcoesAjudaEstuda existe e sem Watchlist`,
-     typeof COPY[modoJs].opcoesAjudaEstuda === "string" && COPY[modoJs].opcoesAjudaEstuda.length > 0 && !SITE.test(COPY[modoJs].opcoesAjudaEstuda));
+  // Nota 2026-10-12 (quick 261012-09v): opcoesTourPasso/opcoesAjudaEstuda eram o texto de Opções do
+  // tour e da Ajuda (removidos: guia único). Substituta: as chaves NÃO existem em COPY.<modo> (sem
+  // órfã); o conteúdo (fim de pregão, nenhuma ordem, sem Watchlist) vive no guia e é travado em
+  // test_tour_opcoes.mjs (grupo Opções de site/js/telas-data.js).
+  ok(`COPY.${modoJs} não tem mais opcoesTourPasso nem opcoesAjudaEstuda`,
+     !("opcoesTourPasso" in COPY[modoJs]) && !("opcoesAjudaEstuda" in COPY[modoJs]));
 }
 ok("mesmo conjunto de chaves nos dois modos (python)", chavesPorModo.educacional === chavesPorModo.operador);
 

@@ -49,7 +49,12 @@ const guiaJsx = readFileSync(join(here, "..", "src", "GuiaTelas.jsx"), "utf8");
 ok("GuiaTelas.jsx não contém Browser.open, window.open nem dangerouslySetInnerHTML, e importa DISCLAIMERS",
   !/Browser\.open|window\.open|dangerouslySetInnerHTML/.test(guiaJsx) && /import \{ DISCLAIMERS \} from "\.\/disclaimers\.js"/.test(guiaJsx));
 ok("tile Conceitos de mercado abre conceitos.html", /title="Conceitos de mercado"/.test(fatia) && /abrirTreinamento\(ctx, "conceitos\.html"\)/.test(fatia));
-ok("grupo Ajuda mantém Como funciona e Glossário", /title="Como funciona"/.test(fatia) && /title="Glossário"/.test(fatia));
+// Nota 2026-10-12 (quick 261012-09v): o tile "Como funciona" saiu (guia único). O grupo Ajuda passa a
+// ter Guia de treinamento (1º tile), Glossário e Conceitos de mercado, sem o tile antigo.
+ok("grupo Ajuda: Guia de treinamento (1º), Glossário e Conceitos de mercado; sem Como funciona",
+  /title="Guia de treinamento"/.test(fatia) && /title="Glossário"/.test(fatia) && /title="Conceitos de mercado"/.test(fatia)
+  && !/title="Como funciona"/.test(fatia)
+  && fatia.indexOf('title="Guia de treinamento"') < fatia.indexOf('title="Glossário"'));
 ok("PWA não sequestra /site (navigateFallbackDenylist)", /navigateFallbackDenylist:[^\]]*\/\^\\\/site\//.test(vite));
 
 if (fails) { console.log(`\n${fails} falha(s).`); process.exit(1); }

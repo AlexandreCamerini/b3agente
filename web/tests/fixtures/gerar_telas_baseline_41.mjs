@@ -1,3 +1,7 @@
+// Nota 2026-10-12 (quick 261012-09v): CONGELADO — não regenerável. As funções que este gerador extrai
+// do App.jsx (tourPassos, ajudaSecoes) deixaram de existir quando o Guia de treinamento virou o
+// material único; o JSON telas_baseline_41.json fica como histórico (test_telas_registro.mjs ainda
+// o usa para barra, petTela e switch do petSnapshot).
 // Fase 41, plano 41-01, 2026-09-25 — GERADOR do baseline PRÉ-refactor das 4
 // listas de tela do App.jsx (BottomNav.defs, tourPassos, ajudaSecoes,
 // petTela/petSnapshot). Roda UMA VEZ, agora, antes da religação da 41-02

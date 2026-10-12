@@ -43,11 +43,10 @@ import {
   TELAS,
   idsDasTelas,
   defsDaBarra,
-  telasDoTour,
-  telasDaAjuda,
   telaDoAssistente,
   idsComSnapshotNoSwitch,
 } from "../src/telas.js";
+import { GUIA_DA_TELA_APP } from "../src/guiaNav.js"; // nota 2026-10-12 (quick 261012-09v)
 
 const here = dirname(fileURLToPath(import.meta.url));
 const conceitos = readFileSync(join(here, "..", "..", "server", "app", "conceitos.py"), "utf8");
@@ -91,12 +90,16 @@ for (const t of comBarra) {
   ok(`a tela "${t.id}" (na barra) tem rotuloPadrao string não-vazia`, typeof t.rotuloPadrao === "string" && t.rotuloPadrao.length > 0);
 }
 
-const comTour = TELAS.filter((t) => t.tour != null);
-const posicoesTour = comTour.map((t) => t.tour).sort((a, b) => a - b);
+// Nota 2026-10-12 (quick 261012-09v): as posições de tour únicas 1..4 deixaram de existir com o
+// campo `tour` (o tour saiu do app; o material único é o Guia de treinamento). Substituta: o
+// registro não tem mais as chaves `tour`/`ajuda` nem as funções telasDoTour/telasDaAjuda.
 ok(
-  "as posições de tour são únicas 1..4",
-  deepEqual(posicoesTour, [1, 2, 3, 4]),
-  "achou: " + posicoesTour.join(",")
+  "nenhuma entrada de TELAS tem as chaves tour/ajuda",
+  TELAS.every((t) => !("tour" in t) && !("ajuda" in t)),
+);
+ok(
+  "telas.js não exporta telasDoTour/telasDaAjuda",
+  !/export function (telasDoTour|telasDaAjuda)\b/.test(readFileSync(join(here, "..", "src", "telas.js"), "utf8")),
 );
 
 // ============================================================= PARTE C
@@ -114,28 +117,17 @@ for (const [chave, cp] of [["estudo", COPY.estudo], ["operador", COPY.operador],
   );
 }
 
-// --- tour: ids na ordem certa (textos continuam em tourPassos, D-02)
+// --- tour/ajuda: Nota 2026-10-12 (quick 261012-09v). telasDoTour()/telasDaAjuda() deixaram de existir
+// (o tour e a Ajuda saíram; ver PARTE B). Substituta: toda tela do registro tem decisão explícita no
+// mapa tela do app -> tela do guia (id do guia ou null = "ainda não tem tour").
 ok(
-  'telasDoTour() é ["radar","mercado","carteira","opcoes"], na ordem do funil',
-  deepEqual(telasDoTour(), ["radar", "mercado", "carteira", "opcoes"]),
-  "achou: " + JSON.stringify(telasDoTour())
+  "GUIA_DA_TELA_APP tem exatamente os ids de TELAS (decisão explícita por tela)",
+  deepEqual(Object.keys(GUIA_DA_TELA_APP).sort(), idsDasTelas().sort()),
+  "achou: " + Object.keys(GUIA_DA_TELA_APP).sort().join(",")
 );
-// Fase 48 (2026-10-05): a reescrita do passo "opcoes" (Carteira no lugar de Watchlist)
-// não mexe em id/ordem — âncora preservada, sem reancoragem necessária.
-ok(
-  'Fase 48 (2026-10-05): "opcoes" segue presente no tour, por último na ordem do funil',
-  telasDoTour().indexOf("opcoes") === telasDoTour().length - 1,
-);
-
-ok("o baseline confirma 6 passos de tour (4 do funil + 2 de introdução fora do registro, D-02)", baseline.tour.estudo.length === 6);
-
-// --- ajuda: ids com seção (historico/perfil não têm — achado registrado, não corrigido)
-ok(
-  'telasDaAjuda() é ["evolucao","radar","mercado","carteira","opcoes","agente"]',
-  deepEqual(telasDaAjuda(), ["evolucao", "radar", "mercado", "carteira", "opcoes", "agente"]),
-  "achou: " + JSON.stringify(telasDaAjuda())
-);
-ok("o baseline confirma 11 seções em ajudaSecoes (só 6 mapeiam 1:1 com tela — achado registrado)", baseline.ajuda["estudo,false"].length === 11);
+// O fixture segue como histórico congelado (gerado ANTES da consolidação; não regenerável).
+ok("o baseline confirma 6 passos de tour (histórico congelado)", baseline.tour.estudo.length === 6);
+ok("o baseline confirma 11 seções em ajudaSecoes (histórico congelado)", baseline.ajuda["estudo,false"].length === 11);
 
 // --- petTela: telaDoAssistente reproduz a tabela-verdade do baseline (35 combinações)
 const tabsBaseline = Object.keys(baseline.petTela);
@@ -167,56 +159,15 @@ ok(
 ok('"mercado" é a única tela com snapshot "petSheet" (fora do switch, de propósito)', !snapRegistro.includes("mercado"));
 
 // ============================================================= PARTE C (cont.)
-// tourPassos(COPY.<modo>)/ajudaSecoes(COPY.<modo>, op) EXTRAÍDAS do App.jsx
-// ATUAL (religado pela 41-02) deepEqual o fixture pré-refactor — prova que
-// mover os 4/6 textos de tela para `porTela` (D-02) não mudou nada visível.
-//
-// Técnica de extração copiada de `web/tests/test_tour_opcoes.mjs:48-57`
-// (contagem de chaves + eval, não regex de contagem — regex daria falso
-// verde na primeira reorganização do array/objeto). O `eval` roda no escopo
-// deste módulo, que já importou `telasDoTour`/`telasDaAjuda` no topo — as
-// duas funções extraídas chamam esses nomes internamente depois da GREEN
-// desta task, e o `eval` precisa resolvê-los sem erro de referência.
-function extrair(nome, fonte) {
-  const i = fonte.indexOf("function " + nome + "(");
-  if (i < 0) return null;
-  let nivel = 0, dentro = false;
-  for (let k = i; k < fonte.length; k++) {
-    if (fonte[k] === "{") { nivel++; dentro = true; }
-    else if (fonte[k] === "}") { nivel--; if (dentro && nivel === 0) return fonte.slice(i, k + 1); }
-  }
-  return null;
-}
-
+// Nota 2026-10-12 (quick 261012-09v): tourPassos/ajudaSecoes extraídas do App.jsx reproduziam o
+// fixture byte a byte. As duas funções não existem mais (guia único); o fixture fica como histórico.
+// Substituta: asserção explícita de AUSÊNCIA (extrair devolve vazio) sobre o código sem comentários.
+// `appSrc` segue bruto (a PARTE E tira o sha256 do bloco do switch, comentários inclusos);
+// `appCodigo` é o mesmo texto sem comentários, para as asserções de ausência.
 const appSrc = readFileSync(join(here, "..", "src", "App.jsx"), "utf8");
-const fonteTour = extrair("tourPassos", appSrc);
-const fonteAjuda = extrair("ajudaSecoes", appSrc);
-ok("tourPassos foi encontrada em App.jsx", !!fonteTour);
-ok("ajudaSecoes foi encontrada em App.jsx", !!fonteAjuda);
-const tourPassosAtual = fonteTour ? eval("(" + fonteTour + ")") : null; // eslint-disable-line no-eval
-const ajudaSecoesAtual = fonteAjuda ? eval("(" + fonteAjuda + ")") : null; // eslint-disable-line no-eval
-
-for (const [chave, cp] of [["estudo", COPY.estudo], ["operador", COPY.operador]]) {
-  const passos = tourPassosAtual ? tourPassosAtual(cp) : null;
-  ok(
-    `tourPassos(${chave}) extraída do App.jsx reproduz o baseline pré-refactor byte a byte`,
-    deepEqual(passos, baseline.tour[chave]),
-    "os textos do tour mudaram ao entrar em porTela → viola D-04. esperado=" +
-      JSON.stringify(baseline.tour[chave]) + " obtido=" + JSON.stringify(passos)
-  );
-}
-for (const [chaveModo, cp] of [["estudo", COPY.estudo], ["operador", COPY.operador]]) {
-  for (const operador of [false, true]) {
-    const chave = chaveModo + "," + operador;
-    const secoes = ajudaSecoesAtual ? ajudaSecoesAtual(cp, operador) : null;
-    ok(
-      `ajudaSecoes(${chave}) extraída do App.jsx reproduz o baseline pré-refactor byte a byte`,
-      deepEqual(secoes, baseline.ajuda[chave]),
-      "os textos da ajuda mudaram ao entrar em porTela → viola D-04. esperado=" +
-        JSON.stringify(baseline.ajuda[chave]) + " obtido=" + JSON.stringify(secoes)
-    );
-  }
-}
+const appCodigo = appSrc.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
+ok("tourPassos não existe mais em App.jsx", !/function tourPassos\(/.test(appCodigo));
+ok("ajudaSecoes não existe mais em App.jsx", !/function ajudaSecoes\(/.test(appCodigo));
 
 // ============================================================= PARTE D
 // fiação (SC#1): nenhuma lista paralela de tela sobrou em App.jsx
@@ -226,8 +177,13 @@ ok(
   !/carteiraView === "historico" \? "historico" : carteiraView === "agente" \? "agente" : "carteira"/.test(appSrc)
 );
 ok("BottomNav chama defsDaBarra(cp)", /const defs = defsDaBarra\(cp\);/.test(appSrc));
-ok("tourPassos chama telasDoTour()", /telasDoTour\(\)/.test(appSrc));
-ok("ajudaSecoes chama telasDaAjuda()", /telasDaAjuda\(\)/.test(appSrc));
+// Nota 2026-10-12 (quick 261012-09v): no lugar de tourPassos/ajudaSecoes -> telasDoTour()/telasDaAjuda(),
+// o App não importa nem chama mais as duas funções e liga o Bóris ao guia pelo mapa do guiaNav.
+ok("App.jsx não importa nem chama telasDoTour/telasDaAjuda", !/telasDoTour|telasDaAjuda/.test(appCodigo));
+ok("App.jsx chama guiaIdDaTelaApp( e novaAberturaBoris(", /guiaIdDaTelaApp\(/.test(appCodigo) && /novaAberturaBoris\(/.test(appCodigo));
+ok("o PetSheet recebe onMostrarTela=", /<PetSheet [^>]*onMostrarTela=/.test(appCodigo));
+ok("a montagem do perfil liga key a guiaAbertura (remonta a cada abertura do Bóris)",
+  /perfilView === "guia"\s*\n?\s*\? <GuiaTelas key=\{guiaAbertura \? "boris-" \+ guiaAbertura\.n : "perfil"\} abertura=\{guiaAbertura\}/.test(appCodigo));
 ok("petTela usa telaDoAssistente(tab, carteiraView)", /const petTela = telaDoAssistente\(tab, carteiraView\);/.test(appSrc));
 
 // ============================================================= PARTE E

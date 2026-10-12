@@ -1,8 +1,14 @@
 # Boris+ — Como funciona
 
-> Documento de referência (suporte / App Store / onboarding). Espelha a tela
-> **Perfil → Como funciona** do app. Mantido junto do código
-> (`web/src/App.jsx` → `ajudaSecoes`) — ao mudar um, atualize o outro.
+> Nota 2026-10-12 (quick 261012-09v): a tela "Como funciona" saiu do app. O material de
+> treinamento é o **Guia de treinamento** (Perfil → Ajuda → Guia de treinamento, aberto também
+> no 1º uso e pelo botão "Me mostra esta tela" do Bóris), com dados em `site/js/telas-data.js`
+> e verbetes no Glossário (`server/app/kb.py`). Este arquivo deixa de espelhar código e fica
+> como registro do texto até F10-20261011-01.
+
+> Documento de referência (suporte / App Store / onboarding). Espelhava (até
+> F10-20261011-01) a tela **Perfil → Como funciona** do app, mantida junto do código
+> (`web/src/App.jsx` → `ajudaSecoes`) — ao mudar um, atualizava o outro.
 
 **Boris+ é um app educacional de análise técnica da B3.** Ele varre o mercado,
 mostra oportunidades de estudo e deixa você simular uma carteira — tudo com

@@ -2,12 +2,25 @@
 // Contratos: a Ajuda é acessível pelo Perfil; o conteúdo é mode-aware (usa os
 // rótulos de tela de cp); o tour aparece 1x (tourSeen persiste nas allowlists
 // do device E do servidor); nada removido do hub. Roda sem build.
+//
+// Nota 2026-10-12 (quick 261012-09v): GUIA ÚNICO. A tela "Como funciona" e o tour
+// saíram do app; o Guia de treinamento (GuiaTelas.jsx, dados em site/js/telas-data.js)
+// é o único material. As asserções de PRESENÇA de AjudaScreen/TourModal/ajudaSecoes/
+// tourPassos/A.openTour viraram asserções de AUSÊNCIA + presença do que as substituiu;
+// o 1º uso (ref + !tourSeen + tourSeen:true) e as allowlists de tourSeen seguem iguais.
 import { readFileSync } from "fs";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
+import { guiaIdDaTelaApp, ABERTURA_PRIMEIRO_USO } from "../src/guiaNav.js";
+import { DISCLAIMERS } from "../src/disclaimers.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
-const app = readFileSync(join(here, "..", "src", "App.jsx"), "utf8");
+const appBruto = readFileSync(join(here, "..", "src", "App.jsx"), "utf8");
+// Regex de ausência rodam sobre o código sem comentários (as notas datadas citam os nomes antigos).
+const semComentarios = (t) => t.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
+const app = semComentarios(appBruto);
+const guiaJsx = readFileSync(join(here, "..", "src", "GuiaTelas.jsx"), "utf8");
+const guiaLoader = readFileSync(join(here, "..", "src", "guiaTelas.js"), "utf8");
 const persist = readFileSync(join(here, "..", "src", "persistence.js"), "utf8");
 const store = readFileSync(join(here, "..", "..", "server", "app", "store.py"), "utf8");
 
@@ -15,32 +28,39 @@ let fails = 0;
 const ok = (name, cond) => { console.log((cond ? "ok " : "FALHOU ") + name); if (!cond) fails++; };
 
 // 1) componentes + fonte de conteúdo única.
-ok("AjudaScreen definida", /function AjudaScreen\(/.test(app));
-ok("TourModal definido", /function TourModal\(/.test(app));
-ok("conteúdo numa fonte só (ajudaSecoes) reusada", /function ajudaSecoes\(/.test(app) && /ajudaSecoes\(cp, operador\)/.test(app));
-ok("passos do tour (tourPassos)", /function tourPassos\(/.test(app));
+// Nota 2026-10-12 (quick 261012-09v): AjudaScreen/TourModal/ajudaSecoes/tourPassos deixaram de existir.
+ok("AjudaScreen não existe mais (nem é renderizada)", !/function AjudaScreen\(/.test(app) && !/<AjudaScreen/.test(app));
+ok("TourModal não existe mais (nem é renderizado)", !/function TourModal\(/.test(app) && !/<TourModal/.test(app));
+ok("ajudaSecoes e tourPassos não são mais definidas", !/function ajudaSecoes\(/.test(app) && !/function tourPassos\(/.test(app) && !/ajudaSecoes\(cp, operador\)/.test(app));
+ok("conteúdo numa fonte só: GuiaTelas lê GUIA_TELAS, que importa site/js/telas-data.js",
+  /import \{[^}]*GUIA_TELAS[^}]*\} from "\.\/guiaTelas\.js"/.test(guiaJsx) && /site\/js\/telas-data\.js\?raw/.test(guiaLoader));
 
-// 2) mode-aware: usa os rótulos de tela do cp (que mudam Estudo/Operador).
-ok("Ajuda usa rótulos mode-aware (cp.tituloRadar/Watchlist/Portfolio)",
-  /cp\.tituloRadar/.test(app) && /cp\.tituloWatchlist/.test(app) && /cp\.tituloPortfolio/.test(app));
+// 2) mode-aware: o mapeamento tela do app -> tela do guia depende do modo (Opções · confirmar).
+ok("mapeamento mode-aware: opcoes/confirmar = confest (Estudo) e opcaberta (Operador)",
+  guiaIdDaTelaApp({ tab: "opcoes", opcoesNivel: "confirmar", operador: false }) === "confest"
+  && guiaIdDaTelaApp({ tab: "opcoes", opcoesNivel: "confirmar", operador: true }) === "opcaberta");
 
-// 3) acessível pelo Perfil (tile + rota) — nada removido do hub.
-ok("tile 'Como funciona' abre 'ajuda'", /onClick=\{\(\) => onOpen\("ajuda"\)\}/.test(app) && /Como funciona/.test(app));
-ok("rota perfilView 'ajuda' → AjudaScreen", /perfilView === "ajuda"[\s\S]{0,120}<AjudaScreen/.test(app));
+// 3) acessível pelo Perfil: o grupo Ajuda abre o guia; o tile/rota "Como funciona" saíram.
+ok("tile 'Guia de treinamento' abre o guia", /onClick=\{\(\) => onOpen\("guia"\)\}[^>]*title="Guia de treinamento"/.test(app));
+ok("sem tile 'Como funciona', sem onOpen('ajuda') e sem rota perfilView 'ajuda'",
+  !/onOpen\("ajuda"\)/.test(app) && !/title="Como funciona"/.test(app) && !/perfilView === "ajuda"/.test(app));
 
-// 4) tour: abre 1x no 1º uso, guardado por ref + flag tourSeen; reabre pela Ajuda.
-ok("tour abre 1x no 1º uso (ref + !tourSeen)",
+// 4) 1º uso: abre 1x, guardado por ref + flag tourSeen (MANTIDO). Reabrir = Perfil → Ajuda → Guia.
+ok("1º uso abre 1x (ref + !tourSeen)",
   /tourShownRef\.current/.test(app) && /data\.config\.tourSeen/.test(app) && /setTourOpen\(true\)/.test(app));
 ok("closeTour marca tourSeen (não reaparece)", /tourSeen: true/.test(app) && /A\.closeTour/.test(app));
-ok("Ajuda tem 'Ver o tour de novo' (A.openTour)", /A\.openTour/.test(app));
-ok("TourModal renderizado no app", /tourOpen && <TourModal/.test(app));
+ok("openTour não existe mais (rever = tile Guia de treinamento)", !/openTour/.test(app));
+ok("1º uso monta o Guia em Boas-vindas, fechando por A.closeTour",
+  /tourOpen && <GuiaTelas abertura=\{ABERTURA_PRIMEIRO_USO\} onClose=\{A\.closeTour\}/.test(app) && ABERTURA_PRIMEIRO_USO.id === "boas");
 
 // 5) PERSISTÊNCIA de tourSeen nas DUAS allowlists (senão o tour volta sempre).
 ok("device (persistence.js) persiste tourSeen", /"tourSeen" in patch\) c\.tourSeen = !!patch\.tourSeen/.test(persist));
 ok("servidor (store.py) persiste tourSeen", /"tourSeen" in patch/.test(store) && /cfg\["tourSeen"\] = bool\(patch\["tourSeen"\]\)/.test(store));
 
-// 6) honestidade: o guia deixa claro que é simulado/educacional.
-ok("conteúdo diz 'educacional e simulado'", /educacional e \*\*simulado\*\*|educacional.*simulado/i.test(app));
+// 6) honestidade: o guia deixa claro que é simulado/educacional (rodapé único da folha).
+// Nota 2026-10-12 (quick 261012-09v): antes casava "educacional e simulado" no texto da Ajuda.
+ok("GuiaTelas renderiza DISCLAIMERS.short e ele diz 'Simulador educacional' e 'dinheiro simulado'",
+  /\{DISCLAIMERS\.short\}/.test(guiaJsx) && /Simulador educacional/.test(DISCLAIMERS.short) && /dinheiro simulado/.test(DISCLAIMERS.short));
 
 console.log(fails ? `\n${fails} falha(s)` : "\ntodos os testes passaram");
 process.exit(fails ? 1 : 0);

@@ -25,20 +25,25 @@
 // casar regex no arquivo: contar passos por regex daria falso verde na
 // primeira reorganização do array.
 //
+// Nota 2026-10-12 (quick 261012-09v): GUIA ÚNICO. tourPassos/ajudaSecoes e a tela "Como
+// funciona" saíram; o treinamento é o Guia (site/js/telas-data.js, via parseTelasData). Este
+// arquivo deixou de extrair/avaliar funções de App.jsx e passou a travar o MESMO contrato no
+// guia, sem tela sumir da explicação:
+//  · o 1º uso (ABERTURA_PRIMEIRO_USO) abre em Boas-vindas e a tela seguinte é Acompanhar;
+//  · Boas-vindas não manda procurar o Radar;
+//  · o grupo Opções existe e diz que nenhuma ordem sai dali, que a leitura é de fim de
+//    pregão, fala da carteira (não de Watchlist/Monitoramento) e do travessão (nunca zero);
+//  · docs/AJUDA.md aponta o Guia (nota datada) e mantém a seção histórica de Opções.
+//
 // Roda sem build e sem servidor: `node web/tests/test_tour_opcoes.mjs`.
 import { readFileSync } from "fs";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
-import { COPY } from "../src/copy.js";
-// REVERSÃO DELIBERADA (2026-09-25, Fase 41, TELAS-01): tourPassos/
-// ajudaSecoes passaram a iterar os ids do registro único
-// (telasDoTour()/telasDaAjuda()) — o `eval` abaixo roda no escopo deste
-// módulo, então precisa desses dois nomes importados para resolver as
-// chamadas internas das funções extraídas. Nenhuma asserção mudou.
-import { telasDoTour, telasDaAjuda } from "../src/telas.js";
+import { parseTelasData } from "../src/guiaDados.js";
+import { ABERTURA_PRIMEIRO_USO } from "../src/guiaNav.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
-const app = readFileSync(join(here, "..", "src", "App.jsx"), "utf8");
+const guia = parseTelasData(readFileSync(join(here, "..", "..", "site", "js", "telas-data.js"), "utf8"));
 const ajudaMd = readFileSync(join(here, "..", "..", "docs", "AJUDA.md"), "utf8");
 
 let fails = 0;
@@ -46,88 +51,30 @@ const ok = (name, cond, extra) => {
   console.log((cond ? "ok " : "FALHOU ") + name + (cond || !extra ? "" : " — " + extra));
   if (!cond) fails++;
 };
+const textos = (t) => [t.visao, t.missao, ...t.pontos.map((p) => p.titulo + " " + p.texto)].join(" ");
+const porId = (id) => guia.find((t) => t.id === id);
 
-// `App.jsx` importa React/CSS e não é importável aqui — as duas funções são
-// puras (recebem `cp`/`operador`, devolvem array), então são extraídas do
-// fonte e avaliadas isoladas. Mesma técnica do test_vocabulario_espelho.mjs,
-// que também lê fonte em vez de importar.
-function extrair(nome, fonte) {
-  const i = fonte.indexOf("function " + nome + "(");
-  if (i < 0) return null;
-  let nivel = 0, dentro = false;
-  for (let k = i; k < fonte.length; k++) {
-    if (fonte[k] === "{") { nivel++; dentro = true; }
-    else if (fonte[k] === "}") { nivel--; if (dentro && nivel === 0) return fonte.slice(i, k + 1); }
-  }
-  return null;
-}
+// (a) o 1º uso começa onde o app abre
+ok("ABERTURA_PRIMEIRO_USO é a tela 0 do guia", guia[0] && guia[0].id === ABERTURA_PRIMEIRO_USO.id);
+ok("a tela 1 do guia é Acompanhar (a tela em que o app abre)", guia[1] && guia[1].id === "acomp" && /Acompanhar/.test(guia[1].titulo));
+// (b) o começo não manda procurar outra tela (achado A4, Fase 26)
+ok("Boas-vindas não cita o Radar", !/Radar/.test(textos(guia[0])), "apontar outra tela no começo é o defeito do achado A4");
+// (f) a tela inicial está coberta
+ok("existe a tela Acompanhar (acomp)", !!porId("acomp"));
 
-const fonteTour = extrair("tourPassos", app);
-const fonteAjuda = extrair("ajudaSecoes", app);
-ok("tourPassos foi encontrada em App.jsx", !!fonteTour);
-ok("ajudaSecoes foi encontrada em App.jsx", !!fonteAjuda);
+// (c)(d)(e) Opções
+const opcoes = guia.filter((t) => t.grupo === "Opções");
+ok("existe a tela opc e o grupo Opções", !!porId("opc") && opcoes.length >= 1);
+const txtOpc = opcoes.map(textos).join(" ");
+ok("o grupo Opções diz que nenhuma ordem sai dali", /nenhuma ordem/i.test(txtOpc), "a frase impede a leitura errada (princípios 1/2 do CLAUDE.md)");
+ok("o grupo Opções avisa que a leitura é de fim de pregão", /fim de pregão/i.test(txtOpc), "princípio 3 do CLAUDE.md");
+ok("Fase 48 (2026-10-05): o grupo Opções não cita Watchlist/Monitoramento/lista", !/Watchlist|Monitoramento|da sua lista/i.test(txtOpc));
+ok("Fase 48 (2026-10-05): o grupo Opções fala da carteira", /carteira/i.test(txtOpc));
+ok("o ponto de Opções diz travessão (nunca como zero)", /travessão[^.]*nunca como zero/.test(textos(porId("opc"))));
 
-const tourPassos = fonteTour ? eval("(" + fonteTour + ")") : null;   // eslint-disable-line no-eval
-const ajudaSecoes = fonteAjuda ? eval("(" + fonteAjuda + ")") : null; // eslint-disable-line no-eval
-
-for (const modo of ["estudo", "operador"]) {
-  const cp = COPY[modo];
-  const passos = tourPassos(cp);
-  const texto = (p) => p.join(" ");
-
-  // ------------------------------------------------------------ contagem
-  ok(`[${modo}] o tour tem 6 passos (4 antigos + passo zero + Opções)`,
-     passos.length === 6, "achou " + passos.length);
-
-  // --------------------------------------- 1. o tour começa onde o app abre
-  ok(`[${modo}] o PRIMEIRO passo nomeia "Acompanhar" (a tela em que o app abre)`,
-     /Acompanhar/.test(texto(passos[0])),
-     "o tour voltou a começar sem dizer onde a pessoa está");
-  ok(`[${modo}] o primeiro passo NÃO manda procurar o Radar/Mesa`,
-     !new RegExp(cp.tituloRadar).test(texto(passos[0])),
-     "apontar outra tela no passo 1 é exatamente o defeito do achado A4");
-
-  // ------------------------------------------- 2. a aba Opções é apresentada
-  const rotuloOpc = cp.tituloOpcoes || "Opções";
-  ok(`[${modo}] algum passo do tour apresenta a aba ${rotuloOpc}`,
-     passos.some((p) => new RegExp(rotuloOpc).test(texto(p))));
-
-  // ------------------------------------------------- 3. a Ajuda cobre a aba
-  const secoes = ajudaSecoes(cp, modo === "operador");
-  const secaoOpc = secoes.find(([titulo]) => new RegExp(rotuloOpc, "i").test(titulo));
-  ok(`[${modo}] ajudaSecoes tem uma seção cujo título nomeia ${rotuloOpc}`, !!secaoOpc);
-  if (secaoOpc) {
-    ok(`[${modo}] a seção de ${rotuloOpc} diz que nenhuma ordem sai dali`,
-       /ordem/i.test(secaoOpc[1].join(" ")),
-       "a tela mostra cadeia e payoff; sem a frase, a pessoa pode achar que envia ordem");
-    ok(`[${modo}] a seção de ${rotuloOpc} avisa que a leitura é de fim de pregão`,
-       /fim de pregão/i.test(secaoOpc[1].join(" ")),
-       "princípio 3 do CLAUDE.md: dizer se o dado é tempo real, atrasado ou histórico");
-  }
-  // REANCORAGEM — Fase 48 (2026-10-05): o universo da aba é a CARTEIRA (Fase 27, D3);
-  // Ajuda e tour citavam Watchlist / "um ativo da sua lista". Travado aqui.
-  const passoOpc = passos.find((p) => new RegExp(rotuloOpc).test(p[0]));
-  ok(`[${modo}] Fase 48 (2026-10-05): o passo do tour de ${rotuloOpc} não cita Watchlist/Monitoramento/lista`,
-     !!passoOpc && !/Watchlist|Monitoramento|da sua lista/i.test(texto(passoOpc)));
-  ok(`[${modo}] Fase 48 (2026-10-05): o passo do tour de ${rotuloOpc} fala da Carteira e mantém fim de pregão`,
-     !!passoOpc && /Carteira/.test(texto(passoOpc)) && /fim de pregão/i.test(texto(passoOpc)));
-  if (secaoOpc) {
-    ok(`[${modo}] Fase 48 (2026-10-05): a seção de ${rotuloOpc} na Ajuda não cita Watchlist/Monitoramento/lista`,
-       !/Watchlist|Monitoramento|da sua lista/i.test(texto(secaoOpc[1])));
-    ok(`[${modo}] Fase 48 (2026-10-05): a seção de ${rotuloOpc} fala da Carteira e do travessão (nunca zero)`,
-       /Carteira/.test(texto(secaoOpc[1])) && /travessão, nunca como zero/.test(texto(secaoOpc[1])));
-  }
-  // A Ajuda já cobria a tela inicial desde sempre — o que faltava era no tour.
-  ok(`[${modo}] ajudaSecoes continua com a seção da tela inicial (Acompanhar)`,
-     secoes.some(([titulo]) => /Acompanhar/.test(titulo)));
-}
-
-// ---------------------------------------------- 4. o espelho em docs/AJUDA.md
-ok("docs/AJUDA.md tem a seção da aba Opções (o arquivo declara espelhar ajudaSecoes)",
-   /^## Opções$/m.test(ajudaMd));
-ok("a seção de docs/AJUDA.md também diz que nenhuma ordem sai da aba",
-   /## Opções[\s\S]*?Nenhuma ordem sai desta aba/.test(ajudaMd));
-
+// (g) docs/AJUDA.md: nota apontando o guia + seção histórica de Opções preservada
+ok("docs/AJUDA.md tem a nota 261012-09v apontando o Guia de treinamento", /261012-09v/.test(ajudaMd) && /Guia de treinamento/.test(ajudaMd));
+ok("docs/AJUDA.md mantém a seção histórica de Opções (histórico não se reescreve)", /^## Opções$/m.test(ajudaMd) && /## Opções[\s\S]*?Nenhuma ordem sai desta aba/.test(ajudaMd));
 ok("docs/AJUDA.md: Fase 48 (2026-10-05) a seção Opções não cita Watchlist e fala da Carteira",
    (() => { const m = /## Opções([\s\S]*?)\n## /.exec(ajudaMd); return !!m && !/Watchlist/.test(m[1]) && /Carteira/.test(m[1]); })());
 
