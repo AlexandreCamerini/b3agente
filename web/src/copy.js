@@ -1129,8 +1129,6 @@ export const COPY = {
       toast_executada: "Ordem simulada registrada. Nenhuma ordem real foi enviada.",
     },
     // Fase 48: texto de front da Ajuda/tour (consumido em App.jsx pelo plano 48-11).
-    opcoesTourPasso: "A aba Opções estuda as ações da sua Carteira: escolha um ativo, diga o que quer fazer (proteger de queda, gerar renda), compare a escada de estruturas e veja o gráfico do resultado no vencimento — leitura de fim de pregão, sem ordem nenhuma.",
-    opcoesAjudaEstuda: "Estuda **opções** sobre as ações que você tem na Carteira: você escolhe um ativo, diz o objetivo (proteger de queda, gerar renda ou proteger com custo baixo), compara a escada de estruturas por vencimento e vê, no gráfico, o resultado no vencimento com o pior caso e o melhor caso antes de decidir.",
     // Fase 46 (CART6-06/07): espelho byte a byte de skill_ref.CARTAO_POSICAO e CARTAO_DIDATICA.
     // Texto novo nasce no .py primeiro; guardião test_cartao_posicao_espelho.mjs.
     cartaoPosicao: {
@@ -2438,8 +2436,6 @@ export const COPY = {
       toast_executada: "Ordem simulada registrada. Nenhuma ordem real foi enviada.",
     },
     // Fase 48: texto de front da Ajuda/tour (consumido em App.jsx pelo plano 48-11).
-    opcoesTourPasso: "A aba Opções trabalha as ações da sua Carteira: escolha o ativo, defina o objetivo, compare a escada e o gráfico do resultado no vencimento — leitura de fim de pregão, sem ordem nenhuma.",
-    opcoesAjudaEstuda: "Estuda **opções** sobre as ações que você tem na Carteira: ativo, objetivo, escada de estruturas por vencimento e gráfico do resultado no vencimento, com pior caso e melhor caso à vista.",
     // Fase 46 (CART6-06/07): espelho byte a byte de skill_ref.CARTAO_POSICAO.
     // Texto novo nasce no .py primeiro; guardião test_cartao_posicao_espelho.mjs.
     cartaoPosicao: {

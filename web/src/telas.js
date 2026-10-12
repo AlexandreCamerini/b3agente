@@ -1,8 +1,9 @@
 // Fase 41 (TELAS-01) — registro único da ESTRUTURA das 8 telas que o
 // assistente (Boris) conhece. Sem React, sem I/O, sem store: só a
-// declaração estática de id, posição na barra, posição no tour, presença na
-// ajuda e origem do snapshot de cada tela — o mesmo contrato de módulo puro
-// de `web/src/opcoes/memoriaOpcoes.js` (Fase 40).
+// declaração estática de id, posição na barra e origem do snapshot de cada
+// tela (nota 2026-10-12, quick 261012-09v: os campos `tour`/`ajuda` saíram) —
+// o mesmo contrato de módulo puro de `web/src/opcoes/memoriaOpcoes.js`
+// (Fase 40).
 //
 // D-01: as 8 telas são exatamente as de `conceitos.PET_TELAS` — travado por
 // dois pontos testados (`web/tests/test_telas_registro.mjs` aqui,
@@ -10,11 +11,13 @@
 // exceção. Nenhum import cross-language: cada lado lê o fonte do outro como
 // TEXTO (padrão `defaults.py`×`catalog.js`, CLAUDE.md).
 //
-// D-02: este registro guarda só ESTRUTURA. Os TEXTOS do tour e da ajuda
-// continuam em `tourPassos`/`ajudaSecoes` (App.jsx) e em `copy.js` — o
-// registro só diz QUAIS telas entram em cada um e em que ordem. Os 2 passos
-// de introdução do tour (que não são tela nenhuma) ficam fora daqui, de
-// propósito.
+// D-02: este registro guarda só ESTRUTURA. Nota 2026-10-12 (quick
+// 261012-09v): o tour e a tela 'Como funciona' saíram do app — o material
+// único de treinamento é o Guia de treinamento (dados em
+// site/js/telas-data.js, folha em web/src/GuiaTelas.jsx). Os campos
+// `tour`/`ajuda` saíram daqui; qual tela do guia corresponde a cada tela do
+// registro é decidido em `GUIA_DA_TELA_APP` (web/src/guiaNav.js), não neste
+// arquivo.
 //
 // D-03: o snapshot do assistente é calculado em runtime (hooks, dados de
 // carteira/cotações) e por isso NÃO é dado estático — o switch de
@@ -31,8 +34,7 @@
 // Zero mudança visível (D-04): os campos abaixo reproduzem byte a byte o
 // comportamento congelado em `web/tests/fixtures/telas_baseline_41.json`
 // (gerado do App.jsx ANTES desta consolidação). Qualquer inconsistência
-// encontrada (ex. `historico`/`perfil` sem seção de ajuda, `agente` sem
-// passo de tour) é um ACHADO REGISTRADO, não corrigido nesta fase.
+// encontrada é um ACHADO REGISTRADO, não corrigido nesta fase.
 //
 // ------------------------------------------- Como adicionar uma tela nova
 //
@@ -55,13 +57,11 @@
 //         `petSnapshot` (App.jsx) — sem ele, PARTE E de
 //         `test_telas_registro.mjs` reprova (D-03). `snapshot: "petSheet"`
 //         (só "mercado", por desenho da F4) dispensa o case.
-//       · `tour` não-nulo → precisa de uma entrada em `porTela` dentro de
-//         `tourPassos(cp)` (App.jsx) — sem ela, `telasDoTour().map((id) =>
-//         porTela[id])` produz `undefined` na posição e a PARTE C
-//         (equivalência com o fixture) reprova.
-//       · `ajuda: true` → precisa de uma entrada em `porTela` dentro de
-//         `ajudaSecoes(cp, operador)` (App.jsx) — mesma consequência
-//         (`undefined` no array, PARTE C reprova).
+//       · Decisão explícita em `GUIA_DA_TELA_APP` (web/src/guiaNav.js): o id
+//         do guia que explica a tela, ou `null` ("ainda não tem tour" — o
+//         guia abre com o aviso). Sem a linha, `web/tests/test_guia_mapa.mjs`
+//         reprova (as chaves do mapa precisam ser exatamente `idsDasTelas()`).
+//         Nota 2026-10-12 (quick 261012-09v).
 //       · `barra` não-nulo → precisa de um path em `NavIcon.paths`
 //         (App.jsx) — sem ele, o ícone da aba não renderiza (nenhum teste
 //         estático trava isso hoje; é inspeção visual, achado registrado
@@ -85,8 +85,6 @@ export const TELAS = Object.freeze([
     barra: 1,
     rotuloCp: null,
     rotuloPadrao: "Acompanhar",
-    tour: null,
-    ajuda: true,
     snapshot: "switch",
     subtelaDe: null,
     carteiraView: null,
@@ -96,8 +94,6 @@ export const TELAS = Object.freeze([
     barra: 2,
     rotuloCp: "tabRadar",
     rotuloPadrao: "Radar",
-    tour: 1,
-    ajuda: true,
     snapshot: "switch",
     subtelaDe: null,
     carteiraView: null,
@@ -107,8 +103,6 @@ export const TELAS = Object.freeze([
     barra: 3,
     rotuloCp: "tituloWatchlist",
     rotuloPadrao: "Watchlist",
-    tour: 2,
-    ajuda: true,
     // "mercado" NÃO tem `case` no switch de petSnapshot, de propósito: o
     // snapshot dele vem do resumo dentro do PetSheet (regra da F4).
     snapshot: "petSheet",
@@ -120,8 +114,6 @@ export const TELAS = Object.freeze([
     barra: 4,
     rotuloCp: "tituloPortfolio",
     rotuloPadrao: "Portfólio",
-    tour: 3,
-    ajuda: true,
     snapshot: "switch",
     subtelaDe: null,
     carteiraView: null,
@@ -131,8 +123,6 @@ export const TELAS = Object.freeze([
     barra: 5,
     rotuloCp: "tabOpcoes",
     rotuloPadrao: "Opções",
-    tour: 4,
-    ajuda: true,
     snapshot: "switch",
     subtelaDe: null,
     carteiraView: null,
@@ -142,8 +132,6 @@ export const TELAS = Object.freeze([
     barra: null,
     rotuloCp: null,
     rotuloPadrao: null,
-    tour: null,
-    ajuda: true,
     snapshot: "switch",
     subtelaDe: "carteira",
     carteiraView: "agente",
@@ -153,10 +141,6 @@ export const TELAS = Object.freeze([
     barra: null,
     rotuloCp: null,
     rotuloPadrao: null,
-    tour: null,
-    // Achado registrado (não corrigido, D-04): `ajudaSecoes` não tem seção
-    // própria para `historico`.
-    ajuda: false,
     snapshot: "switch",
     subtelaDe: "carteira",
     carteiraView: "historico",
@@ -166,10 +150,6 @@ export const TELAS = Object.freeze([
     barra: null,
     rotuloCp: null,
     rotuloPadrao: null,
-    tour: null,
-    // Achado registrado (não corrigido, D-04): `ajudaSecoes` não tem seção
-    // própria para `perfil`.
-    ajuda: false,
     snapshot: "switch",
     subtelaDe: null,
     carteiraView: null,
@@ -192,16 +172,6 @@ export function defsDaBarra(cp) {
       const doCp = t.rotuloCp && cp && cp[t.rotuloCp];
       return [t.id, doCp || t.rotuloPadrao];
     });
-}
-
-export function telasDoTour() {
-  return TELAS.filter((t) => t.tour != null)
-    .sort((a, b) => a.tour - b.tour)
-    .map((t) => t.id);
-}
-
-export function telasDaAjuda() {
-  return TELAS.filter((t) => t.ajuda === true).map((t) => t.id);
 }
 
 // Reproduz a ternária de `petTela`:

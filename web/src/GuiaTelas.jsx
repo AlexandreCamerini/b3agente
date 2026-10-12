@@ -5,12 +5,21 @@
 // e layout está em guiaNav.js (puro, testado); aqui só há apresentação. Fechamento: o App monta
 // esta folha em perfilView === "guia", então o voltar do sistema e o swipe de borda (Onda B/J)
 // já a fecham via subirNivel; Esc e o botão ✕ chamam onClose.
+//
+// Guia ÚNICO de treinamento (quick 261012-09v). Três entradas, mesma folha:
+//  - Perfil → Ajuda → Guia de treinamento: sem `abertura` (primeira tela não concluída).
+//  - Bóris ("Me mostra esta tela"): `abertura` = {id, visao:true, n} — abre na tela
+//    correspondente, começando pelo cartão "Visão geral" (ponto -1); id sem tour mostra o
+//    aviso "Esta tela ainda não tem tour." (nunca falha calado). O App liga `key` a `n`
+//    para remontar a folha a cada toque, mesmo com o guia já aberto.
+//  - 1º uso: o App monta a folha na camada "tour" (tourOpen) com ABERTURA_PRIMEIRO_USO
+//    (Boas-vindas, sem Visão geral); fechar grava `tourSeen` (A.closeTour).
 // Texto só como nó React (nenhum HTML injetado). Sem import de App.jsx.
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { GUIA_TELAS, urlDaCaptura } from "./guiaTelas.js";
 import {
   proximo, anterior, irParaTela, rotuloSeletor, carregarProgresso, serializarProgresso, telaConcluida,
-  layoutGuia, enquadrar, ehSwipeHorizontal, TOPO_PX, RODAPE_PX, CHAVE_PROGRESSO,
+  layoutGuia, enquadrar, ehSwipeHorizontal, estadoInicialGuia, TOPO_PX, RODAPE_PX, CHAVE_PROGRESSO,
 } from "./guiaNav.js";
 import { useDialogA11y } from "./useDialogA11y.js";
 import { DISCLAIMERS } from "./disclaimers.js";
@@ -33,16 +42,15 @@ const btnSeta = (desab) => ({
   opacity: desab ? 0.4 : 1, display: "flex", alignItems: "center", justifyContent: "center",
 });
 
-export default function GuiaTelas({ onClose }) {
+export default function GuiaTelas({ onClose, abertura = null }) {
   const painelRef = useDialogA11y(true, onClose);
   const raizRef = useRef(null);
   const medidaRef = useRef(null);
   const [prog, setProg] = useState(lerProgresso);
-  const [e, setE] = useState(() => {
-    const p = lerProgresso();
-    const i = GUIA_TELAS.findIndex((t) => !telaConcluida(p, t.id));
-    return { tela: i < 0 ? 0 : i, ponto: 0 };
-  });
+  // Estado inicial lido UMA vez (a abertura nova chega por `key`, que remonta a folha).
+  const [inicial] = useState(() => estadoInicialGuia(GUIA_TELAS, lerProgresso(), abertura));
+  const [e, setE] = useState({ tela: inicial.tela, ponto: inicial.ponto });
+  const [avisoSemTour, setAvisoSemTour] = useState(inicial.semTour);
   const [medida, setMedida] = useState({ vw: 375, vh: 600 });
   const [escolha, setEscolha] = useState({}); // {idTela: índice da opção marcada}
   const reduzMovimento = useMemo(
@@ -65,15 +73,17 @@ export default function GuiaTelas({ onClose }) {
   const t = GUIA_TELAS[e.tela];
   const n = t.pontos.length;
   const naPratica = e.ponto >= n;
-  const ponto = naPratica ? null : t.pontos[e.ponto];
+  const visaoGeral = e.ponto < 0;
+  const ponto = naPratica || visaoGeral ? null : t.pontos[e.ponto];
   const L = layoutGuia(medida.vw, medida.vh);
   const { natW, natH } = dimensoesNaturais(t);
   const cam = enquadrar(ponto, natW, natH, L.captura.width, L.captura.height);
   const src = urlDaCaptura(t.img);
   const ultimo = e.tela === GUIA_TELAS.length - 1 && naPratica;
-  const primeiro = e.tela === 0 && e.ponto === 0;
+  const primeiro = e.tela === 0 && e.ponto <= 0;
 
-  const ir = useCallback((fn) => setE((x) => fn(x, GUIA_TELAS)), []);
+  // Primeira navegação limpa o aviso "sem tour".
+  const ir = useCallback((fn) => { setAvisoSemTour(false); setE((x) => fn(x, GUIA_TELAS)); }, []);
 
   // Trap de Tab dentro da folha (useDialogA11y não prende Tab).
   const aoTeclar = (ev) => {
@@ -127,7 +137,7 @@ export default function GuiaTelas({ onClose }) {
       style={{ position: "fixed", inset: 0, zIndex: 1100, background: "var(--bg-base)", color: "var(--text-primary)", outline: "none" }}
     >
       <div ref={medidaRef} style={{ position: "absolute", left: 0, right: 0, top: "env(safe-area-inset-top)", bottom: "env(safe-area-inset-bottom)" }}>
-        {/* Topo (44px): seletor "3/20 ▾" + título + ✕ */}
+        {/* Topo (44px): seletor "3/22 ▾" + título + ✕ */}
         <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: `${TOPO_PX}px`, display: "flex", alignItems: "center", gap: "8px", padding: "0 4px 0 8px", borderBottom: "1px solid var(--border-subtle)" }}>
           <div style={{ position: "relative", minWidth: "72px", height: "44px", flex: "none" }}>
             <span aria-hidden style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: "14px", color: "var(--accent)", border: "1px solid var(--border-subtle)", borderRadius: "10px", background: "var(--bg-panel)" }}>
@@ -135,7 +145,7 @@ export default function GuiaTelas({ onClose }) {
             </span>
             <select
               aria-label="Escolher tela" value={e.tela}
-              onChange={(ev) => setE((x) => irParaTela(x, Number(ev.target.value), GUIA_TELAS))}
+              onChange={(ev) => { setAvisoSemTour(false); setE((x) => irParaTela(x, Number(ev.target.value), GUIA_TELAS)); }}
               style={{ position: "absolute", inset: 0, width: "100%", height: "100%", opacity: 0, fontSize: "16px" }}
             >
               {grupos.map((g) => (
@@ -171,7 +181,7 @@ export default function GuiaTelas({ onClose }) {
           onTouchStart={aoComecarToque} onTouchEnd={aoTerminarToque}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px", marginBottom: "6px" }}>
             <div style={{ fontSize: "11px", fontWeight: 800, letterSpacing: "0.05em", color: "var(--text-muted)" }}>
-              {naPratica ? "NA PRÁTICA" : `PONTO ${e.ponto + 1} DE ${n}`}
+              {visaoGeral ? "VISÃO GERAL" : naPratica ? "NA PRÁTICA" : `PONTO ${e.ponto + 1} DE ${n}`}
             </div>
             <div style={{ display: "flex", gap: "8px" }}>
               <button type="button" aria-label="Ponto anterior" disabled={primeiro} onClick={() => ir(anterior)} style={btnSeta(primeiro)}>‹</button>
@@ -179,7 +189,18 @@ export default function GuiaTelas({ onClose }) {
             </div>
           </div>
 
-          {!naPratica ? (
+          {avisoSemTour && (
+            <div role="status" style={{ marginBottom: "10px", padding: "8px 10px", borderRadius: "8px", border: "1px solid var(--border-subtle)", fontSize: "13px", lineHeight: 1.45, color: "var(--text-secondary)" }}>
+              <b style={{ color: "var(--text-primary)" }}>Esta tela ainda não tem tour.</b>{" "}Use o seletor no topo para escolher outra.
+            </div>
+          )}
+
+          {visaoGeral ? (
+            <div aria-live="polite">
+              <div style={{ fontWeight: 800, fontSize: "17px", marginBottom: "6px" }}>{t.titulo}</div>
+              <p style={{ margin: 0, fontSize: "14px", lineHeight: 1.55, color: "var(--text-secondary)" }}>{t.visao}</p>
+            </div>
+          ) : !naPratica ? (
             <div aria-live="polite">
               <div style={{ fontWeight: 800, fontSize: "17px", marginBottom: "6px" }}>{ponto.titulo}</div>
               <p style={{ margin: 0, fontSize: "14px", lineHeight: 1.55, color: "var(--text-secondary)" }}>{ponto.texto}</p>

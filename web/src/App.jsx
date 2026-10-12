@@ -10,12 +10,13 @@ import { copyFor, retornoAcumuladoTxt, curvaEvolucaoTxt, historicoTxt, entradaAu
 import { tickersComPernas, tickersSoComPernas, assinaturaEstrutura, estadoLeitura, mostraAvisoSemStop, mostraRR, valorRR, criarFilaLeituras, tipoPillTravada, chipVencimento, ddmmDeIso, tomDoEstado, dominioRegua, posRegua, sinalResultado, kickerResultadoSoAcoes, ancoraRotulo, estadoPrincipalV6, linhasResultadoV6, chipsMetaV6, rsSinalNbsp, fonteValorCabecalho, pctCapitalTexto, flipDuracaoMs, prefereMovimentoReduzido, faceInicial, pontoDoIndice, indiceNomeado, zonaVisual, rotulosSemColisao, colunasDaGrade, rsNbsp, nomeEmpresaCard, sigPosicaoLeitura, situacaoLeituraPlano } from "./estruturaCard.js";
 import { varsCartaoV6, ALFA_ZONA_V6, ALFA_ZONA_MEIO_V6 } from "./cartaoV6Cores.js"; // 2026-10-01: cores do design v6 ESCOPADAS ao card (CSS vars no wrapper); não toca T/PALETTE
 // Fase 41 (TELAS-01): registro único das 8 telas que o assistente conhece —
-// BottomNav/petTela leem daqui nesta plano (41-02); tourPassos/ajudaSecoes
-// passam a iterar os ids do registro na 41-02/Task 2.
+// BottomNav/petTela leem daqui nesta plano (41-02). Nota 2026-10-12 (quick
+// 261012-09v): tourPassos/ajudaSecoes saíram (guia único); o mapa tela do app
+// -> tela do guia mora em guiaNav.js (GUIA_DA_TELA_APP).
 import { useEstadoMemorizado } from "./uiMemo.js";
 import VoltarPadrao from "./VoltarPadrao.jsx"; // Onda B (2026-10-08): Voltar único // Onda B (2026-10-08): estado de UI que sobrevive à troca de aba (só sessão)
 import { useDialogA11y } from "./useDialogA11y.js"; // Onda A (2026-10-08): Esc + foco + devolução nos modais
-import { defsDaBarra, telasDoTour, telasDaAjuda, telaDoAssistente } from "./telas.js";
+import { defsDaBarra, telaDoAssistente } from "./telas.js";
 import { profundidade, profundidadeDeTela, modalDoTopo, campoDeTextoFocado, subirNivel, reconciliarPilha, entradasOrfas, ehGestoVoltarBorda, chaveDeScroll, chaveDeTela, transicaoDe, classeDaTransicao } from "./navStack.js"; // Onda B (2026-10-08): voltar do sistema
 import { Capacitor } from "@capacitor/core"; // Onda B: só getPlatform() p/ o gesto de borda no iOS
 import { Markdown, MdInline } from "./markdown.jsx";
@@ -57,6 +58,7 @@ import { useLarguraMedida, LegendaMarcadores } from "./opcoes/PayoffPrimitivas.j
 import { BUILD_ID } from "./version.js";
 import { atualizarServiceWorker } from "./swUpdate.js";
 import GuiaTelas from "./GuiaTelas.jsx"; // quick 261011-l5x: guia das telas in-app (folha de tela cheia)
+import { guiaIdDaTelaApp, novaAberturaBoris, ABERTURA_PRIMEIRO_USO } from "./guiaNav.js"; // quick 261012-09v: guia único (Bóris + 1º uso)
 // carimbo no console: prova de qual build está rodando (device/web)
 try { console.log("[b3] build", BUILD_ID); } catch { /* noop */ }
 import { canAddTicker, canAnalyze, erroDeLimiteWatchlist, limiteDeWatchlist } from "./plan.js";
@@ -2765,187 +2767,6 @@ function ProfileTile({ icon, title, sub, onClick, wide }) {
 const hubGroup = { fontSize: "10px", fontWeight: 800, letterSpacing: "0.08em", color: T.textFaint, textTransform: "uppercase", margin: "8px 2px 0" };
 const hubGrid = { display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" };
 
-// qa/38 (Help): conteúdo do guia — mode-aware (usa os rótulos de tela de cp,
-// que já mudam entre Estudo/Operador) e honesto sobre "tudo simulado". Uma
-// fonte só, reusada pela tela de Ajuda, pelo tour e pelo doc externo (AJUDA.md).
-// Fase 41 (TELAS-01, 2026-09-25): as 6 seções por tela saíram do array fixo
-// para o objeto local `porTela` (abaixo), indexado por id e iterado na ordem
-// que o registro único `web/src/telas.js` declara (`telasDaAjuda()`).
-// `historico`/`perfil` não têm seção própria — achado registrado, D-04, não
-// corrigido nesta fase. As 2 seções institucionais do topo e as 3 do fim
-// continuam literais aqui. Textos idênticos byte a byte.
-function ajudaSecoes(cp, operador) {
-  const tRadar = cp.tituloRadar, tWl = cp.tituloWatchlist, tPort = cp.tituloPortfolio;
-  const tOpc = cp.tituloOpcoes || "Opções";
-  const aprofundar = cp.btnAprofundar; // "Aprofundar com IA" / "Plano da mesa (IA)"
-  const porTela = {
-    evolucao: ["Acompanhar (início)", [
-      "A tela inicial resume seu dia: melhores oportunidades da sua watchlist, a curva do patrimônio simulado, sua sequência de estudo e um lembrete do que fazer a seguir.",
-      "É o ponto de partida — dali você vai para o " + tRadar + ".",
-    ]],
-    radar: [tRadar, [
-      "Varre o universo de ações e lista, por ativo: o veredito, a **confluência** (anel de 0–100% = quanto o ativo bate com um setup clássico), uma leitura rápida e o mini-gráfico de preço.",
-      "Em cada card você pode " + (operador ? "abrir o **" + aprofundar + "** (leitura da IA) ou **monitorar** o ativo." : "abrir o **" + aprofundar + "** (leitura da IA) ou levar para a **" + tWl + "**."),
-      "A confluência mede aderência ao padrão em dados passados — não é probabilidade de resultado.",
-    ]],
-    mercado: [tWl, [
-      "Seus ativos " + (operador ? "monitorados" : "em estudo") + ", ordenados por oportunidade. Cada linha tem um mini-gráfico e abre a análise completa.",
-      "Use para acompanhar de perto os ativos que te interessam antes de simular uma operação.",
-    ]],
-    carteira: [tPort, [
-      "Sua carteira **simulada**: patrimônio, resultado do dia e cada posição com a régua do plano (invalidação → gatilho → alvo).",
-      "Você simula compras e vendas, define stop e alvo, e acompanha o resultado em R — sem risco de dinheiro real.",
-    ]],
-    // 2026-09-12 (Fase 26, achado A4): a aba Opções existe na barra desde a
-    // Fase 24 e a Ajuda nunca a descreveu — a pessoa tocava o 5º ícone sem
-    // nenhuma explicação do que aquilo é, de onde vem o dado e por que ele é
-    // de fim de pregão. Mantido no mesmo formato título/parágrafos das outras,
-    // e ESPELHADO em `docs/AJUDA.md` (a regra do topo daquele arquivo).
-    opcoes: [tOpc, [
-      // Fase 48 (2026-10-05): universo é a Carteira; texto antigo citava Watchlist (achado do ROADMAP).
-      cp.opcoesAjudaEstuda,
-      "O dado vem de um serviço externo de opções e é uma **leitura de fim de pregão** — não é o preço de agora. O app não recalcula nada aqui: campo que o serviço não mandou aparece como travessão, nunca como zero.",
-      "Abrir um ativo e ver a escada não gasta consultas. \"Comparar vencimentos\" diz **antes** quantas consultas vai custar. Nenhuma ordem sai desta aba: é estudo da estrutura, do risco e do retorno possível.",
-    ]],
-    // 2026-09-10 (aba-opcoes F2): "Operador IA" saiu da barra inferior; a
-    // linha "Onde fica" existe porque, sem ela, o guia descreveria uma tela
-    // que o usuário não acha mais na navegação principal.
-    // 2026-10-10 (Onda K): a linha-link virou cartão de destaque, também no Acompanhar.
-    agente: ["Operador IA", [
-      "Um agente que acompanha as posições da carteira simulada e age pelas regras que você define (proteger stop, realizar no alvo). Com conta, roda no servidor 24×5, mesmo com o app fechado.",
-      "Você escolhe **Executar** (ele simula a saída no stop/alvo) ou **Apenas sinalizar** (só avisa), define regras e tetos, e o intervalo de reavaliação. Sempre sobre a carteira simulada.",
-      "Onde fica: toque no cartão **Operador IA** no topo do **Portfólio** ou no **Acompanhar**.",
-    ]],
-  };
-  return [
-    ["O que é o Boris+", [
-      "Um app educacional de análise técnica da B3. Ele varre o mercado, mostra oportunidades de estudo e deixa você simular uma carteira — tudo com dinheiro fictício.",
-      "Nada aqui é ordem real nem recomendação personalizada: nenhuma ordem é enviada à corretora. O objetivo é aprender a ler o mercado com disciplina.",
-    ]],
-    ["Os dois modos", [
-      "O app tem dois modos, com a mesma base técnica e vozes diferentes. **Estudo** é um professor: explica o porquê de cada setup. **Operador** é uma mesa de operações: dá o plano objetivo (entrada, stop, alvo, risco).",
-      "Você troca em Perfil → Modo de trabalho. O modo muda a cor, os rótulos e o tom — mas a execução e o risco são sempre seus.",
-      operador ? "Você está no Modo Operador agora." : "Você está no Modo Estudo agora.",
-    ]],
-    ...telasDaAjuda().map((id) => porTela[id]),
-    ["Fundamento (A/B/C)", [
-      "Ao lado do sinal técnico, alguns ativos mostram um selo de **fundamento**: A (sólido), B (regular) ou C (fraco), por valuation, rentabilidade e solidez.",
-      "É um **filtro de qualidade**, nunca um gatilho de compra: a técnica manda no plano. Quando a decisão técnica é operável mas o fundamento é fraco (C), a confiança desce um degrau. Sem dado de fundamento, o app mostra “sem dado” — nunca inventa.",
-    ]],
-    ["Eficiência da IA", [
-      "O app guarda cada análise com stop/alvo e, 10 pregões depois, confere se bateu o alvo, o stop ou expirou. Isso vira estatística: taxa de acerto, expectância (vantagem média em R), calibração da confiança e a curva de R acumulado.",
-      "Enquanto não há amostra suficiente, aparece “n insuficiente” ou “aguardando o prazo” — em vez de um número enganoso. É autoavaliação sobre o passado, não garantia de futuro.",
-    ]],
-    ["Avisos importantes", [
-      "Tudo no Boris+ é **educacional e simulado**. Não é recomendação de investimento nem promessa de resultado. Operar no mercado real envolve risco de perda.",
-      "Use sempre stop, dimensione a posição e respeite seu plano de risco. As decisões e a execução são suas.",
-    ]],
-  ];
-}
-
-// Passos do tour de primeiro uso (funil). Curto, aponta o caminho.
-//
-// 2026-09-12 (Fase 26, achado A4) — DOIS passos entraram, e a ordem mudou:
-//
-//  · O PASSO ZERO nomeia a tela em que a pessoa JÁ ESTÁ. O tour abre sobre o
-//    "Acompanhar" (`useState("evolucao")` é a tab inicial) e começava
-//    apontando para o Radar — mandava procurar outra tela antes de dizer onde
-//    a pessoa tinha caído. "Acompanhar" vai literal, como no `BottomNav.defs`
-//    (o rótulo da barra não muda por modo; `ajudaSecoes` já o escreve assim).
-//  · A SAUDAÇÃO subiu para esse passo zero e o antigo passo 0 ficou com o
-//    título que sempre descreveu o corpo dele (o que o app é — e o que não é).
-//    O TEXTO do corpo não mudou: é a mesma frase de mission+disclaimer.
-//  · A ABA OPÇÕES entrou como 4º passo do funil. Ela é o 5º item da barra
-//    desde a Fase 24 e o tour nunca a apresentou.
-//
-// Fase 41 (TELAS-01, 2026-09-25): os 4 passos de tela (radar/mercado/
-// carteira/opcoes) saíram do array fixo para o objeto local `porTela`,
-// indexado por id e iterado na ordem que o registro único
-// `web/src/telas.js` declara (`telasDoTour()`). Os 2 passos de introdução
-// (que não são tela) continuam literais no topo. Textos idênticos byte a
-// byte — só o LUGAR de cada par [título, corpo] mudou dentro desta função.
-function tourPassos(cp) {
-  const porTela = {
-    radar: ["1 · Descubra no " + cp.tituloRadar, "O " + cp.tituloRadar + " varre o mercado e mostra os ativos com setup, com confluência e leitura rápida."],
-    mercado: ["2 · Acompanhe na " + cp.tituloWatchlist, "Leve os melhores para a " + cp.tituloWatchlist + " e acompanhe de perto antes de agir."],
-    carteira: ["3 · Simule no " + cp.tituloPortfolio, "Simule compras e vendas no " + cp.tituloPortfolio + " — com stop, alvo e risco em R, sem dinheiro real."],
-    opcoes: ["4 · Estude estruturas em " + (cp.tituloOpcoes || "Opções"), cp.opcoesTourPasso],
-  };
-  return [
-    ["Bem-vindo · você está em Acompanhar", "Esta é a tela em que o app abre: o resumo do seu dia — as melhores oportunidades da sua " + cp.tituloWatchlist + ", a curva do patrimônio simulado e o próximo passo."],
-    ["O que o Boris+ é — e o que não é", "Um app para **estudar** o mercado da B3 com uma carteira simulada. Tudo aqui é educacional — nenhuma ordem real é enviada."],
-    ...telasDoTour().map((id) => porTela[id]),
-  ];
-}
-
-// Render inline de **negrito** simples (sem HTML injetado).
-function AjudaTexto({ children }) {
-  const parts = String(children).split(/(\*\*[^*]+\*\*)/g);
-  return <p style={{ margin: "0 0 9px", fontSize: "13px", color: T.textSecondary, lineHeight: 1.6 }}>{parts.map((p, i) => p.startsWith("**") && p.endsWith("**") ? <b key={i} style={{ color: T.textPrimary }}>{p.slice(2, -2)}</b> : <span key={i}>{p}</span>)}</p>;
-}
-
-// qa/38 (Help): TELA DE AJUDA — accordion "Como funciona", uma seção por área.
-function AjudaScreen({ ctx }) {
-  const cp = ctx.cp;
-  const operador = ctx.operador; // FIX-C21: lê a fonte única
-  const secoes = ajudaSecoes(cp, operador);
-  const [aberta, setAberta] = useState(0);
-  return (
-    <div>
-      <h1 style={{ margin: 0, fontSize: "22px", fontWeight: 700, fontFamily: DISPLAY }}>Como funciona</h1>
-      <p style={{ margin: "6px 0 0", color: T.textMuted, fontSize: "13px", lineHeight: 1.5, maxWidth: "600px" }}>
-        Um guia rápido de cada parte do app. Toque numa seção para abrir.
-      </p>
-      <button onClick={() => ctx.A.openTour && ctx.A.openTour()} style={{ marginTop: "12px", minHeight: "44px", padding: "9px 14px", borderRadius: "8px", border: `1px solid ${T.accent}`, background: T.accentTint10, color: T.accent, fontWeight: 700, fontSize: "12px" }}>▶ Ver o tour de novo</button>
-      <div style={{ marginTop: "14px", display: "flex", flexDirection: "column", gap: "8px" }}>
-        {secoes.map(([titulo, paras], i) => {
-          const on = aberta === i;
-          return (
-            <div key={i} style={{ ...card, padding: "0", overflow: "hidden" }}>
-              <button onClick={() => setAberta(on ? -1 : i)} aria-expanded={on} style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "10px", padding: "14px 16px", background: "transparent", border: "none", color: T.textPrimary, fontWeight: 700, fontSize: "14px", textAlign: "left" }}>
-                <span>{titulo}</span>
-                <span aria-hidden style={{ color: T.accent, fontWeight: 800, flex: "none" }}>{on ? "−" : "+"}</span>
-              </button>
-              {on && (
-                <div style={{ padding: "0 16px 14px" }}>
-                  {paras.map((p, j) => <AjudaTexto key={j}>{p}</AjudaTexto>)}
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
-      <div style={{ marginTop: "16px", padding: "12px 14px", borderRadius: "11px", background: T.bgBase, border: `1px solid ${T.borderSubtle}`, fontSize: "11px", color: T.textFaint, lineHeight: 1.55 }}>
-        {DISCLAIMERS.appBanner}
-      </div>
-    </div>
-  );
-}
-
-// qa/38 (Help): TOUR de primeiro uso — passo a passo curto do funil.
-function TourModal({ ctx }) {
-  const [i, setI] = useState(0);
-  const passos = tourPassos(ctx.cp);
-  const ultimo = i >= passos.length - 1;
-  const fechar = () => ctx.A.closeTour && ctx.A.closeTour();
-  const [titulo, corpo] = passos[i];
-  return (
-    <div onClick={fechar} style={{ position: "fixed", inset: 0, zIndex: 75, background: T.scrim, display: "flex", alignItems: "flex-end", justifyContent: "center", padding: "0" }}>
-      <div onClick={(e) => e.stopPropagation()} style={{ width: "100%", maxWidth: "460px", ...card, borderBottomLeftRadius: 0, borderBottomRightRadius: 0, padding: "22px 20px calc(22px + env(safe-area-inset-bottom))" }}>
-        <div style={{ display: "flex", gap: "5px", marginBottom: "14px" }}>
-          {passos.map((_, k) => <span key={k} style={{ flex: 1, height: "3px", borderRadius: "999px", background: k <= i ? T.accent : T.borderSubtle }} />)}
-        </div>
-        <div style={{ fontSize: "18px", fontWeight: 800, marginBottom: "8px" }}>{titulo}</div>
-        <AjudaTexto>{corpo}</AjudaTexto>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "10px", marginTop: "16px" }}>
-          <button onClick={fechar} style={{ background: "transparent", border: "none", color: T.textMuted, fontWeight: 700, fontSize: "13px", padding: "8px 4px" }}>Pular</button>
-          <button onClick={() => (ultimo ? fechar() : setI(i + 1))} style={{ padding: "11px 22px", borderRadius: "10px", border: "none", background: T.accent, color: T.onAccent, fontWeight: 800, fontSize: "14px" }}>{ultimo ? "Começar" : "Próximo"}</button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 // ADR-014: abre a central de administração (web-admin/) dentro de um browser
 // in-app — o bundle nativo é local (sem server.url), então não dá pra
 // navegar pra /admin de dentro do próprio WKWebView do app. O handoff evita
@@ -3217,25 +3038,25 @@ function PerfilHub({ ctx, onOpen }) {
       )}
 
       <div style={hubGroup}>Ajuda</div>
-      <ProfileTile wide onClick={() => onOpen("ajuda")} title="Como funciona" sub="Guia rápido de cada tela + tour do app" icon={
-        <svg width="19" height="19" viewBox="0 0 24 24" aria-hidden><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" strokeWidth="1.8" /><path d="M9.5 9.2a2.6 2.6 0 0 1 5 .9c0 1.7-2.5 2-2.5 3.6" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" /><circle cx="12" cy="17" r="0.6" fill="currentColor" stroke="currentColor" strokeWidth="0.8" /></svg>
+      {/* Quick 261009-ukl: Guia de treinamento — tela a tela, com missões e testes.
+          Quick 261011-l5x: deixou de abrir URL (aba nova/browser in-app) e passou a ser uma folha
+          DENTRO do app (GuiaTelas.jsx, perfilView "guia"): offline no iOS, mesma fonte de dados do
+          site (site/js/telas-data.js). Conceitos de mercado segue abrindo /site/app/.
+          Quick 261012-09v: material ÚNICO de treinamento (substituiu "Como funciona" e o tour):
+          1º uso e o botão do Bóris abrem este mesmo guia. Por isso é o 1º tile do grupo. */}
+      <ProfileTile wide onClick={() => onOpen("guia")} title="Guia de treinamento" sub="Tela a tela, com missões e testes" icon={
+        <svg width="19" height="19" viewBox="0 0 24 24" aria-hidden><path d="M3 9.5 12 5l9 4.5-9 4.5-9-4.5Z" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" /><path d="M7 12v4c0 1.1 2.2 2 5 2s5-.9 5-2v-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" /></svg>
       } />
-      {/* Fase 38 (38-04, KB-01): tile "Glossário" no grupo Ajuda, logo abaixo
-          de "Como funciona" — glossário não é IA (não entra em "IA e
-          desempenho"), e o grupo Ajuda já é o par temático certo (D-06 do
-          38-CONTEXT.md: mesmo padrão de tile+tela focada dos irmãos).
+      {/* Fase 38 (38-04, KB-01): tile "Glossário" no grupo Ajuda — glossário não é IA
+          (não entra em "IA e desempenho"), e o grupo Ajuda já é o par temático certo
+          (D-06 do 38-CONTEXT.md: mesmo padrão de tile+tela focada dos irmãos).
+          Nota 2026-10-12 (quick 261012-09v): o tile "Como funciona" saiu do grupo; o Glossário
+          ficou logo abaixo do Guia de treinamento.
           Subtítulo usa a CONTAGEM REAL do catálogo carregado, nunca um
           literal "83" — com a didática desligada o backend serve menos
           verbetes (38-01), e um número fixo aqui seria afirmação não medida. */}
       <ProfileTile wide onClick={() => onOpen("glossario")} title="Glossário" sub={ctx.cp.glossarioSub(ctx.kbCatalogo && ctx.kbCatalogo.verbetes ? ctx.kbCatalogo.verbetes.length : 0)} icon={
         <svg width="19" height="19" viewBox="0 0 24 24" aria-hidden><path d="M5 4.5c0-.8.7-1.5 1.5-1.5H12v18H6.5A1.5 1.5 0 0 1 5 19.5v-15Z" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" /><path d="M19 4.5c0-.8-.7-1.5-1.5-1.5H12v18h5.5a1.5 1.5 0 0 0 1.5-1.5v-15Z" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" /></svg>
-      } />
-      {/* Quick 261009-ukl: Guia de treinamento — tela a tela, com missões e testes.
-          Quick 261011-l5x: deixou de abrir URL (aba nova/browser in-app) e passou a ser uma folha
-          DENTRO do app (GuiaTelas.jsx, perfilView "guia"): offline no iOS, mesma fonte de dados do
-          site (site/js/telas-data.js). Conceitos de mercado segue abrindo /site/app/. */}
-      <ProfileTile wide onClick={() => onOpen("guia")} title="Guia de treinamento" sub="Tela a tela, com missões e testes" icon={
-        <svg width="19" height="19" viewBox="0 0 24 24" aria-hidden><path d="M3 9.5 12 5l9 4.5-9 4.5-9-4.5Z" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" /><path d="M7 12v4c0 1.1 2.2 2 5 2s5-.9 5-2v-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" /></svg>
       } />
       {/* Tile "Conceitos de mercado": 10 módulos interativos (tendência, risco, plano, expectativa,
           drawdown) — mesmo mecanismo de abertura do Guia. */}
@@ -3335,7 +3156,10 @@ function PetFab({ onOpen }) {
 // pararam de ser TEXTO renderizado. Voz: como não há mais um parágrafo fixo
 // para "ouvir", a leitura em voz alta passa a ser por RESPOSTA do chat (já
 // existia em BorisChat via falarTexto) — nenhum mecanismo de voz novo.
-function PetSheet({ onClose, didatica, tela, snapshot }) {
+// Quick 261012-09v (D4): "Me mostra esta tela" abre o Guia de treinamento na tela
+// correspondente (cartão "Visão geral"). Sempre visível — independe de `r`, `erro`,
+// `ligada` e do assistente de IA: o guia é conteúdo escrito à mão, não gasta cota.
+function PetSheet({ onClose, didatica, tela, snapshot, onMostrarTela }) {
   // F4: qual aba o pet está explicando — "mercado" se ninguém disser (mesmo
   // comportamento de antes, quando só existia essa tela).
   const telaAtual = tela || "mercado";
@@ -3370,6 +3194,11 @@ function PetSheet({ onClose, didatica, tela, snapshot }) {
             <div style={{ fontSize: "12px", color: T.textFaint, marginTop: "2px" }}>Ele já sabe o que esta tela mostra — sem custo pra perguntar o óbvio, e sem ordem de compra.</div>
           </div>
         </div>
+        <button type="button" aria-label="Me mostra esta tela no guia de treinamento"
+          onClick={() => { calarVoz(); if (onMostrarTela) onMostrarTela(); }}
+          style={{ width: "100%", minHeight: "44px", marginBottom: "12px", padding: "9px 14px", borderRadius: "10px", border: `1px solid ${T.accent}`, background: T.accentTint10, color: T.accent, fontWeight: 700, fontSize: "14px" }}>
+          Me mostra esta tela
+        </button>
         {!r && !erro && <div className="sk" style={{ height: "56px", width: "100%", borderRadius: "10px" }} />}
         {erro && (
           <div style={{ fontSize: "13px", color: T.textSecondary, lineHeight: 1.5 }}>
@@ -9085,6 +8914,9 @@ export default function App() {
   const [tab, setTab] = useState("evolucao");
   const [carteiraView, setCarteiraView] = useState("main"); // main | historico | agente
   const [perfilView, setPerfilView] = useState("hub");       // hub | plano | config | ia | notificacoes | eficiencia | logs | guia
+  const [guiaAbertura, setGuiaAbertura] = useState(null);     // {id, visao, n} quando o guia abriu pelo Bóris; null = Perfil → Ajuda (quick 261012-09v)
+  // Zera ao sair do guia por qualquer caminho (voltar do sistema/swipe passam por subirNivel, não por onClose).
+  useEffect(() => { if (tab !== "perfil" || perfilView !== "guia") setGuiaAbertura(null); }, [tab, perfilView]);
   const navigate = (t) => { setCarteiraView("main"); setPerfilView("hub"); setTab(t); };
   // Onda B (2026-10-08): nível das Opções relatado pelo filho (OpcoesScreen) e o "voltar" dele.
   const [opcoesNav, setOpcoesNav] = useState({ nivel: "hub", temTicker: false });
@@ -9167,6 +8999,16 @@ export default function App() {
   // preservando o invariante "o pet só abre por ação explícita" que
   // `test_pet_ui.mjs` já trava contando ocorrências literais.
   const abrirPet = () => setPetOpen(true);
+  // Quick 261012-09v (D4): "Me mostra esta tela" do PetSheet. Fecha a folha do Bóris, leva ao
+  // Perfil → guia e passa o id da tela corrente (guiaIdDaTelaApp usa os estados do App, não
+  // infere). `n` novo por toque remonta o GuiaTelas mesmo com o guia já aberto.
+  const abrirGuiaDaTela = () => {
+    const id = guiaIdDaTelaApp({ tab, carteiraView, opcoesNivel: opcoesNav && opcoesNav.nivel, operador: appMode === "operador" });
+    setPetOpen(false);
+    setGuiaAbertura((prev) => novaAberturaBoris(prev, id));
+    setPerfilView("guia");
+    setTab("perfil");
+  };
   const [borisIntroOpen, setBorisIntroOpen] = useState(false); // F6: apresentação do Boris (1x)
   const [welcomeOpen, setWelcomeOpen] = useState(false);
   const [stopAlvoFor, setStopAlvoFor] = useState(null); // FASE 3: ticker do popup de stop/alvo (individual)
@@ -9445,9 +9287,10 @@ export default function App() {
   useEffect(() => {
     return carregarKb();
   }, [modoApp]);
-  // qa/38 (Help): abre o tour UMA vez no primeiro uso — depois que o portão de
-  // abertura (login) fecha e só se `tourSeen` ainda não foi marcado. Guardado
-  // por ref para não reabrir; o Ver tour de novo (Ajuda) usa A.openTour.
+  // qa/38 (Help): abre o 1º uso UMA vez — depois que o portão de abertura (login)
+  // fecha e só se `tourSeen` ainda não foi marcado. Guardado por ref para não
+  // reabrir. Quick 261012-09v: o que abre é o Guia de treinamento em Boas-vindas;
+  // rever = Perfil → Ajuda → Guia de treinamento.
   useEffect(() => {
     if (tourShownRef.current || !data || !data.config) return;
     if (welcomeAuthOpen || welcomeOpen) return;      // espera o portão fechar
@@ -10057,9 +9900,8 @@ export default function App() {
       store.putConfig({ conceitosVistos: [cid] }).catch(() => { /* silencioso */ });
     },
     reservarDonoProativo,
-    // qa/38 (Help): tour de primeiro uso. Ao fechar, marca tourSeen no doc
-    // local (não reaparece); best-effort no servidor.
-    openTour: () => setTourOpen(true),
+    // qa/38 (Help): 1º uso (hoje o Guia de treinamento, quick 261012-09v). Ao fechar,
+    // marca tourSeen no doc local (não reaparece); best-effort no servidor.
     closeTour: () => {
       setTourOpen(false);
       setData((d) => (d ? { ...d, config: { ...d.config, tourSeen: true } } : d));
@@ -10903,7 +10745,7 @@ export default function App() {
               ? (<><BackHeader title={cp.tituloOperadorIA || "Operador IA"} onBack={() => setCarteiraView("main")} /><AgenteScreen ctx={ctx} /></>)
             : (<><div style={{ marginBottom: `${SP[4]}px` }}><OperadorIACard ctx={ctx} /></div><CarteiraScreen ctx={ctx} /><div style={{ marginTop: "14px" }}><button onClick={() => setCarteiraView("historico")} style={{ width: "100%", minHeight: "48px", padding: "13px", borderRadius: "13px", border: `1px solid ${T.borderSubtle}`, background: T.bgPanel, color: T.textSecondary, fontWeight: 700, fontSize: "14px", display: "flex", alignItems: "center", justifyContent: "space-between" }}><span>Ver histórico de operações</span><span aria-hidden style={{ color: T.textFaint }}>›</span></button></div></>))}
           {tab === "perfil" && (perfilView === "guia"
-            ? <GuiaTelas onClose={() => setPerfilView("hub")} />
+            ? <GuiaTelas key={guiaAbertura ? "boris-" + guiaAbertura.n : "perfil"} abertura={guiaAbertura} onClose={() => setPerfilView("hub")} />
             : perfilView === "plano"
             ? (<><BackHeader title={cp.planoTituloTela} onBack={() => setPerfilView("hub")} /><PlanoScreen ctx={ctx} /></>)
             : perfilView === "config"
@@ -10922,9 +10764,7 @@ export default function App() {
                     ? (<><BackHeader title="Diagnóstico" onBack={() => setPerfilView("hub")} /><LogsDebugScreen ctx={ctx} /></>)
                     : perfilView === "glossario"
                       ? (<><BackHeader title="Glossário" onBack={() => setPerfilView("hub")} /><TelaGlossario ctx={ctx} /></>)
-                    : perfilView === "ajuda"
-                      ? (<><BackHeader title="Como funciona" onBack={() => setPerfilView("hub")} /><AjudaScreen ctx={ctx} /></>)
-                      : <PerfilHub ctx={ctx} onOpen={setPerfilView} />)}
+                    : <PerfilHub ctx={ctx} onOpen={setPerfilView} />)}
           </div>
         </div>
       </main>
@@ -10945,7 +10785,8 @@ export default function App() {
         />
       )}
       {aboutOpen && <AboutModal onClose={A.closeAbout} />}
-      {tourOpen && <TourModal ctx={ctx} />}
+      {/* quick 261012-09v: o 1º uso abre o Guia de treinamento em Boas-vindas, na camada "tour". */}
+      {tourOpen && <GuiaTelas abertura={ABERTURA_PRIMEIRO_USO} onClose={A.closeTour} />}
       {/* O PET: em QUALQUER aba, em QUALQUER modo de trabalho (Fase 1 da
           auditoria de UX, 2026-08-08, reverteu a restrição a Operador — o
           vocabulário já variava por modo em assistente.py/_pet_resumo_*;
@@ -10957,7 +10798,7 @@ export default function App() {
       {didatica && didatica.ligada && ctx.overlayLivre && data.config.fabVisivel !== false && (
         <PetFab onOpen={abrirPet} />
       )}
-      {petOpen && <PetSheet didatica={didatica} tela={petTela} snapshot={petSnapshot} onClose={() => setPetOpen(false)} />}
+      {petOpen && <PetSheet didatica={didatica} tela={petTela} snapshot={petSnapshot} onMostrarTela={abrirGuiaDaTela} onClose={() => setPetOpen(false)} />}
       {/* F6: apresentação do Boris, 1x — "Conversar agora" abre a MESMA folha
           do pet que o FAB abriria (reaproveita petOpen, não duplica chat);
           "Depois" só fecha. Os dois marcam borisIntroVisto (nunca mais volta

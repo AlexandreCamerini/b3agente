@@ -40,9 +40,13 @@ const ok = (name, cond) => { console.log((cond ? "ok " : "FALHOU ") + name); if 
 // Fase 38 (38-02, 2026-09-23): ConceitoSheet migrou para entendimento.jsx — asserção reapontada, contrato intacto.
 ok("ConceitoSheet existe e busca o conceito ANCORADO (dados do card no corpo)",
    /function ConceitoSheet\(/.test(ent) && /store\.conceito\(cid, \{ dados \}\)/.test(ent));
+// Nota 2026-10-12 (quick 261012-09v): esta asserção lia App.jsx e só passava porque o TourModal
+// (removido: o 1º uso agora é o Guia de treinamento) tinha o mesmo `position: "fixed", inset: 0,
+// zIndex: 75`. A folha do conceito vive em entendimento.jsx (zIndex 86, ancorada embaixo): a
+// asserção passa a ler o fonte certo — mesmo contrato (sobre o card, não empurra a lista).
 ok("a folha abre SOBRE o card (não empurra o fluxo vertical da lista)",
-   /position: "fixed", inset: 0, zIndex: 75/.test(app)
-   && /alignItems: "flex-end"/.test(app));
+   /position: "fixed", inset: 0, zIndex: 86/.test(ent)
+   && /alignItems: "flex-end"/.test(ent));
 // Fase 38 (38-02, 2026-09-23): CONCEITO_BLOCOS migrou para entendimento.jsx — asserção reapontada, contrato intacto.
 ok("ordem dos blocos: o que o app NÃO faz vem primeiro",
    /\["naoAcontece", "O QUE O APP NÃO FAZ"\],\s*\n\s*\["oQueE", "O QUE É"\],\s*\n\s*\["oQueAcontece", "O QUE ACONTECE"\]/.test(ent));
