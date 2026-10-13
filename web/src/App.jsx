@@ -5161,7 +5161,7 @@ function CorpoLinhaLista({ ticker, selo, valorTxt, corValor, chipTopo, legendaTo
       <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: `${SP[2]}px`, marginTop: `${SP[2]}px` }}>
         {meio}
         <ChipAtencaoLista chip={atencao.chip} modo={modo} textoVence={textoVence} />
-        {variacao != null && <span style={{ marginLeft: "auto", fontFamily: MONO, fontVariantNumeric: "tabular-nums", fontSize: TIPO_CARD.rotulo, fontWeight: 400, color: T.textSecondary }}>{pct(variacao)}</span>}
+        {variacao != null && <span style={{ flex: "1 1 auto", textAlign: "right", fontFamily: MONO, fontVariantNumeric: "tabular-nums", fontSize: TIPO_CARD.rotulo, fontWeight: 400, color: T.textSecondary }}>{pct(variacao)}</span>}
       </div>
     </button>
   );

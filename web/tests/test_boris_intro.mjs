@@ -108,8 +108,9 @@ ok("marcarBorisIntroVisto fecha a intro E grava borisIntroVisto:true (device+ser
    && /store\.putConfig\(\{ borisIntroVisto: true \}\)/.test(app));
 
 // --------------------------------------------------- 3) o portão de overlay
+// 2026-10-13 (quick 261013-cqk): overlayLivre ganhou `&& !posicaoNav` no fim (folha da posição); `!borisIntroOpen` segue no portão.
 ok("overlayLivre passa a incluir !borisIntroOpen (mesmo portão das outras folhas)",
-   /overlayLivre: !tourOpen && !aboutOpen && !welcomeOpen && !welcomeAuthOpen && !conceitoAberto && !petOpen && !borisIntroOpen,/.test(app));
+   /overlayLivre: !tourOpen && !aboutOpen && !welcomeOpen && !welcomeAuthOpen && !conceitoAberto && !petOpen && !borisIntroOpen && !posicaoNav,/.test(app));
 ok("o efeito que decide mostrar a intro espera o MESMO conjunto de overlays fechar",
    /if \(tourOpen \|\| aboutOpen \|\| welcomeOpen \|\| welcomeAuthOpen \|\| conceitoAberto \|\| petOpen\) return;/.test(app));
 ok("só monta na aba inicial (Mercado/Watchlist)",

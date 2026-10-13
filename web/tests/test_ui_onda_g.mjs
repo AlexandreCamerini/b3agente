@@ -58,7 +58,8 @@ ok("wrapper: safe-area esquerda", wrap.includes("paddingLeft: `max(${GUTTER_X}, 
 ok("wrapper: safe-area direita", wrap.includes("paddingRight: `max(${GUTTER_X}, env(safe-area-inset-right))`"));
 ok("wrapper: paddingTop/Bottom", wrap.includes('paddingTop: "24px"') && wrap.includes('paddingBottom: "34px"'));
 ok("CONTENT_MAX_WIDTH 1x", (app.match(/const CONTENT_MAX_WIDTH = "720px";/g) || []).length === 1);
-ok("maxWidth: CONTENT_MAX_WIDTH 2x", (app.match(/maxWidth: CONTENT_MAX_WIDTH/g) || []).length === 2);
+// 2026-10-13 (quick 261013-cqk): 3x — o terceiro uso é o scroller da folha de posição (responsivo em tela grande).
+ok("maxWidth: CONTENT_MAX_WIDTH 3x", (app.match(/maxWidth: CONTENT_MAX_WIDTH/g) || []).length === 3);
 const linhaHero = app.split("\n").find((l) => l.includes('scrollSnapType: "x mandatory"')) || "";
 ok("hero: margem negativa = gutter", linhaHero.includes("margin: `0 calc(-1 * ${GUTTER_X})`"));
 ok("hero: padding = gutter", linhaHero.includes("padding: `2px ${GUTTER_X} 6px`"));

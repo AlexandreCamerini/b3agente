@@ -26,7 +26,11 @@ ok("'Portfólio vazio' só com positions vazio E sem avulsas",
 const iMapPos = app.indexOf("data.positions.map((p) =>");
 const iAv = app.indexOf("avulsas.map((t) =>");
 ok("avulsas.map vem DEPOIS do map de data.positions", iMapPos > 0 && iAv > iMapPos);
-ok("<CartaoPernaAvulsa renderizado dentro de avulsas.map", iAv > 0 && app.slice(iAv, iAv + 900).includes("<CartaoPernaAvulsa"));
+// 2026-10-13 (quick 261013-cqk): a lista renderiza <LinhaPernaAvulsa dentro de avulsas.map; o <CartaoPernaAvulsa (conteúdo antigo) vive na folha, dentro de CarteiraScreen.
+const iCart = app.indexOf("function CarteiraScreen(");
+const corpoCart = iCart > 0 ? app.slice(iCart, app.indexOf("\nfunction HistoricoScreen(", iCart)) : "";
+ok("<LinhaPernaAvulsa renderizado dentro de avulsas.map", iAv > 0 && app.slice(iAv, iAv + 900).includes("<LinhaPernaAvulsa"));
+ok("<CartaoPernaAvulsa renderizado na folha dentro de CarteiraScreen", corpoCart.includes("<CartaoPernaAvulsa"));
 
 const iFn = app.indexOf("function CartaoPernaAvulsa(");
 const iFim = app.indexOf("\nfunction CartaoPosicao(", iFn);

@@ -16,7 +16,8 @@ const f = (nome, ...a) => (typeof N[nome] === "function" ? N[nome](...a) : undef
 const E = (o) => Object.freeze({ tab: "radar", carteiraView: "main", perfilView: "hub", opcoes: null, conceito: null, ...o });
 
 // ---------- P1
-ok("P1 ORDEM_CAMADAS", JSON.stringify(N.ORDEM_CAMADAS) === JSON.stringify(["catalog", "buy", "sell", "stopAlvo", "radarDeep", "about", "tour", "auth", "pet", "conceito", "borisIntro", "tech"]));
+// 2026-10-13 (quick 261013-cqk): a folha da lista de posições é a camada "posicao", a mais baixa (z 45); a ordem relativa das demais não muda.
+ok("P1 ORDEM_CAMADAS", JSON.stringify(N.ORDEM_CAMADAS) === JSON.stringify(["posicao", "catalog", "buy", "sell", "stopAlvo", "radarDeep", "about", "tour", "auth", "pet", "conceito", "borisIntro", "tech"]));
 ok("P1 prof modal", f("profundidade", E({ modais: ["buy"] })) === 1);
 ok("P1 prof carteira+2 modais", f("profundidade", E({ tab: "carteira", carteiraView: "historico", modais: ["sell", "tech"] })) === 3);
 ok("P1 prof id desconhecido", f("profundidade", E({ modais: ["xyz"] })) === 0);
@@ -42,6 +43,10 @@ ok("P1 conceito acima de pet", f("camadaDoTopo", E({ modais: ["pet"], conceito: 
 ok("P1 nada aberto", f("camadaDoTopo", E({})) === null && f("modalDoTopo", E({})) === null);
 
 ok("P1 sub modal", f("subirNivel", E({ modais: ["buy"] })) === "fecharModal");
+// 2026-10-13 (quick 261013-cqk): extensão: camada "posicao" (folha da lista de posições).
+ok("P1 posicao prof 1", f("profundidade", E({ tab: "carteira", modais: ["posicao"] })) === 1);
+ok("P1 posicao abaixo de sell", f("modalDoTopo", E({ modais: ["posicao", "sell"] })) === "sell");
+ok("P1 sub posicao", f("subirNivel", E({ tab: "carteira", modais: ["posicao"] })) === "fecharModal");
 ok("P1 sub buy+conceito0", f("subirNivel", E({ modais: ["buy"], conceito: { trilha: 0 } })) === "conceitoFechar");
 ok("P1 sub buy+conceito1", f("subirNivel", E({ modais: ["buy"], conceito: { trilha: 1 } })) === "conceitoVoltar");
 ok("P1 sub tech+conceito", f("subirNivel", E({ modais: ["tech"], conceito: { trilha: 0 } })) === "fecharModal");
@@ -127,7 +132,7 @@ ok("P2 regex Onda B layoutEffect", /useLayoutEffect\(\(\) => \{\s*const ant = tr
   const j = rest.indexOf("useEffect(");
   const rec = j >= 0 ? rest.slice(0, j) : "";
   ok("P2 recorte aplicarSubida existe", rec.length > 0);
-  for (const s of ['"fecharModal"', '"recolherCard"', "modalDoTopo(estadoNavRef.current)", "catalog: A.closeCatalog", "buy: A.closeBuy", "sell: A.closeSell", "stopAlvo: A.closeStopAlvo", "about: A.closeAbout", "tour: A.closeTour", "tech: A.closeTech", "setAuthOpen(false)", "setPetOpen(false)", "marcarBorisIntroVisto()", 'radarFecharRef.current("deep")', 'radarFecharRef.current("card")', "A.toggleExpand("])
+  for (const s of ['"fecharModal"', '"recolherCard"', "modalDoTopo(estadoNavRef.current)", "catalog: A.closeCatalog", "buy: A.closeBuy", "sell: A.closeSell", "stopAlvo: A.closeStopAlvo", "about: A.closeAbout", "tour: A.closeTour", "tech: A.closeTech", "posicao: () =>", "setAuthOpen(false)", "setPetOpen(false)", "marcarBorisIntroVisto()", 'radarFecharRef.current("deep")', 'radarFecharRef.current("card")', "A.toggleExpand("])
     ok(`P2 aplicarSubida contém ${s}`, rec.includes(s));
   ok("P2 aplicarSubida sem motor financeiro", !/\bstore\.(buy|sell)\(|A\.(buy|sell|confirmBuy|confirmSell|executeBuy|executeSell)\(/.test(rec));
 }
@@ -136,6 +141,9 @@ ok("P2 onStart Onda G intacto", app.includes('e.target.closest("canvas, input[ty
 ok("P2 onStart campoDeTextoFocado x2 + activeElement", (app.match(/campoDeTextoFocado\(/g) || []).length >= 2 && app.includes("document.activeElement"));
 ok("P2 ctx reportarNavOpcoes sheet", app.includes("reportarNavOpcoes: (nivel, temTicker, sheet) =>"));
 ok("P2 ctx radar", app.includes("reportarNavRadar:") && app.includes("registrarFecharRadar:"));
+// 2026-10-13 (quick 261013-cqk): extensão — fiação da camada "posicao" (folha da lista de posições).
+ok("P2 ctx posicao", app.includes("reportarNavPosicao:") && app.includes("registrarFecharPosicao:"));
+ok("P2 estadoNav.modais posicao", app.includes('posicaoNav && "posicao"'));
 ok("P2 radarNav state/ref", app.includes("const [radarNav, setRadarNav] = useState({ card: false, deep: false });") && app.includes("const radarFecharRef = useRef(null);"));
 {
   const i = app.indexOf("function RadarScreen(");
