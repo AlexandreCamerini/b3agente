@@ -168,4 +168,24 @@ for (const nome of NOVAS) {
 ok("sem REDUCE_MOTION no módulo", !/REDUCE_MOTION/.test(fonte));
 ok("qtyLivre importado de finance.js", /import \{[^}]*qtyLivre[^}]*\} from "\.\/finance\.js"/.test(fonte));
 
+// 2026-10-13 (quick 261013-cqk): proximidade no estado principal.
+r = ep({ p: P(), estrutura: null, leituraPlano: lp({ proximidade: "perto_stop" }) });
+ok("perto_stop sem estrutura", r.principal.chave === "estado_perto_stop" && r.principal.tom === "atencao" && r.principal.glifo === "⚠");
+r = ep({ p: P(), estrutura: est(), leituraPlano: lp({ proximidade: "perto_stop" }) });
+ok("perto_stop com estrutura vigente (antes: null)", r.principal && r.principal.chave === "estado_perto_stop");
+r = ep({ p: P(), estrutura: null, leituraPlano: lp({ proximidade: "perto_alvo" }) });
+ok("perto_alvo", r.principal.chave === "estado_perto_alvo" && r.principal.tom === "info" && r.principal.glifo === "◎");
+r = ep({ p: P(), estrutura: est(), leituraPlano: lp({ proximidade: "perto_alvo" }) });
+ok("perto_alvo com estrutura", r.principal && r.principal.chave === "estado_perto_alvo");
+r = ep({ p: P(), estrutura: null, leituraPlano: lp({ proximidade: "perto_stop", desatualizada: true }) });
+ok("perto_stop com leitura desatualizada não aparece", !r.principal || r.principal.chave !== "estado_perto_stop");
+r = ep({ p: P(), estrutura: null, leituraPlano: lp({ posicaoNoPlano: "abaixo_stop", proximidade: "perto_stop" }) });
+ok("abaixo_stop vence perto_stop", r.principal.chave === "estado_abaixo_stop");
+r = ep({ p: P(), estrutura: est({ estado: "exercicio_provavel", estadoTexto: "Exercício provável" }), leituraPlano: lp({ proximidade: "perto_stop" }) });
+ok("exercício provável + perto_stop -> motor", r.principal.chave === "motor");
+r = ep({ p: P({ qtyTravada: 1000 }), estrutura: est(), leituraPlano: lp({ proximidade: "perto_stop" }) });
+ok("travadas todas + perto_stop -> travadas", r.principal.chave === "estado_travadas_todas");
+r = ep({ p: P(), estrutura: null, leituraPlano: lp({ proximidade: null }) });
+ok("proximidade null -> estado_dentro", r.principal.chave === "estado_dentro");
+
 process.exit(fails ? 1 : 0);

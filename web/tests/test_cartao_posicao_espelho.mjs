@@ -80,6 +80,10 @@ const NEUTRAS = [
   "motivo_dados_incompletos", "motivo_aguardando_premio", "motivo_aguardando_cotacao", "motivo_cotacao_indisponivel",
   "chip_acoes_pm", "chip_vence", "chip_plano", "chip_estrategia_generica",
   "faixa_rot_teto", "faixa_leg_hoje",
+  // 2026-10-13 (quick 261013-cqk): + chaves da lista/folha (opção B).
+  "estado_perto_stop", "estado_perto_alvo", "ordenar_aria", "ordenar_atencao",
+  "ordenar_resultado", "ordenar_vencimento", "selo_estrutura", "selo_so_opcoes",
+  "linha_faixa", "folha_aria",
 ];
 
 // --- (1) CARTAO_POSICAO <-> COPY[modo].cartaoPosicao
@@ -112,7 +116,8 @@ for (const k of NEUTRAS) {
   ok(`neutra ${k} existe e é idêntica nos dois modos`,
      typeof E[k] === "string" && E[k].length > 0 && E[k] === O[k], `estudo=${E[k]} operador=${O[k]}`);
 }
-const ESPECIFICAS = ["rodape_abrir", "saida", "saida_sem_livres", "apoio_saida"];
+// 2026-10-13 (quick 261013-cqk): + chaves da lista/folha (opção B).
+const ESPECIFICAS = ["rodape_abrir", "saida", "saida_sem_livres", "apoio_saida", "linha_aria", "linha_aria_sem_estado"];
 for (const k of ESPECIFICAS) {
   ok(`${k} difere entre Estudo e Operador (muda só o registro)`, E[k] !== O[k] && E[k].length > 0 && O[k].length > 0);
 }

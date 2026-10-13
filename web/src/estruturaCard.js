@@ -246,6 +246,9 @@ export function estadoPrincipalV6({ p, estrutura, leituraPlano } = {}) {
       const pos = leituraPlano && !leituraPlano.desatualizada ? leituraPlano.posicaoNoPlano : null;
       if (pos === "abaixo_stop") principal = linha("estado_abaixo_stop", {}, "atencao", "⚠");
       else if (pos === "acima_alvo") principal = linha("estado_acima_alvo", {}, "atencao", "⚠");
+      // quick 261013-cqk (2026-10-13): proximidade do backend (leitura_plano.proximidade) entra no estado principal; lista e card leem o mesmo estado.
+      else if (pos === "dentro" && leituraPlano.proximidade === "perto_stop") principal = linha("estado_perto_stop", {}, "atencao", "⚠");
+      else if (pos === "dentro" && leituraPlano.proximidade === "perto_alvo") principal = linha("estado_perto_alvo", {}, "info", "◎");
       else if (pos === "dentro" && !estrutura) principal = linha("estado_dentro", {}, "neutro", "✓");
     }
   }
