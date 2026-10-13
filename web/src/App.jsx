@@ -4972,7 +4972,7 @@ function CartaoPosicao({ p, nomeEmpresa, modoLeitura, leituraEstrutura, leituraP
   return (
     <div ref={raizRef} style={{ overflowAnchor: "none" }}>
       {/* quick 261013-29f (2026-10-13): aberto, ticker + resultado grudam no topo do <main> (único scroller; nenhum ancestral com overflow) */}
-      <div style={{ display: "flex", flexWrap: "nowrap", justifyContent: "space-between", alignItems: "flex-start", gap: `${SP[3]}px`, position: aberto ? "sticky" : "static", top: 0, zIndex: aberto ? 2 : "auto", background: aberto ? T.bgCard : "transparent", borderBottom: aberto ? `1px solid ${T.borderFaint}` : "none", ...(aberto ? { paddingTop: `${SP[2]}px`, paddingBottom: `${SP[2]}px` } : null) }}>
+      <div style={{ display: "flex", flexWrap: "nowrap", justifyContent: "space-between", alignItems: "flex-start", gap: `${SP[3]}px`, position: aberto ? "sticky" : "static", top: 0, zIndex: aberto ? 2 : "auto", background: aberto ? T.bgCard : "transparent", borderBottom: aberto ? `1px solid ${T.borderFaint}` : "none", ...(aberto ? { paddingTop: `${SP[2]}px`, paddingBottom: `${SP[2]}px`, marginLeft: `-${SP[4]}px`, marginRight: `-${SP[4]}px`, paddingLeft: `${SP[4]}px`, paddingRight: `${SP[4]}px` } : null) }}>
         <div style={{ minWidth: 0, flex: "1 1 auto" }}>
           <div style={{ fontFamily: MONO, fontWeight: 700, fontSize: TIPO_CARD.titulo, lineHeight: 1.2 }}>{p.t}</div>
           {nomeEmpresa && <div style={{ ...rotulo, overflowWrap: "anywhere" }}>{nomeEmpresa}</div>}
@@ -5031,7 +5031,7 @@ function CartaoPosicao({ p, nomeEmpresa, modoLeitura, leituraEstrutura, leituraP
             <BlocoBorisIA p={p} modo={modo} ctx={ctx} />
             <DetalheCompras p={p} data={data} leitura={leituraPlano} modo={modo} aberto={comprasAberto} onToggle={() => setComprasAberto((v) => !v)} />
             <div>
-              <button type="button" onClick={onHist} aria-expanded={histAberto} aria-controls={"analises-" + p.t} style={btnDisclosure}>
+              <button type="button" onClick={onHist} aria-expanded={histAberto} aria-controls={"analises-" + p.t} style={{ ...btnDisclosure, minHeight: 44 }}>
                 <span>{cartaoPosicaoTxt(modo, "historico", { n: nHist })}</span>
                 <span style={{ color: T.accent }}>{cartaoPosicaoTxt(modo, histAberto ? "ocultar" : "ver")}</span>
               </button>
@@ -5219,7 +5219,7 @@ function FaceAcao({ p, leitura, data, total, modo, cp, onEditarPlano, editandoPl
           {L.rr != null && linha("rr", cartaoPosicaoTxt(modo, "rr_atual"), <span style={valor}>{nf2.format(L.rr)}</span>)}
           {se && linha("setup", cartaoPosicaoTxt(modo, "setup_entrada"), (
             <span style={{ flex: "1 1 auto", minWidth: 0, textAlign: "right", overflowWrap: "anywhere", fontSize: TIPO_CARD.corpo, color: T.textPrimary }}>
-              <b style={{ fontWeight: 600 }}>{se.setup || "—"}</b>
+              <b style={{ fontWeight: 400 }}>{se.setup || "—"}</b>
               {se.gatilho != null && <span> · <span style={{ fontFamily: MONO, fontVariantNumeric: "tabular-nums" }}>{rsNbsp(se.gatilho)}</span></span>}
               {gat && <span> · <b style={{ fontWeight: 700, color: gat[1] }}>{cartaoPosicaoTxt(modo, gat[0])}</b></span>}
             </span>

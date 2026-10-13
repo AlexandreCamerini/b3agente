@@ -93,7 +93,9 @@ const trechoSetup = iSetup >= 0 ? face.slice(iSetup, face.indexOf("))}", iSetup)
 const iNome = trechoSetup.indexOf('{se.setup || "—"}');
 const abreB = trechoSetup.lastIndexOf("<b", iNome);
 const elNome = iNome >= 0 && abreB >= 0 ? trechoSetup.slice(abreB, iNome) : "";
-ok("FaceAcao: nome do setup em fonte de texto, fontWeight 600, sem MONO", /fontWeight:\s*600/.test(elNome) && !/MONO/.test(elNome) && !/\.\.\.valor/.test(trechoSetup));
+// 2026-10-13 (quick 261013-29f, orquestrador): 600 -> 400. O card v6 só aceita pesos 400/700
+// (test_cartao_v6_transversal); o destaque do setup vem da cor/tamanho, não de um peso fora do sistema.
+ok("FaceAcao: nome do setup em fonte de texto, fontWeight 400, sem MONO", /fontWeight:\s*400/.test(elNome) && !/MONO/.test(elNome) && !/\.\.\.valor/.test(trechoSetup));
 ok("FaceAcao: span externo do setup sem MONO/...valor", trechoSetup.length > 0 && !/\.\.\.valor/.test(trechoSetup) && !/fontFamily:\s*MONO[^]*?\{se\.setup/.test(trechoSetup));
 
 // 10. Compras foi para DetalheCompras
