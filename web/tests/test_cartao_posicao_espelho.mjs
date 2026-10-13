@@ -64,7 +64,9 @@ const NEUTRAS = [
   "chip_hoje", "chip_equilibrio", "chip_teto", "chip_alta_forte",
   "rr_atual", "em_operacao", "do_capital", "cotacao_atual",
   "setup_entrada", "gatilho_valido", "gatilho_invalidado", "nota_pm",
-  "nota_pm_vendas", "editar_plano", "regua_aria", "faixa_aria",
+  "nota_pm_vendas", "regua_aria", "faixa_aria",
+  // 2026-10-13 (quick 261013-29f): editar_plano saiu (botão de largura total substituído por ✎ Ajustar na régua); + evolucao_titulo, preco_medio, regua_titulo, ajustar_plano, ajustar_plano_aria, chip_qtd.
+  "evolucao_titulo", "preco_medio", "regua_titulo", "ajustar_plano", "ajustar_plano_aria", "chip_qtd",
   "leg_hoje", "leg_be", "leg_k", "leg_eixo",
   "cel_be", "cel_ate_be", "cel_ate_k", "cel_ganho_max",
   "cel_perda_max", "cel_lastro", "conta_be_call", "conta_ate_be",
