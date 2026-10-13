@@ -77,7 +77,10 @@ const declCount = count(/const CONTENT_MAX_WIDTH\s*=\s*"720px";/g);
 ok("SYS-04: exatamente UMA declaração de CONTENT_MAX_WIDTH = \"720px\"", declCount === 1);
 
 const usageCount = count(/maxWidth: CONTENT_MAX_WIDTH/g);
-ok("SYS-04: exatamente DUAS referências a maxWidth: CONTENT_MAX_WIDTH (BottomNav + wrapper de conteúdo)", usageCount === 2);
+// 2026-10-13 (quick 261013-cqk): REVERSÃO DELIBERADA de 2 para 3 — a folha de detalhe da
+// posição (CarteiraScreen) limita a área rolável ao mesmo teto. O teto continua ÚNICO
+// (uma declaração, asserção acima); só ganhou um terceiro consumidor.
+ok("SYS-04: exatamente TRÊS referências a maxWidth: CONTENT_MAX_WIDTH (BottomNav + wrapper de conteúdo + folha da posição)", usageCount === 3);
 
 ok("SYS-04: não sobrou nenhum literal \"1060px\" no arquivo", count(/"1060px"/g) === 0);
 ok("SYS-04: não sobrou nenhum literal maxWidth: \"720px\" solto (tudo passou pela constante)", count(/maxWidth: "720px"/g) === 0);

@@ -62,5 +62,18 @@ ok("servidor (store.py) persiste tourSeen", /"tourSeen" in patch/.test(store) &&
 ok("GuiaTelas renderiza DISCLAIMERS.short e ele diz 'Simulador educacional' e 'dinheiro simulado'",
   /\{DISCLAIMERS\.short\}/.test(guiaJsx) && /Simulador educacional/.test(DISCLAIMERS.short) && /dinheiro simulado/.test(DISCLAIMERS.short));
 
+// 2026-10-13 (quick 261013-cqk, orquestrador): regressão achada no app local — o guia do
+// 1º uso (z 1100) abria por cima da tela de login porque o efeito do 1º uso rodava antes
+// do efeito do portão no mesmo ciclo. Trava: o efeito só abre depois que o portão foi
+// decidido (welcomeShownRef), além de esperar welcomeAuthOpen/welcomeOpen fecharem.
+{
+  const i = app.indexOf("if (tourShownRef.current || !data || !data.config) return;");
+  const trecho = i >= 0 ? app.slice(i, i + 500) : "";
+  ok("1º uso: o guia espera o portão de login fechar E ter sido decidido (welcomeShownRef)",
+    /if \(welcomeAuthOpen \|\| welcomeOpen\) return;/.test(trecho)
+    && /if \(!welcomeShownRef\.current\) return;/.test(trecho)
+    && trecho.indexOf("!welcomeShownRef.current") < trecho.indexOf("setTourOpen(true)"));
+}
+
 console.log(fails ? `\n${fails} falha(s)` : "\ntodos os testes passaram");
 process.exit(fails ? 1 : 0);

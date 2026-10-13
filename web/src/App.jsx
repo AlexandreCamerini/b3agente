@@ -6060,7 +6060,7 @@ function CarteiraScreen({ ctx }) {
             // mais `scrollIntoView`. A âncora FICA: é o mesmo mecanismo do
             // deep link de push acima, e removê-la quebraria um caminho que
             // não é desta fase.
-            <div key={p.t} id={"posicao-" + p.t} style={{ ...card, ...varsCartaoV6(themeKey, modo) }}>
+            <div key={p.t} id={"posicao-" + p.t} style={{ ...card, ...varsCartaoV6(themeKey, operador ? "operador" : "estudo") }}>
               <LinhaPosicao p={p} e={l.e} res={l.res} leitura={l.vig.leitura} atencao={l.atencao} textoVence={l.textoVence} modo={modo} onAbrir={() => setAbertaT(p.t)} />
             </div>
           );
@@ -6068,7 +6068,7 @@ function CarteiraScreen({ ctx }) {
         {avulsas.map((t) => {
           const mA = modeloAvulsa(t);
           return (
-            <div key={"avulsa-" + t} id={"posicao-" + t} style={{ ...card, ...varsCartaoV6(themeKey, modo) }}>
+            <div key={"avulsa-" + t} id={"posicao-" + t} style={{ ...card, ...varsCartaoV6(themeKey, operador ? "operador" : "estudo") }}>
               <LinhaPernaAvulsa t={t} e={mA.e} modoLeitura={mA.modoLeitura} atencao={mA.atencao} textoVence={mA.textoVence} modo={modo} onAbrir={() => setAbertaT(t)} />
             </div>
           );
@@ -9603,6 +9603,12 @@ export default function App() {
   useEffect(() => {
     if (tourShownRef.current || !data || !data.config) return;
     if (welcomeAuthOpen || welcomeOpen) return;      // espera o portão fechar
+    // 2026-10-13 (quick 261013-cqk, orquestrador): o efeito do portão de login (boot
+    // gate) roda DEPOIS deste no mesmo ciclo; sem esta guarda o guia abria com
+    // welcomeAuthOpen ainda false e, no z 1100, cobria a tela de login (o TourModal
+    // antigo, z 75, ficava escondido atrás dela). welcomeShownRef só fica true quando
+    // o portão já foi decidido (aberto, ou sessão restaurada).
+    if (!welcomeShownRef.current) return;
     tourShownRef.current = true;
     if (!data.config.tourSeen) setTourOpen(true);
   }, [data, welcomeAuthOpen, welcomeOpen]);
