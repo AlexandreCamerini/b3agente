@@ -1,7 +1,7 @@
 /* Dados das telas do Boris+ (guia de treinamento). Capturas de 09/10/2026 (02-acompanhar, 08-portfolio, web-portfolio e web-acompanhar refeitas em 10/10/2026 com o cartão do Operador IA), app local, dinheiro virtual.
    FONTE ÚNICA do guia: o site (js/guia.js) lê window.TELAS e o app (web/src/guiaTelas.js) importa este MESMO arquivo com ?raw. Contrato estrito: este comentário + `window.TELAS = <array JSON puro>;` (web/tests/test_guia_dados.mjs trava a paridade e o conteúdo).
-   Tela: {id, kind (m = celular, w = web), img, nh?, alt, titulo, sub, grupo, onde, objetivo, pontos, missao (UMA string: resultado verificável), quiz {q,o,a,why}}.
-   Ponto: {titulo, texto, x, y, w, h} (x/y/w/h = % da captura). Sem frase curta e sem aviso por ponto: o aviso legal vive num rodapé único. Reescrita 2026-10-11 (quick 261011-l5x): 95 -> 57 pontos. */
+   Tela: {id, kind (m = celular, w = web), img, nh?, alt, titulo, sub, grupo, onde, objetivo, visao (<= 220 car.: o que é → quando usar; só o app exibe, no cartão "Visão geral" aberto pelo Bóris), pontos, missao (UMA string: resultado verificável), quiz {q,o,a,why}}.
+   Ponto: {titulo, texto, x, y, w, h} (x/y/w/h = % da captura). Sem frase curta e sem aviso por ponto: o aviso legal vive num rodapé único. Reescrita 2026-10-11 (quick 261011-l5x): 95 -> 57 pontos. Nota 2026-10-12 (quick 261012-09v): guia único — 22 telas (+ modos e opia), 64 pontos, campo visao em todas. */
 window.TELAS = [
  {
   "id": "boas",
@@ -13,6 +13,7 @@ window.TELAS = [
   "grupo": "Primeiros passos",
   "onde": "Primeira abertura, depois de criar a conta",
   "objetivo": "Definir o ponto de partida do seu treino.",
+  "visao": "Primeira tela depois da conta: fixa o saldo simulado e o seu perfil de risco. Use para definir o ponto de partida do treino; dá para ajustar depois no Perfil.",
   "pontos": [
    {
     "titulo": "Orçamento simulado",
@@ -53,6 +54,7 @@ window.TELAS = [
   "grupo": "Primeiros passos",
   "onde": "Aba Acompanhar",
   "objetivo": "Ler o estado do seu dia de relance.",
+  "visao": "Sua página inicial, com o mercado, o resumo do dia e a curva do patrimônio. Use para ver de relance como está a carteira simulada antes de ir a outra aba.",
   "pontos": [
    {
     "titulo": "Estado do mercado",
@@ -100,6 +102,55 @@ window.TELAS = [
   }
  },
  {
+  "id": "modos",
+  "kind": "m",
+  "img": "img/16-operador-termo.jpg",
+  "alt": "Termo do Modo Operador sobre a tela inicial, com o selo MODO ESTUDO no topo e os botões Continuar no Estudo e Ativar Modo Operador.",
+  "titulo": "Os dois modos",
+  "sub": "Estudo × Operador",
+  "grupo": "Primeiros passos",
+  "onde": "Perfil → Modo de trabalho",
+  "objetivo": "Saber em qual modo você está e o que muda ao trocar.",
+  "visao": "O app tem dois modos: o Estudo, que explica, e o Operador, que fala como mesa. Use para saber em qual você está e como trocar.",
+  "pontos": [
+   {
+    "titulo": "Selo do modo",
+    "texto": "O selo no cabeçalho diz em qual modo você está. Para trocar, vá a Perfil → Modo de trabalho. A base técnica é a mesma nos dois; muda o jeito de falar.",
+    "x": 16.3,
+    "y": 10.5,
+    "w": 27,
+    "h": 2.6
+   },
+   {
+    "titulo": "Estudo: o professor",
+    "texto": "Descreve a condição e usa palavras como estudar alta ou baixa, monitorar, aguardar e não operar. Nunca dá ordem: quem decide é você.",
+    "x": 29.5,
+    "y": 76.1,
+    "w": 39,
+    "h": 6.8
+   },
+   {
+    "titulo": "Operador: a mesa",
+    "texto": "Fala como mesa: comprar, vender, aguardar confirmação ou não operar. Pede o aceite do termo e, mesmo assim, a execução segue simulada.",
+    "x": 70.7,
+    "y": 76.1,
+    "w": 38.6,
+    "h": 6.8
+   }
+  ],
+  "missao": "Ache o selo do modo no topo e diga se você está no Estudo ou no Operador.",
+  "quiz": {
+   "q": "No Modo Estudo, o app ao descrever um ativo:",
+   "o": [
+    "Dá a ordem de comprar.",
+    "Descreve a condição, sem ordem.",
+    "Envia a ordem à corretora."
+   ],
+   "a": 1,
+   "why": "O Estudo explica; decidir é sua parte, e nenhuma ordem sai do app."
+  }
+ },
+ {
   "id": "radar",
   "kind": "m",
   "img": "img/09-radar.jpg",
@@ -109,6 +160,7 @@ window.TELAS = [
   "grupo": "Descobrir e planejar",
   "onde": "Aba Radar (Mesa, no Modo Operador)",
   "objetivo": "Descobrir quais ativos têm condição técnica para estudar.",
+  "visao": "Varredura dos ativos com condição técnica para estudar, em ordem de estudo. Use para decidir quais olhar primeiro, nunca como lista de compra.",
   "pontos": [
    {
     "titulo": "IA no top-N",
@@ -173,6 +225,7 @@ window.TELAS = [
   "grupo": "Descobrir e planejar",
   "onde": "Aba Watchlist (Monitoramento, no Modo Operador)",
   "objetivo": "Acompanhar de perto os ativos que você escolheu estudar.",
+  "visao": "Os ativos que você escolheu acompanhar, cada um com preço, fonte e leitura do motor. Use para estudar poucos de perto, trocando o modelo de análise.",
   "pontos": [
    {
     "titulo": "Modelo de análise",
@@ -221,6 +274,7 @@ window.TELAS = [
   "grupo": "Descobrir e planejar",
   "onde": "Card de um ativo, na Watchlist",
   "objetivo": "Saber onde a ideia se invalida, se confirma e termina, antes de agir.",
+  "visao": "O plano de um ativo em três marcas: onde a ideia se invalida, se confirma e termina. Use antes de simular uma compra, para saber o que esperar.",
   "pontos": [
    {
     "titulo": "Régua do plano",
@@ -285,6 +339,7 @@ window.TELAS = [
   "grupo": "Operar no simulador",
   "onde": "Card do ativo → Simular compra…",
   "objetivo": "Enviar uma ordem virtual sabendo o que vai acontecer.",
+  "visao": "O ticket da ordem virtual, com quantidade, custo e regra de execução. Use para conferir o que vai acontecer antes de confirmar.",
   "pontos": [
    {
     "titulo": "Quantidade",
@@ -333,6 +388,7 @@ window.TELAS = [
   "grupo": "Operar no simulador",
   "onde": "Logo após confirmar, com o mercado fechado",
   "objetivo": "Entender o que acontece com uma ordem fora do pregão.",
+  "visao": "O que acontece com uma ordem enviada fora do pregão: ela espera. Use para entender por que o caixa já mudou sem a compra ter sido executada.",
   "pontos": [
    {
     "titulo": "Ordem pendente",
@@ -374,6 +430,7 @@ window.TELAS = [
   "grupo": "Operar no simulador",
   "onde": "Aba Portfólio (Posições, no Modo Operador)",
   "objetivo": "Ver resultado, caixa e o que está em posições.",
+  "visao": "Sua carteira simulada: patrimônio, caixa e posições. Use para ver o resultado sem maquiagem e rever as decisões que você já tomou.",
   "pontos": [
    {
     "titulo": "Patrimônio e resultado aberto",
@@ -413,6 +470,56 @@ window.TELAS = [
   }
  },
  {
+  "id": "opia",
+  "kind": "m",
+  "img": "img/08-portfolio.jpg",
+  "nh": 1775,
+  "alt": "Portfólio com o cartão do Operador IA no topo: estado “Desligado no servidor · Apenas sinalizar”, descrição e o botão Abrir.",
+  "titulo": "Operador IA",
+  "sub": "Cartão no topo do Portfólio",
+  "grupo": "Operar no simulador",
+  "onde": "Cartão do Operador IA, no topo do Portfólio e do Acompanhar",
+  "objetivo": "Entender o que o Operador IA faz e o que ele não faz.",
+  "visao": "O ajudante que vigia a carteira simulada pelas regras que você define. Use para entender o que ele faz, o que não faz e onde ajustar.",
+  "pontos": [
+   {
+    "titulo": "O que ele acompanha",
+    "texto": "Acompanha as posições da carteira simulada e avisa quando o preço chega ao stop ou ao alvo, pelas regras que você define. Roda no servidor: o app pode estar fechado.",
+    "x": 43.3,
+    "y": 27.8,
+    "w": 55.5,
+    "h": 9.1
+   },
+   {
+    "titulo": "Executar ou só sinalizar",
+    "texto": "Apenas sinalizar só registra e avisa; a opção executar vende, em simulação, quando o preço toca o stop ou o alvo. No Estudo o agente fica sempre em sinalizar.",
+    "x": 43.5,
+    "y": 21.7,
+    "w": 56,
+    "h": 2.6
+   },
+   {
+    "titulo": "Regras, tetos e intervalo",
+    "texto": "Atrás do Abrir ficam o liga-desliga, as regras de saída, o teto de operações por dia, o teto de valor por operação e o intervalo entre reavaliações. Sempre sobre a carteira simulada.",
+    "x": 82.4,
+    "y": 25.5,
+    "w": 12,
+    "h": 3
+   }
+  ],
+  "missao": "Ache o cartão no topo do Portfólio e diga o que aparece sob o nome: apenas sinalizar ou executar.",
+  "quiz": {
+   "q": "No Modo Estudo, o Operador IA pode vender sozinho?",
+   "o": [
+    "Sim, no stop.",
+    "Não: só sinaliza.",
+    "Sim, se o alvo for atingido."
+   ],
+   "a": 1,
+   "why": "Fora do Modo Operador ele fica em sinalizar, sempre."
+  }
+ },
+ {
   "id": "opc",
   "kind": "m",
   "img": "img/10-opcoes.jpg",
@@ -422,6 +529,7 @@ window.TELAS = [
   "grupo": "Opções",
   "onde": "Aba Opções",
   "objetivo": "Estudar opções sobre as ações que você já tem.",
+  "visao": "A aba onde se estudam opções sobre as ações que você já tem. Use para conhecer o ativo e a semana dele antes de escolher proteção ou renda.",
   "pontos": [
    {
     "titulo": "Ativo em carteira",
@@ -446,6 +554,14 @@ window.TELAS = [
     "y": 82.3,
     "w": 83,
     "h": 2.4
+   },
+   {
+    "titulo": "Dado de fim de pregão",
+    "texto": "A aba lê o fim do pregão, não o preço de agora. Campo que o serviço não mandou aparece como travessão (—), nunca como zero. Nenhuma ordem sai desta aba.",
+    "x": 40.9,
+    "y": 28.2,
+    "w": 68,
+    "h": 7
    }
   ],
   "missao": "Ache o ativo em carteira e quantas ações estão livres como lastro.",
@@ -470,6 +586,7 @@ window.TELAS = [
   "grupo": "Opções",
   "onde": "Opções → card do ativo",
   "objetivo": "Escolher o que fazer com as ações.",
+  "visao": "Escolha do objetivo: proteger, gerar renda ou proteger barato. Use quando já sabe o que quer da carteira, para ver o que cada caminho custa.",
   "pontos": [
    {
     "titulo": "O que você quer fazer?",
@@ -518,6 +635,7 @@ window.TELAS = [
   "grupo": "Opções",
   "onde": "Opções → Proteger de queda",
   "objetivo": "Escolher o piso da proteção.",
+  "visao": "Escolha do nível de proteção, do mais protegido ao mais barato. Use para comparar as três opções antes de ver o pior caso.",
   "pontos": [
    {
     "titulo": "Vencimento",
@@ -566,6 +684,7 @@ window.TELAS = [
   "grupo": "Opções",
   "onde": "Opções → depois de escolher um nível",
   "objetivo": "Ler o pior caso antes de decidir.",
+  "visao": "O pior caso da estrutura escolhida, comparado ao de ficar só com as ações. Use para ler a perda máxima antes de decidir.",
   "pontos": [
    {
     "titulo": "Preço no vencimento",
@@ -614,6 +733,7 @@ window.TELAS = [
   "grupo": "Opções",
   "onde": "Opções → Ver os números",
   "objetivo": "Ler o gráfico de resultado no vencimento.",
+  "visao": "O gráfico do resultado no vencimento, para cada preço possível. Use para testar cenários e ver onde a estrutura ajuda ou pesa.",
   "pontos": [
    {
     "titulo": "O gráfico",
@@ -662,6 +782,7 @@ window.TELAS = [
   "grupo": "Opções",
   "onde": "Opções → Escolher este (Modo Estudo)",
   "objetivo": "Rever a estrutura antes de decidir, sem executar.",
+  "visao": "Revisão final da estrutura, sem execução. Use para conferir contratos, lastro e prêmio no Modo Estudo, ou para criar uma vigia.",
   "pontos": [
    {
     "titulo": "A estrutura",
@@ -718,6 +839,7 @@ window.TELAS = [
   "grupo": "Modo Operador",
   "onde": "Perfil → Modo de trabalho → Operador",
   "objetivo": "Entender o compromisso antes de ativar o Operador.",
+  "visao": "O termo de responsabilidade do Modo Operador. Use para ler o compromisso e decidir se continua no Estudo ou ativa o Operador.",
   "pontos": [
    {
     "titulo": "O termo",
@@ -758,6 +880,7 @@ window.TELAS = [
   "grupo": "Modo Operador",
   "onde": "Modo Operador → Opções",
   "objetivo": "Acompanhar a estrutura aberta sobre o ativo.",
+  "visao": "A estrutura já aberta sobre o ativo, no Modo Operador. Use para conferir pernas, vigias e quantas ações estão travadas como lastro.",
   "pontos": [
    {
     "titulo": "Estrutura aberta",
@@ -798,6 +921,7 @@ window.TELAS = [
   "grupo": "Bóris",
   "onde": "Coruja flutuante, em qualquer tela do Estudo",
   "objetivo": "Tirar dúvidas com quem conhece a tela em que você está.",
+  "visao": "A coruja que explica a tela em que você está. Use para tirar dúvida de um conceito ou de um número, sem pedir ordem nem previsão.",
   "pontos": [
    {
     "titulo": "O que o Bóris não faz",
@@ -846,6 +970,7 @@ window.TELAS = [
   "grupo": "Versão web",
   "onde": "Navegador · aba Acompanhar",
   "objetivo": "Usar o app em tela larga.",
+  "visao": "O Acompanhar na tela larga do navegador. Use para percorrer os setups em carrossel com mais espaço.",
   "pontos": [
    {
     "titulo": "Setups em carrossel",
@@ -878,6 +1003,7 @@ window.TELAS = [
   "grupo": "Versão web",
   "onde": "Navegador · Watchlist",
   "objetivo": "Comparar ativos lado a lado.",
+  "visao": "A Watchlist no navegador, com mais de um plano na mesma tela. Use para comparar ativos lado a lado.",
   "pontos": [
    {
     "titulo": "Dois planos lado a lado",
@@ -918,6 +1044,7 @@ window.TELAS = [
   "grupo": "Versão web",
   "onde": "Navegador · Portfólio",
   "objetivo": "Ver a carteira simulada no navegador.",
+  "visao": "O Portfólio no navegador, em cartões lado a lado. Use para conferir patrimônio e caixa com mais espaço.",
   "pontos": [
    {
     "titulo": "Patrimônio total",
