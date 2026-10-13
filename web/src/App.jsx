@@ -15,6 +15,7 @@ import { varsCartaoV6, ALFA_ZONA_V6, ALFA_ZONA_MEIO_V6 } from "./cartaoV6Cores.j
 // -> tela do guia mora em guiaNav.js (GUIA_DA_TELA_APP).
 import { useEstadoMemorizado } from "./uiMemo.js";
 import VoltarPadrao from "./VoltarPadrao.jsx"; // Onda B (2026-10-08): Voltar único // Onda B (2026-10-08): estado de UI que sobrevive à troca de aba (só sessão)
+import { prioridadeAtencao, ordenarLinhas } from "./listaPosicoes.js"; // quick 261013-cqk (2026-10-13): prioridade/ordenação puras da lista de posições
 import { useDialogA11y } from "./useDialogA11y.js"; // Onda A (2026-10-08): Esc + foco + devolução nos modais
 import { defsDaBarra, telaDoAssistente } from "./telas.js";
 import { profundidade, profundidadeDeTela, modalDoTopo, campoDeTextoFocado, subirNivel, reconciliarPilha, entradasOrfas, ehGestoVoltarBorda, chaveDeScroll, chaveDeTela, transicaoDe, classeDaTransicao } from "./navStack.js"; // Onda B (2026-10-08): voltar do sistema
@@ -1959,7 +1960,8 @@ function ChartSkeleton() {
 }
 
 // Bottom sheet arrastável (fecha ao puxar para baixo).
-function BottomSheet({ onClose, label, children }) {
+// quick 261013-cqk (2026-10-13): zIndex opcional (default 1000) — a folha da posição usa 45, a camada mais baixa, para que compra/venda/stop-alvo abertos de dentro dela fiquem por cima.
+function BottomSheet({ onClose, label, children, zIndex = 1000 }) {
   const painelRef = useDialogA11y(true, onClose);
   const [dy, setDy] = useState(0);
   const [dragging, setDragging] = useState(false);
@@ -1968,7 +1970,7 @@ function BottomSheet({ onClose, label, children }) {
   const onMove = (e) => { if (!dragging) return; setDy(Math.max(0, e.clientY - startY.current)); };
   const onUp = () => { if (!dragging) return; setDragging(false); if (dy > 110) onClose(); else setDy(0); };
   return (
-    <div onClick={onClose} role="dialog" aria-modal="true" aria-label={label} style={{ position: "fixed", inset: 0, zIndex: 1000, background: "rgba(0,0,0,0.62)", display: "flex", flexDirection: "column" }}>
+    <div onClick={onClose} role="dialog" aria-modal="true" aria-label={label} style={{ position: "fixed", inset: 0, zIndex, background: "rgba(0,0,0,0.62)", display: "flex", flexDirection: "column" }}>
       <div
         onClick={(e) => e.stopPropagation()} ref={painelRef} tabIndex={-1} className={REDUCE_MOTION ? undefined : "sheet-enter"}
         style={{ outline: "none", marginTop: "auto", background: T.bgBase, borderTopLeftRadius: "20px", borderTopRightRadius: "20px", borderTop: `1px solid ${T.borderSubtle}`, maxHeight: "94vh", display: "flex", flexDirection: "column", paddingBottom: "env(safe-area-inset-bottom)", transform: `translateY(${dy}px)`, transition: dragging || REDUCE_MOTION ? "none" : "transform .22s ease" }}
@@ -4934,8 +4936,9 @@ function CartaoPernaAvulsa({ t, nomeEmpresa, leitura, cp, operador, ctx, data, o
   );
 }
 
-function CartaoPosicao({ p, nomeEmpresa, modoLeitura, leituraEstrutura, leituraPlano, situacaoPlano, onTentarPlano, cp, operador, ctx, data, total, onAtualizar, histAberto, onHist, editAberto, onEditar }) {
-  const [aberto, setAberto] = useState(false);
+function CartaoPosicao({ p, nomeEmpresa, modoLeitura, leituraEstrutura, leituraPlano, situacaoPlano, onTentarPlano, cp, operador, ctx, data, total, onAtualizar, histAberto, onHist, editAberto, onEditar, naFolha, onFecharFolha }) {
+  // quick 261013-cqk (2026-10-13): na folha da lista o card já nasce aberto e o rodapé fecha a folha.
+  const [aberto, setAberto] = useState(!!naFolha);
   // 46-06 (D-17): face e expansor de compras locais por posição; sobrevivem a
   // fechar/abrir na sessão (não persistidos). null = ainda sem escolha do usuário.
   const [faceEscolhida, setFaceEscolhida] = useState(null);
@@ -5046,6 +5049,7 @@ function CartaoPosicao({ p, nomeEmpresa, modoLeitura, leituraEstrutura, leituraP
       <button
         type="button"
         onClick={() => {
+          if (naFolha) { onFecharFolha(); return; }
           const fechando = aberto;
           setAberto((v) => !v);
           if (fechando) requestAnimationFrame(() => { if (raizRef.current) raizRef.current.scrollIntoView({ block: "nearest" }); });
@@ -5056,8 +5060,140 @@ function CartaoPosicao({ p, nomeEmpresa, modoLeitura, leituraEstrutura, leituraP
       >
         {cartaoPosicaoTxt(modo, aberto ? "rodape_fechar" : "rodape_abrir")}
       </button>
-      {aberto && <div aria-hidden style={{ height: FOLGA_FAB_PET }} />}
+      {/* quick 261013-cqk: sob a folha o FAB some (overlayLivre), então a folga seria espaço vazio */}
+      {aberto && !naFolha && <div aria-hidden style={{ height: FOLGA_FAB_PET }} />}
     </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// quick 261013-cqk (2026-10-13) — lista compacta de posições + folha (opção B).
+// Nenhuma conta aqui: ordem e chip vêm de listaPosicoes.js (que lê o MESMO estado
+// principal do card, inclusive a proximidade do backend); estas peças só desenham.
+// ---------------------------------------------------------------------------
+const CORES_TOM_LISTA = { atencao: T.warn, info: T.borderDashed, encerrada: T.textMuted, neutro: T.borderSubtle };
+
+// Texto do chip de atenção: estado do motor/plano, ou o texto de vencimento.
+function textoChipAtencao(chip, modo, textoVence) {
+  if (!chip) return null;
+  if (chip.tipo === "vencimento") return textoVence || null;
+  if (chip.chave === "motor") return (chip.vals && chip.vals.texto) || null;
+  return cartaoPosicaoTxt(modo, chip.chave, chip.vals) || null;
+}
+
+function ChipsOrdenacaoPosicoes({ ordem, onOrdem, modo }) {
+  const itens = [["atencao", "ordenar_atencao"], ["resultado", "ordenar_resultado"], ["vencimento", "ordenar_vencimento"]];
+  return (
+    <div role="group" aria-label={cartaoPosicaoTxt(modo, "ordenar_aria")} style={{ display: "flex", flexWrap: "wrap", gap: `${SP[2]}px`, marginBottom: `${SP[3]}px` }}>
+      {itens.map(([c, chave]) => (
+        <button key={c} type="button" aria-pressed={ordem === c} onClick={() => onOrdem(c)} style={{ minHeight: 44, borderRadius: "999px", padding: `0 ${SP[3]}px`, background: ordem === c ? T.accentTint : "transparent", border: `1px solid ${ordem === c ? T.accent : T.borderSubtle}`, color: ordem === c ? T.accent : T.textSecondary, fontSize: TIPO_CARD.corpo, ...(ordem === c ? { fontWeight: 700 } : { fontWeight: 400 }) }}>
+          {cartaoPosicaoTxt(modo, chave)}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function ChipAtencaoLista({ chip, modo, textoVence }) {
+  const txt = textoChipAtencao(chip, modo, textoVence);
+  if (!chip || !txt) return null;
+  if (chip.tipo === "vencimento") {
+    return <span style={{ display: "inline-flex", alignItems: "center", background: T.warnTint10, border: `1px solid ${T.warn}`, color: T.warn, padding: `${SP[1]}px ${SP[2]}px`, borderRadius: "999px", fontSize: TIPO_CARD.chip, fontWeight: 700, whiteSpace: "nowrap" }}>{txt}</span>;
+  }
+  return (
+    <span style={{ display: "inline-flex", alignItems: "center", gap: `${SP[1]}px`, borderRadius: "999px", background: T.bgBase, border: `1px solid ${CORES_TOM_LISTA[chip.tom] || T.borderSubtle}`, color: T.textSecondary, fontSize: TIPO_CARD.chip, padding: `${SP[1]}px ${SP[2]}px` }}>
+      {chip.glifo === "cadeado" ? <IconeCadeado /> : <span aria-hidden>{chip.glifo}</span>}
+      <span>{txt}</span>
+    </span>
+  );
+}
+
+// Trilho fino stop / PM / agora / alvo; posições só por dominioRegua + posRegua.
+function MiniReguaLista({ p, leitura }) {
+  if (!p || p.stop == null || p.alvo == null) return null;
+  const preco = leitura && leitura.preco != null ? leitura.preco : null;
+  if (preco == null) return null;
+  const dom = dominioRegua([p.stop, p.alvo, p.avg, preco]);
+  if (!dom) return null;
+  const traco = (v, cor, larg) => (
+    <div aria-hidden style={{ position: "absolute", top: "-3px", width: larg + "px", height: "10px", transform: "translateX(-50%)", left: posRegua(v, dom) + "%", background: cor }} />
+  );
+  return (
+    <div aria-hidden style={{ position: "relative", flex: "1 1 64px", minWidth: "64px", height: "4px", borderRadius: "999px", background: T.knob }}>
+      {traco(p.stop, T.negative, 2)}
+      {traco(p.alvo, T.positive, 2)}
+      {p.avg != null && traco(p.avg, T.textSecondary, 2)}
+      <div aria-hidden style={{ position: "absolute", top: "50%", left: posRegua(preco, dom) + "%", width: "10px", height: "10px", borderRadius: "50%", boxSizing: "border-box", transform: "translate(-50%,-50%)", background: T.textPrimary, border: `2px solid ${T.bgCard}` }} />
+    </div>
+  );
+}
+
+// Faixa curta da estrutura (piso/teto vêm do motor).
+function textoFaixaLista(e, modo) {
+  if (!e || !e.faixa) return null;
+  const piso = e.faixa.piso == null ? cartaoPosicaoTxt(modo, "sem_piso") : price(e.faixa.piso);
+  const teto = e.faixa.teto == null ? cartaoPosicaoTxt(modo, "sem_teto") : price(e.faixa.teto);
+  return cartaoPosicaoTxt(modo, "linha_faixa", { piso, teto });
+}
+
+// Corpo comum das linhas: botão único de 2 andares.
+function CorpoLinhaLista({ ticker, selo, valorTxt, corValor, chipTopo, legendaTopo, meio, atencao, textoVence, variacao, modo, onAbrir }) {
+  const estadoTxt = textoChipAtencao(atencao.chip, modo, textoVence);
+  const aria = estadoTxt
+    ? cartaoPosicaoTxt(modo, "linha_aria", { ticker, resultado: valorTxt, estado: estadoTxt })
+    : cartaoPosicaoTxt(modo, "linha_aria_sem_estado", { ticker, resultado: valorTxt });
+  return (
+    <button type="button" onClick={onAbrir} aria-haspopup="dialog" aria-label={aria} style={{ display: "block", width: "100%", minHeight: 44, textAlign: "left", background: "transparent", border: "none", padding: `${SP[3]}px`, color: T.textPrimary }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: `${SP[3]}px` }}>
+        <div style={{ display: "flex", alignItems: "baseline", flexWrap: "wrap", gap: `${SP[2]}px`, minWidth: 0 }}>
+          <span style={{ fontFamily: MONO, fontWeight: 700, fontSize: TIPO_CARD.corpo }}>{ticker}</span>
+          {selo && <span style={{ fontSize: TIPO_CARD.legenda, fontWeight: 400, color: T.textSecondary }}>{selo}</span>}
+        </div>
+        <div style={{ flex: "0 0 auto", textAlign: "right", whiteSpace: "nowrap" }}>
+          <div style={{ fontFamily: MONO, fontVariantNumeric: "tabular-nums", fontWeight: 700, fontSize: TIPO_CARD.corpo, color: corValor }}>{valorTxt}</div>
+          {chipTopo ? (
+            <span style={{ display: "inline-block", marginTop: `${SP[1]}px`, background: "var(--cv-pendente-bg)", color: "var(--cv-pendente-texto)", borderRadius: "999px", fontSize: TIPO_CARD.chip, padding: `${SP[1]}px ${SP[2]}px`, whiteSpace: "nowrap" }}>{cartaoPosicaoTxt(modo, chipTopo)}</span>
+          ) : legendaTopo ? (
+            <div style={{ fontSize: TIPO_CARD.legenda, fontWeight: 400, color: T.textSecondary }}>{cartaoPosicaoTxt(modo, legendaTopo)}</div>
+          ) : null}
+        </div>
+      </div>
+      <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: `${SP[2]}px`, marginTop: `${SP[2]}px` }}>
+        {meio}
+        <ChipAtencaoLista chip={atencao.chip} modo={modo} textoVence={textoVence} />
+        {variacao != null && <span style={{ marginLeft: "auto", fontFamily: MONO, fontVariantNumeric: "tabular-nums", fontSize: TIPO_CARD.rotulo, fontWeight: 400, color: T.textSecondary }}>{pct(variacao)}</span>}
+      </div>
+    </button>
+  );
+}
+
+function LinhaPosicao({ p, e, res, leitura, atencao, textoVence, modo, onAbrir }) {
+  const valor = res.cabecalho.valor;
+  const corValor = valor == null ? T.textMuted : sinalResultado(valor) === "pos" ? T.positive : sinalResultado(valor) === "neg" ? T.negative : T.textMuted;
+  const valorTxt = valor == null && res.chipCabecalho ? cartaoPosicaoTxt(modo, res.chipCabecalho) : rsSinalNbsp(valor);
+  const leg = res.cabecalho.legenda;
+  const legendaTopo = leg === "legenda_resultado_so_acoes" || leg === "legenda_resultado_estrutura" ? leg : null;
+  const faixa = textoFaixaLista(e, modo);
+  const meio = e
+    ? (faixa ? <span style={{ fontSize: TIPO_CARD.rotulo, fontWeight: 400, color: T.textSecondary }}>{faixa}</span> : null)
+    : <MiniReguaLista p={p} leitura={leitura} />;
+  const variacao = leitura && leitura.variacaoPct != null ? leitura.variacaoPct : null;
+  const selo = e ? cartaoPosicaoTxt(modo, "selo_estrutura", { nome: e.nomeTexto }) : null;
+  return (
+    <CorpoLinhaLista ticker={p.t} selo={selo} valorTxt={valorTxt} corValor={corValor} chipTopo={res.chipCabecalho} legendaTopo={legendaTopo} meio={meio} atencao={atencao} textoVence={textoVence} variacao={variacao} modo={modo} onAbrir={onAbrir} />
+  );
+}
+
+function LinhaPernaAvulsa({ t, e, modoLeitura, atencao, textoVence, modo, onAbrir }) {
+  const res = linhasResultadoV6({ estrutura: e });
+  const valor = e ? res.cabecalho.valor : null;
+  const corValor = valor == null ? T.textMuted : sinalResultado(valor) === "pos" ? T.positive : sinalResultado(valor) === "neg" ? T.negative : T.textMuted;
+  const lendo = modoLeitura === "carregando" || modoLeitura === "falha";
+  const valorTxt = e ? (valor == null ? cartaoPosicaoTxt(modo, "chip_total_suspenso") : rsSinalNbsp(valor)) : (lendo ? estruturaCardTxt(modo, modoLeitura === "carregando" ? "lendo" : "indisponivel") : "—");
+  const faixa = textoFaixaLista(e, modo);
+  const meio = faixa ? <span style={{ fontSize: TIPO_CARD.rotulo, fontWeight: 400, color: T.textSecondary }}>{faixa}</span> : null;
+  return (
+    <CorpoLinhaLista ticker={t} selo={cartaoPosicaoTxt(modo, "selo_so_opcoes")} valorTxt={valorTxt} corValor={corValor} chipTopo={null} legendaTopo={null} meio={meio} atencao={atencao} textoVence={textoVence} variacao={null} modo={modo} onAbrir={onAbrir} />
   );
 }
 
@@ -5730,6 +5866,10 @@ function CarteiraScreen({ ctx }) {
   const [histFor, setHistFor] = useState(null);
   // FASE 3 (mock v2): edição de stop/alvo sob demanda + compras da posição
   const [editFor, setEditFor] = useState(null);
+  // quick 261013-cqk (2026-10-13): lista compacta + folha. `ordem` = critério da lista
+  // (sem persistência); `abertaT` = ticker cuja folha de detalhe está aberta.
+  const [ordem, setOrdem] = useState("atencao");
+  const [abertaT, setAbertaT] = useState(null);
   const { data, quotes, analysis, A, goMercado, cp, operador } = ctx;   // FASE 8B (B1)
   const themeKey = useThemeKey();
   // Fase 45 (D-01..D-04): leitura da estrutura só para ativos com pernas abertas.
@@ -5742,6 +5882,19 @@ function CarteiraScreen({ ctx }) {
   // quick 261006-axi (2026-10-06): ativo só com opção (sem ações) ganha card próprio.
   const avulsas = tickersSoComPernas(data.positions, data.optionPositions);
   useEffect(() => { track("portfolio_view"); }, []);   // qa/47 (Fase 2)
+  // quick 261013-cqk: posição vendida de dentro da folha -> fecha (nunca folha vazia).
+  // Guarda `abertaT && !abertaExiste` faz o efeito parar após um único setAbertaT(null); deps primitivas.
+  const abertaExiste = !!abertaT && (data.positions.some((x) => x.t === abertaT) || avulsas.includes(abertaT));
+  useEffect(() => { if (abertaT && !abertaExiste) setAbertaT(null); }, [abertaT, abertaExiste]);
+  // Canal com o App (padrão Radar/Onda J): a folha vira a camada "posicao" do estadoNav.
+  useEffect(() => { if (ctx.reportarNavPosicao) ctx.reportarNavPosicao(!!abertaT); }, [abertaT]);
+  useEffect(() => {
+    if (ctx.registrarFecharPosicao) ctx.registrarFecharPosicao(() => setAbertaT(null));
+    return () => {
+      if (ctx.registrarFecharPosicao) ctx.registrarFecharPosicao(null);
+      if (ctx.reportarNavPosicao) ctx.reportarNavPosicao(false);
+    };
+  }, []);
   // Fase 32 (32-04): o estado de "qual posição tem o detalhe de opções
   // aberto" (Fase 18, NAV-02) e a chamada do hook de fan-out gate→proposta
   // por ticker (Fase 18/32-03) foram removidos — o card de detalhe de
@@ -5755,6 +5908,57 @@ function CarteiraScreen({ ctx }) {
   const cost = m.cost;
   const openPnL = m.openPnL;
   const openPct = m.openPct;
+  const modo = operador ? "operador" : "estudo";
+  const textoVenceDe = (e) => {
+    const vc = e ? chipVencimento(e) : null;
+    return vc ? (vc.tipo === "hoje" ? cp.chipVenceHoje : vc.tipo === "vencida" ? cp.chipVencida(vc.ddmm) : cp.chipVence(vc.ddmm, vc.dias == null ? "—" : vc.dias)) : null;
+  };
+  const linhas = data.positions.map((p) => {
+    const q = byQ(p.t);
+    const leitura = leituras[p.t];
+    const modoLeitura = estadoLeitura(comPernas.has(p.t), leitura);
+    if (q && typeof q.name === "string" && q.name.trim()) nomesRef.current[p.t] = q.name.trim();
+    const nomeEmpresa = nomeEmpresaCard(p.t, q, data.catalog, nomesRef.current[p.t]);
+    const vig = situacaoLeituraPlano({ status: plano.status, leitura: plano.leituras[p.t], sigAtual: plano.sigs[p.t] });
+    const e = modoLeitura === "estruturada" && leitura ? leitura.estrutura : null;
+    const res = linhasResultadoV6({ estrutura: e, leituraPlano: vig.leitura, pctCapital: null, situacaoPlano: vig.situacao, estruturaPendente: modoLeitura === "carregando" || modoLeitura === "falha" });
+    const atencao = prioridadeAtencao({ p, estrutura: e, leituraPlano: vig.leitura, situacaoPlano: vig.situacao });
+    return { p, t: p.t, nivel: atencao.nivel, resultado: res.cabecalho.valor, dias: e ? e.diasParaVencimento : null, leitura, modoLeitura, nomeEmpresa, vig, e, res, atencao, textoVence: textoVenceDe(e) };
+  });
+  const modeloAvulsa = (t) => {
+    const q = byQ(t);
+    if (q && typeof q.name === "string" && q.name.trim()) nomesRef.current[t] = q.name.trim();
+    const leitura = leituras[t];
+    const modoLeitura = estadoLeitura(true, leitura);
+    const e = modoLeitura === "estruturada" && leitura ? leitura.estrutura : null;
+    const atencao = prioridadeAtencao({ p: null, estrutura: e, leituraPlano: null, situacaoPlano: "ok" });
+    return { t, leitura, modoLeitura, e, atencao, textoVence: textoVenceDe(e), nomeEmpresa: nomeEmpresaCard(t, q, data.catalog, nomesRef.current[t]) };
+  };
+  // Folha de detalhe (camada "posicao", z 45): o mesmo CartaoPosicao de antes, já aberto.
+  const folha = (() => {
+    if (!abertaT || !abertaExiste) return null;
+    const lin = linhas.find((l) => l.t === abertaT);
+    const rotuloFolha = cartaoPosicaoTxt(modo, "folha_aria", { ticker: abertaT });
+    const rolagem = { flex: "1 1 auto", minHeight: 0, overflowY: "auto", overscrollBehavior: "contain", width: "100%", maxWidth: CONTENT_MAX_WIDTH, margin: "0 auto", boxSizing: "border-box", background: T.bgCard, padding: `${SP[4]}px`, ...varsCartaoV6(themeKey, modo) };
+    if (lin) {
+      const p = lin.p;
+      return (
+        <BottomSheet zIndex={45} onClose={() => setAbertaT(null)} label={rotuloFolha}>
+          <div style={rolagem}>
+            <CartaoPosicao p={p} nomeEmpresa={lin.nomeEmpresa} modoLeitura={lin.modoLeitura} leituraEstrutura={lin.leitura} leituraPlano={lin.vig.leitura} situacaoPlano={lin.vig.situacao} onTentarPlano={plano.tentarDeNovo} cp={cp} operador={operador} ctx={ctx} data={data} total={total} onAtualizar={() => atualizarEstrutura(p.t)} histAberto={histFor === p.t} onHist={() => setHistFor(histFor === p.t ? null : p.t)} editAberto={editFor === p.t} onEditar={() => setEditFor(editFor === p.t ? null : p.t)} naFolha onFecharFolha={() => setAbertaT(null)} />
+          </div>
+        </BottomSheet>
+      );
+    }
+    const mA = modeloAvulsa(abertaT);
+    return (
+      <BottomSheet zIndex={45} onClose={() => setAbertaT(null)} label={rotuloFolha}>
+        <div style={rolagem}>
+          <CartaoPernaAvulsa t={abertaT} nomeEmpresa={mA.nomeEmpresa} leitura={mA.leitura} cp={cp} operador={operador} ctx={ctx} data={data} onAtualizar={() => atualizarEstrutura(abertaT)} />
+        </div>
+      </BottomSheet>
+    );
+  })();
   return (
     <div>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "10px" }}>
@@ -5840,14 +6044,13 @@ function CarteiraScreen({ ctx }) {
         </div>
       )}
 
+      {/* quick 261013-cqk (2026-10-13, opção B): lista compacta (uma linha de 2 andares por
+          posição) e folha de detalhe com o CartaoPosicao reutilizado já aberto. Ordem e chip
+          vêm de listaPosicoes.js; nenhuma conta aqui. */}
+      {data.positions.length + avulsas.length >= 2 && <ChipsOrdenacaoPosicoes ordem={ordem} onOrdem={setOrdem} modo={modo} />}
       <div style={{ display: "flex", flexDirection: "column", gap: "11px" }}>
-        {data.positions.map((p) => {
-          const q = byQ(p.t);
-          const leitura = leituras[p.t];
-          const modoLeitura = estadoLeitura(comPernas.has(p.t), leitura);
-          if (q && typeof q.name === "string" && q.name.trim()) nomesRef.current[p.t] = q.name.trim();
-          const nomeEmpresa = nomeEmpresaCard(p.t, q, data.catalog, nomesRef.current[p.t]);
-          const vig = situacaoLeituraPlano({ status: plano.status, leitura: plano.leituras[p.t], sigAtual: plano.sigs[p.t] });
+        {ordenarLinhas(linhas, ordem).map((l) => {
+          const { p } = l;
           return (
             // id: âncora de scroll — mesmo mecanismo já em produção pro deep
             // link do push (App.jsx:7446-7449, "ativo-"+t). Fase 32 (32-04):
@@ -5857,23 +6060,21 @@ function CarteiraScreen({ ctx }) {
             // mais `scrollIntoView`. A âncora FICA: é o mesmo mecanismo do
             // deep link de push acima, e removê-la quebraria um caminho que
             // não é desta fase.
-            <div key={p.t} id={"posicao-" + p.t} style={{ ...card, ...varsCartaoV6(themeKey, operador ? "operador" : "estudo"), padding: `${SP[4]}px` }}>
-              {/* Fase 46 (CART6-01/02, D-13/D-14): card v6 para TODA posição; aberto,
-                  o corpo (faces Ação | Opções + Bóris IA) vive em CartaoPosicao. */}
-              <CartaoPosicao p={p} nomeEmpresa={nomeEmpresa} modoLeitura={modoLeitura} leituraEstrutura={leitura} leituraPlano={vig.leitura} situacaoPlano={vig.situacao} onTentarPlano={plano.tentarDeNovo} cp={cp} operador={operador} ctx={ctx} data={data} total={total} onAtualizar={() => atualizarEstrutura(p.t)} histAberto={histFor === p.t} onHist={() => setHistFor(histFor === p.t ? null : p.t)} editAberto={editFor === p.t} onEditar={() => setEditFor(editFor === p.t ? null : p.t)} />
+            <div key={p.t} id={"posicao-" + p.t} style={{ ...card, ...varsCartaoV6(themeKey, modo) }}>
+              <LinhaPosicao p={p} e={l.e} res={l.res} leitura={l.vig.leitura} atencao={l.atencao} textoVence={l.textoVence} modo={modo} onAbrir={() => setAbertaT(p.t)} />
             </div>
           );
         })}
         {avulsas.map((t) => {
-          const q = byQ(t);
-          if (q && typeof q.name === "string" && q.name.trim()) nomesRef.current[t] = q.name.trim();
+          const mA = modeloAvulsa(t);
           return (
-            <div key={"avulsa-" + t} id={"posicao-" + t} style={{ ...card, ...varsCartaoV6(themeKey, operador ? "operador" : "estudo"), padding: `${SP[4]}px` }}>
-              <CartaoPernaAvulsa t={t} nomeEmpresa={nomeEmpresaCard(t, q, data.catalog, nomesRef.current[t])} leitura={leituras[t]} cp={cp} operador={operador} ctx={ctx} data={data} onAtualizar={() => atualizarEstrutura(t)} />
+            <div key={"avulsa-" + t} id={"posicao-" + t} style={{ ...card, ...varsCartaoV6(themeKey, modo) }}>
+              <LinhaPernaAvulsa t={t} e={mA.e} modoLeitura={mA.modoLeitura} atencao={mA.atencao} textoVence={mA.textoVence} modo={modo} onAbrir={() => setAbertaT(t)} />
             </div>
           );
         })}
       </div>
+      {folha}
     </div>
   );
 }
@@ -9028,6 +9229,9 @@ export default function App() {
   const opcoesVoltarRef = useRef(null);
   const [radarNav, setRadarNav] = useState({ card: false, deep: false }); // Onda J: RadarScreen relata card aberto/DeepModal
   const radarFecharRef = useRef(null);
+  // quick 261013-cqk (2026-10-13): CarteiraScreen relata a folha de detalhe da posição (camada "posicao") e registra como fechá-la.
+  const [posicaoNav, setPosicaoNav] = useState(false);
+  const posicaoFecharRef = useRef(null);
   // Fase 39 (NAV-01): pedido one-shot de aba inicial da tela Opções —
   // consumido e limpo pelo OpcoesScreen no mount; não é persistência (isso é
   // a Fase 40, ESTADO-01— que persiste em sessão via `opcoesMemoria` abaixo).
@@ -10321,7 +10525,7 @@ export default function App() {
     conceito: conceitoAberto ? { trilha: (conceitoAberto.trilha || []).length } : null,
     // Onda J (2026-10-10, quick 261010-f50): camadas como LISTA (J-D1), card expandido (J-D5/J-D6),
     // StopAlvo e Auth incluídos (J-D7). Ordem real de z-index fica em navStack.ORDEM_CAMADAS.
-    modais: [catalogOpen && "catalog", buyModal && "buy", sellModal && "sell", stopAlvoFor && "stopAlvo", tab === "radar" && radarNav.deep && "radarDeep", aboutOpen && "about", tourOpen && "tour", authOpen && "auth", petOpen && "pet", borisIntroOpen && "borisIntro", techFor && "tech"].filter(Boolean),
+    modais: [tab === "carteira" && carteiraView === "main" && posicaoNav && "posicao", catalogOpen && "catalog", buyModal && "buy", sellModal && "sell", stopAlvoFor && "stopAlvo", tab === "radar" && radarNav.deep && "radarDeep", aboutOpen && "about", tourOpen && "tour", authOpen && "auth", petOpen && "pet", borisIntroOpen && "borisIntro", techFor && "tech"].filter(Boolean),
     cardExpandido: tab === "mercado" ? Object.values(expanded).some(Boolean) : tab === "radar" ? !!radarNav.card : false,
   };
   const profNav = profundidade(estadoNav);
@@ -10346,6 +10550,7 @@ export default function App() {
         auth: () => setAuthOpen(false), pet: () => setPetOpen(false),
         borisIntro: () => ctx.marcarBorisIntroVisto(),
         tech: A.closeTech,
+        posicao: () => { if (posicaoFecharRef.current) posicaoFecharRef.current(); },
       };
       const fn = fecharCamada[modalDoTopo(estadoNavRef.current)];
       if (!fn) return false;
@@ -10456,6 +10661,8 @@ export default function App() {
     // Onda J (J-D6): canal do Radar (card aberto / DeepModal), mesmo padrão das Opções.
     reportarNavRadar: (card, deep) => setRadarNav((p) => (p.card === !!card && p.deep === !!deep) ? p : { card: !!card, deep: !!deep }),
     registrarFecharRadar: (fn) => { radarFecharRef.current = typeof fn === "function" ? fn : null; },
+    reportarNavPosicao: (aberta) => setPosicaoNav((v) => (v === !!aberta ? v : !!aberta)),
+    registrarFecharPosicao: (fn) => { posicaoFecharRef.current = typeof fn === "function" ? fn : null; },
     registrarVoltarOpcoes: (fn) => { opcoesVoltarRef.current = typeof fn === "function" ? fn : null; },
     // qa/audit-2026-08-07 (item 5): fonte ÚNICA de "estamos em Modo Operador?"
     // Novo código lê `ctx.operador`, nunca redevira de data.config.appMode.
@@ -10487,7 +10694,7 @@ export default function App() {
     // A folha proativa ADIA enquanto houver outro overlay na tela: ela é
     // one-shot por conceito, para sempre, e abrir sob o portão de abertura ou
     // sob o tour queimaria a estreia sem ninguém ler.
-    overlayLivre: !tourOpen && !aboutOpen && !welcomeOpen && !welcomeAuthOpen && !conceitoAberto && !petOpen && !borisIntroOpen,
+    overlayLivre: !tourOpen && !aboutOpen && !welcomeOpen && !welcomeAuthOpen && !conceitoAberto && !petOpen && !borisIntroOpen && !posicaoNav,
     goMercado: () => setTab("mercado"),
     // aba-opcoes F2 (D-0.1, 2026-09-10): PONTO ÚNICO de entrada do Operador
     // IA, agora que ele saiu da barra inferior e virou sub-tela do Portfólio.

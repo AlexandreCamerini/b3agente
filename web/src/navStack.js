@@ -33,9 +33,10 @@ function baseDe(e) {
   return 0;
 }
 
-// Ordem crescente de z-index: catalog 50, buy 50, sell 50, stopAlvo 55, radarDeep 55, about 70,
+// Ordem crescente de z-index: posicao 45 (folha da lista de posições — quick 261013-cqk, 2026-10-13; a mais baixa:
+// compra/venda/stop-alvo abertos de dentro dela ficam por cima), catalog 50, buy 50, sell 50, stopAlvo 55, radarDeep 55, about 70,
 // tour 75, auth 82, pet 86, conceito 86 (ConceitoSheet global, renderizada depois do PetSheet), borisIntro 87, tech 1000.
-export const ORDEM_CAMADAS = Object.freeze(["catalog", "buy", "sell", "stopAlvo", "radarDeep", "about", "tour", "auth", "pet", "conceito", "borisIntro", "tech"]);
+export const ORDEM_CAMADAS = Object.freeze(["posicao", "catalog", "buy", "sell", "stopAlvo", "radarDeep", "about", "tour", "auth", "pet", "conceito", "borisIntro", "tech"]);
 
 function modaisDe(e) {
   if (!e || !Array.isArray(e.modais)) return [];
