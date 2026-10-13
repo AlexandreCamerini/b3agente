@@ -26,13 +26,15 @@ const seletor = semCom(functionBody("SeletorFace"));
 const flip = semCom(functionBody("AreaFlip"));
 const faceAcao = semCom(functionBody("FaceAcao"));
 const bloco = semCom(functionBody("BlocoBorisIA"));
+const compras = semCom(functionBody("DetalheCompras"));
 const opcoes = semCom(functionBody("CardPosicaoEstruturada"));
 const cartao = semCom(functionBody("CartaoPosicao"));
 const tela = semCom(functionBody("CarteiraScreen"));
 
 // --- existência e ordem (D-14) ----------------------------------------------
 const idx = (n) => src.indexOf(`function ${n}(`);
-for (const n of ["SeletorFace", "AreaFlip", "FaceAcao", "BlocoBorisIA"]) {
+// 2026-10-13 (quick 261013-29f): + DetalheCompras e ChipEstadoV6 (extensão da lista).
+for (const n of ["SeletorFace", "AreaFlip", "FaceAcao", "BlocoBorisIA", "DetalheCompras", "ChipEstadoV6"]) {
   ok(`${n} existe e fica antes de LinhaChamadaOpcoes`, idx(n) > 0 && idx(n) < idx("LinhaChamadaOpcoes"));
 }
 ok("CardPosicaoEstruturada mantém o nome (1 definição)", (src.match(/^function CardPosicaoEstruturada\(/gm) || []).length === 1);
@@ -54,8 +56,11 @@ ok("CartaoPosicao: seletor só com pernas (nPernas > 0)", /nPernas > 0/.test(car
 // --- FaceAcao ---------------------------------------------------------------
 ok("FaceAcao: R:R do backend (L.rr), sem recalcular", /L\.rr != null/.test(faceAcao) && !/valorRR\(|mostraRR\(/.test(faceAcao));
 ok("FaceAcao: gatilho vem de gatilhoStatus (sem comparar invalidacao no front)", /gatilhoStatus/.test(faceAcao) && !/invalidacao\s*[<>]|[<>]\s*se\.invalidacao/.test(faceAcao));
-ok("FaceAcao: nota de PM do backend (notaPm)", /L\.notaPm/.test(faceAcao));
-ok("FaceAcao: compras com aria-expanded e totalDaCompra", /aria-expanded=\{comprasAberto\}/.test(faceAcao) && /totalDaCompra\(/.test(faceAcao));
+// 2026-10-13 (quick 261013-29f): Compras virou o disclosure DetalheCompras, no fim do corpo (decisão 4);
+// as asserções antigas de FaceAcao migram para o recorte novo.
+ok("DetalheCompras: nota de PM do backend (notaPm)", /L\.notaPm/.test(compras));
+ok("DetalheCompras: aria-expanded={aberto} + aria-controls + totalDaCompra", /aria-expanded=\{aberto\}/.test(compras) && /aria-controls=\{idCompras\}/.test(compras) && /totalDaCompra\(/.test(compras));
+ok("CartaoPosicao monta <DetalheCompras", /<DetalheCompras /.test(cartao));
 ok("FaceAcao: sem hex literal", !/#[0-9a-fA-F]{3,6}\b/.test(faceAcao));
 
 // --- BlocoBorisIA -----------------------------------------------------------

@@ -24,7 +24,14 @@ const ini = app.indexOf("function EditorStopAlvo(");
 const fim = ini < 0 ? -1 : app.indexOf("\nfunction ", ini + 10);
 const bloco = ini < 0 ? "" : app.slice(ini, fim > ini ? fim : undefined);
 ok("achei o componente EditorStopAlvo (herdeiro do bloco editFor === p.t)", !!bloco);
-ok("o card monta o editor só quando a edição está aberta", /\{editAberto && <EditorStopAlvo p=\{p\} ctx=\{ctx\} \/>\}/.test(app));
+// 2026-10-13 (quick 261013-29f): o editor saiu do fim do corpo e é renderizado na FaceAcao logo após a
+// régua/linha Stop e alvo; continua montado só com edição aberta.
+const iFace = app.indexOf("function FaceAcao(");
+const fimFace = iFace < 0 ? -1 : app.indexOf("\nfunction ", iFace + 10);
+const face = iFace < 0 ? "" : app.slice(iFace, fimFace > iFace ? fimFace : undefined);
+ok("o card monta o editor só quando a edição está aberta", /editorPlano=\{editAberto \? <EditorStopAlvo p=\{p\} ctx=\{ctx\} \/> : null\}/.test(app));
+ok("o editor aparece na FaceAcao colado à régua (depois de regua_titulo, antes de plano_titulo)",
+   face.indexOf('"regua_titulo"') >= 0 && face.indexOf("{editorPlano}") > face.indexOf('"regua_titulo"') && face.indexOf("{editorPlano}") < face.indexOf('"plano_titulo"'));
 
 ok("os dois campos usam o helper com A.setStop / A.setAlvo e o valor do servidor",
    /campo\("stop", "Stop", p\.stop, A\.setStop\)/.test(bloco) && /campo\("alvo", "Alvo", p\.alvo, A\.setAlvo\)/.test(bloco));

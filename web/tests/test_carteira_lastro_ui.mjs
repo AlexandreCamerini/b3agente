@@ -73,12 +73,14 @@ ok("nenhum botão de stop/alvo é desabilitado por qtyTravada (asserção negati
 // escopo de SYS-02, ver 22-UI-SPEC.md Out-of-scope symbols. O que este
 // guardião protege continua sendo o guardrail de produto: stop/alvo NUNCA é
 // vetado, então os dois botões existem e não têm `disabled`.
+// 2026-10-13 (quick 261013-29f): o botão de largura total "Editar stop/alvo" (editar_plano) saiu; o
+// caminho manual é o "✎ Ajustar" na régua (ajustar_plano), que segue sem `disabled`.
 // Fase 46 (D-15, 2026-09-30): "Stop/alvo (IA)" virou o botão de plano do
 // BlocoBorisIA (plano_ia_*, ctx.openStopAlvo) e "Editar stop/alvo" a chave
 // editar_plano da FaceAcao; a asserção segue a mesma: existem e não têm `disabled`
 // nem aria-disabled (stop/alvo nunca vetados).
-ok("os botões de plano IA e Editar stop/alvo continuam sem `disabled`",
-  app.includes("ctx.openStopAlvo(p.t)") && app.includes('"editar_plano"') && app.includes('"plano_ia_definir"')
+ok("os botões de plano IA e ✎ Ajustar (régua) continuam sem `disabled`",
+  app.includes("ctx.openStopAlvo(p.t)") && app.includes('"ajustar_plano"') && app.includes('"plano_ia_definir"')
   && !/openStopAlvo\(p\.t\)\}[^>]*(aria-)?disabled/.test(app));
 
 // ---- (6) Patrimônio: TODAS as chamadas de portfolioMetrics passam optionPositions
