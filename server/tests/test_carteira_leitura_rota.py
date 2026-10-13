@@ -121,3 +121,12 @@ def test_rota_nao_chama_provedor_de_mercado(cli, monkeypatch):
     monkeypatch.setattr(options_provider, "get_options", boom)
     r = cli.post("/api/carteira/leitura", json={"posicoes": [_item()]}, headers=_auth(cli))
     assert r.status_code == 200 and r.json()["leituras"]["PETR4"]["rr"] == 1.0
+
+
+def test_leitura_proximidade_perto_stop(cli):
+    # quick 261013-cqk (2026-10-13): 75% do caminho PM->stop (30->28, preço 28.5)
+    r = cli.post("/api/carteira/leitura", json={"posicoes": [_item(preco=28.5)]},
+                 headers=_auth(cli))
+    assert r.status_code == 200, r.text
+    L = r.json()["leituras"]["PETR4"]
+    assert L["posicaoNoPlano"] == "dentro" and L["proximidade"] == "perto_stop"

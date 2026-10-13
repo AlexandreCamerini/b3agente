@@ -29,6 +29,10 @@ ALTA_FORTE_FATOR = 1.09
 # D-05: tick da B3 e teto de pontos da grade do simulador.
 TICK = 0.05
 MAX_PONTOS_GRADE = 1200
+# quick 261013-cqk (2026-10-13), decisão D1 do Alex: "perto do stop/alvo" = preço já
+# percorreu >= 75% do caminho PM->stop (ou PM->alvo). Quando esse caminho não existe
+# (stop >= PM, alvo <= PM), usa a fração na régua stop->alvo. Fonte única do limiar.
+LIMIAR_PROXIMIDADE = 0.75
 
 # id do marcador [[id]] -> id do verbete de KB (46-01).
 TERMO_KB = {
@@ -185,6 +189,35 @@ def _didatica_plano(r: dict, avg, qty, stop, alvo) -> Optional[dict]:
     return {"paragrafo": _segmentos(modelo, casos), "borisExplica": explica}
 
 
+def _proximidade(avg, stop, alvo, preco, pos_plano) -> Optional[str]:
+    """Estado determinístico de proximidade ("perto_stop" | "perto_alvo" | None).
+
+    Só com preço dentro do plano completo; qualquer dado ausente/inválido -> None
+    (nunca estado inventado). Empate: perto_stop vence (risco primeiro)."""
+    if pos_plano != "dentro":
+        return None
+    vals = (avg, stop, alvo, preco)
+    if any(v is None or not math.isfinite(v) for v in vals):
+        return None
+    if not stop < alvo:
+        return None
+    if avg > stop:
+        f_stop = (avg - preco) / (avg - stop)
+    else:
+        f_stop = (alvo - preco) / (alvo - stop)
+    if alvo > avg:
+        f_alvo = (preco - avg) / (alvo - avg)
+    else:
+        f_alvo = (preco - stop) / (alvo - stop)
+    if not (math.isfinite(f_stop) and math.isfinite(f_alvo)):
+        return None
+    if f_stop >= LIMIAR_PROXIMIDADE:
+        return "perto_stop"
+    if f_alvo >= LIMIAR_PROXIMIDADE:
+        return "perto_alvo"
+    return None
+
+
 def leitura_plano(posicao: dict, preco, compras, modo: str) -> dict:
     """Leitura do plano de uma posição de ação (contrato 46-03)."""
     posicao = posicao if isinstance(posicao, dict) else {}
@@ -206,6 +239,7 @@ def leitura_plano(posicao: dict, preco, compras, modo: str) -> dict:
         pos_plano = ("abaixo_stop" if preco < stop else
                      "acima_alvo" if preco > alvo else "dentro")
     r["posicaoNoPlano"] = pos_plano
+    r["proximidade"] = _proximidade(avg, stop, alvo, preco, pos_plano)
     r["distStopPct"] = _r1((stop / preco - 1) * 100) if stop is not None and preco else None
     r["distAlvoPct"] = _r1((alvo / preco - 1) * 100) if alvo is not None and preco else None
     rr = None
