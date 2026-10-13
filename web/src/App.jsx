@@ -3140,6 +3140,15 @@ function PetFab({ onOpen }) {
   );
 }
 
+// quick 261013-29f (2026-10-13): espelhos de bottom 92px / 54x54 de PetFab — os
+// literais lá são travados por test_fase22/test_pet_ui e o par é cruzado por
+// test_cartao_posicao_enxuto; mudar um exige mudar o outro. O FAB fica a 92px do
+// fundo da viewport e invade o fim do <main>; a barra inferior não é medida, então
+// a folga é conservadora (158px) para o FAB não cobrir o "Fechar" do card aberto.
+const FAB_PET_BOTTOM = 92;
+const FAB_PET_ALTURA = 54;
+const FOLGA_FAB_PET = FAB_PET_BOTTOM + FAB_PET_ALTURA + SP[3];
+
 // A folha do pet, em DOIS estágios com custos diferentes: o resumo
 // determinístico (grátis, para todo mundo — inclusive anônimo) e a pergunta
 // livre (LLM, exige conta, teto do assistente). O botão "ouvir" lê o resumo
@@ -4837,6 +4846,23 @@ function LinhaEstadoV6({ p, e, leitura, modo }) {
   );
 }
 
+// quick 261013-29f (2026-10-13): o estado ("Dentro do plano" etc.) vira chip da
+// Evolução no card aberto sem estrutura. Mesma fonte (estadoPrincipalV6) e mesmo
+// mapa de tom da LinhaEstadoV6; nenhuma lógica de estado nova.
+function ChipEstadoV6({ p, leitura, modo }) {
+  const { principal } = estadoPrincipalV6({ p, estrutura: null, leituraPlano: leitura });
+  if (!principal) return null;
+  const corTom = { atencao: T.warn, info: T.borderDashed, encerrada: T.textMuted, neutro: T.borderSubtle };
+  const txt = principal.chave === "motor" ? (principal.vals && principal.vals.texto) : cartaoPosicaoTxt(modo, principal.chave, principal.vals);
+  if (!txt) return null;
+  return (
+    <span style={{ display: "inline-flex", alignItems: "center", gap: `${SP[1]}px`, borderRadius: "999px", background: T.bgBase, border: `1px solid ${corTom[principal.tom] || T.borderSubtle}`, color: T.textSecondary, fontSize: TIPO_CARD.chip, padding: `${SP[1]}px ${SP[2]}px` }}>
+      {principal.glifo === "cadeado" ? <IconeCadeado /> : <span aria-hidden>{principal.glifo}</span>}
+      <span>{txt}</span>
+    </span>
+  );
+}
+
 // 46-UAT (2026-10-01, G-04): meta como fileira de chips pill que quebram sozinhos.
 function ChipsMetaV6({ p, e, vc, modo, textoVence }) {
   const itens = chipsMetaV6({ p, estrutura: e, vc });
@@ -4914,6 +4940,7 @@ function CartaoPosicao({ p, nomeEmpresa, modoLeitura, leituraEstrutura, leituraP
   // fechar/abrir na sessão (não persistidos). null = ainda sem escolha do usuário.
   const [faceEscolhida, setFaceEscolhida] = useState(null);
   const [comprasAberto, setComprasAberto] = useState(false);
+  const raizRef = useRef(null);
   const modo = operador ? "operador" : "estudo";
   const e = modoLeitura === "estruturada" && leituraEstrutura ? leituraEstrutura.estrutura : null;
   const corDe = (v) => (v == null || sinalResultado(v) === "zero" ? T.textMuted : v > 0 ? T.positive : T.negative);
@@ -4922,19 +4949,30 @@ function CartaoPosicao({ p, nomeEmpresa, modoLeitura, leituraEstrutura, leituraP
   const rotulo = { fontSize: TIPO_CARD.rotulo, fontWeight: 400, color: T.textSecondary };
   // 46-UAT (2026-10-01, G-01/G-02): número do cabeçalho e da linha Estrutura vêm do mesmo helper.
   const pctCap = pctDoCapital(p.qty, leituraPlano ? leituraPlano.preco : null, total);
-  const res = linhasResultadoV6({ estrutura: e, leituraPlano, pctCapital: e ? null : pctCap, situacaoPlano, estruturaPendente: modoLeitura === "carregando" || modoLeitura === "falha" });
+  const res = linhasResultadoV6({ estrutura: e, leituraPlano, pctCapital: e || aberto ? null : pctCap, situacaoPlano, estruturaPendente: modoLeitura === "carregando" || modoLeitura === "falha" });
   const explica = e ? (e.didatica && e.didatica.borisExplica) : (leituraPlano && leituraPlano.didatica ? leituraPlano.didatica.borisExplica : null);
   const idCorpo = "cartao-corpo-" + p.t;
+  // quick 261013-29f (2026-10-13): aberto e sem estrutura, a Evolução (régua, estado,
+  // par PM -> atual) substitui o resumo; com estrutura o resumo fica (FaixaVencimento).
+  const mostraResumo = !aberto || !!e;
+  const nHist = ((data.analysisLog || {})[p.t] || []).length;
   const nPernas = e ? (e.pernas || []).length : 0;
   const face = faceEscolhida || faceInicial(nPernas);
   const faceAcao = (
-    <FaceAcao p={p} leitura={leituraPlano} data={data} total={total} modo={modo} comprasAberto={comprasAberto} onCompras={() => setComprasAberto((v) => !v)} onEditarPlano={onEditar} mostrarPlano={nPernas > 0 && p.stop != null && p.alvo != null} simples={nPernas === 0} />
+    <FaceAcao p={p} leitura={leituraPlano} data={data} total={total} modo={modo} cp={cp} onEditarPlano={onEditar} editandoPlano={editAberto} editorPlano={editAberto ? <EditorStopAlvo p={p} ctx={ctx} /> : null} comEstrutura={!!e} />
   );
   const txtValor = rsSinalNbsp(res.cabecalho.valor);
   const corValor = res.cabecalho.valor == null ? T.textMuted : sinalResultado(res.cabecalho.valor) === "pos" ? T.positive : sinalResultado(res.cabecalho.valor) === "neg" ? T.negative : T.textMuted;
+  const explicaBoris = !operador && explica && (
+    <div style={{ marginTop: `${SP[3]}px`, fontSize: TIPO_CARD.corpo, fontWeight: 400, color: T.textSecondary, lineHeight: 1.5 }}>
+      <b style={{ fontWeight: 700, color: T.accent }}>{cartaoDidaticaTxt("boris_explica")}</b> {explica}
+    </div>
+  );
+  const btnDisclosure = { display: "flex", width: "100%", justifyContent: "space-between", alignItems: "center", minHeight: 44, background: "transparent", border: "none", borderTop: `1px solid ${T.borderSubtle}`, padding: 0, color: T.textPrimary, fontSize: TIPO_CARD.corpo, fontWeight: 700 };
   return (
-    <div>
-      <div style={{ display: "flex", flexWrap: "nowrap", justifyContent: "space-between", alignItems: "flex-start", gap: `${SP[3]}px` }}>
+    <div ref={raizRef} style={{ overflowAnchor: "none" }}>
+      {/* quick 261013-29f (2026-10-13): aberto, ticker + resultado grudam no topo do <main> (único scroller; nenhum ancestral com overflow) */}
+      <div style={{ display: "flex", flexWrap: "nowrap", justifyContent: "space-between", alignItems: "flex-start", gap: `${SP[3]}px`, position: aberto ? "sticky" : "static", top: 0, zIndex: aberto ? 2 : "auto", background: aberto ? T.bgCard : "transparent", borderBottom: aberto ? `1px solid ${T.borderFaint}` : "none", ...(aberto ? { paddingTop: `${SP[2]}px`, paddingBottom: `${SP[2]}px` } : null) }}>
         <div style={{ minWidth: 0, flex: "1 1 auto" }}>
           <div style={{ fontFamily: MONO, fontWeight: 700, fontSize: TIPO_CARD.titulo, lineHeight: 1.2 }}>{p.t}</div>
           {nomeEmpresa && <div style={{ ...rotulo, overflowWrap: "anywhere" }}>{nomeEmpresa}</div>}
@@ -4955,53 +4993,70 @@ function CartaoPosicao({ p, nomeEmpresa, modoLeitura, leituraEstrutura, leituraP
           <button type="button" onClick={onTentarPlano} style={{ minHeight: 44, background: "transparent", border: "none", color: T.accent, fontSize: TIPO_CARD.corpo, fontWeight: 700 }}>{cartaoPosicaoTxt(modo, "tentar_de_novo")}</button>
         </div>
       )}
-      <div style={{ marginTop: `${SP[3]}px` }}>
-        <ChipsMetaV6 p={p} e={e} vc={vc} modo={modo} textoVence={textoVence} />
-      </div>
+      {mostraResumo && (
+        <div style={{ marginTop: `${SP[3]}px` }}>
+          <ChipsMetaV6 p={p} e={e} vc={vc} modo={modo} textoVence={textoVence} />
+        </div>
+      )}
       {(modoLeitura === "carregando" || modoLeitura === "falha") && (
         <div role="status" aria-live="polite" style={{ marginTop: `${SP[3]}px`, display: "flex", alignItems: "center", flexWrap: "wrap", gap: `${SP[2]}px`, ...rotulo }}>
           <span>{estruturaCardTxt(modo, modoLeitura === "carregando" ? "lendo" : "indisponivel")}</span>
           {modoLeitura === "falha" && <BotaoAtualizarEstrutura leitura={leituraEstrutura} onClick={onAtualizar} cp={cp} />}
         </div>
       )}
-      <div style={{ marginTop: `${SP[3]}px` }}>
-        {e ? <FaixaVencimento e={e} leitura={leituraPlano} cp={cp} modo={modo} /> : <ReguaPlano p={p} leitura={leituraPlano} cp={cp} modo={modo} />}
-      </div>
-      <div style={{ marginTop: `${SP[3]}px` }}>
-        <LinhaEstadoV6 p={p} e={e} leitura={leituraPlano} modo={modo} />
-      </div>
-      {!operador && explica && (
-        <div style={{ marginTop: `${SP[3]}px`, fontSize: TIPO_CARD.corpo, fontWeight: 400, color: T.textSecondary, lineHeight: 1.5 }}>
-          <b style={{ fontWeight: 700, color: T.accent }}>{cartaoDidaticaTxt("boris_explica")}</b> {explica}
-        </div>
+      {mostraResumo && (
+        <>
+          <div style={{ marginTop: `${SP[3]}px` }}>
+            {e ? <FaixaVencimento e={e} leitura={leituraPlano} cp={cp} modo={modo} /> : <ReguaPlano p={p} leitura={leituraPlano} cp={cp} modo={modo} />}
+          </div>
+          <div style={{ marginTop: `${SP[3]}px` }}>
+            <LinhaEstadoV6 p={p} e={e} leitura={leituraPlano} modo={modo} />
+          </div>
+          {explicaBoris}
+        </>
       )}
+      <div id={idCorpo} hidden={!aberto}>
+        {aberto && (
+          <div style={{ display: "flex", flexDirection: "column", gap: `${SP[3]}px`, marginTop: `${SP[3]}px` }}>
+            {nPernas > 0 ? (
+              <>
+                <SeletorFace ticker={p.t} face={face} nPernas={nPernas} onTrocar={(f) => { setFaceEscolhida(f); if (f !== "acao" && editAberto) onEditar(); }} modo={modo} />
+                <AreaFlip face={face} render={(f) => (f === "opcoes"
+                  ? <CardPosicaoEstruturada p={p} leitura={leituraEstrutura} cp={cp} operador={operador} ctx={ctx} data={data} onAtualizar={onAtualizar} />
+                  : faceAcao)} />
+              </>
+            ) : faceAcao}
+            {!mostraResumo && explicaBoris}
+            {!operador && <TermosTocaveis didatica={e ? e.didatica : (leituraPlano ? leituraPlano.didatica : null)} ctx={ctx} />}
+            <BlocoBorisIA p={p} modo={modo} ctx={ctx} />
+            <DetalheCompras p={p} data={data} leitura={leituraPlano} modo={modo} aberto={comprasAberto} onToggle={() => setComprasAberto((v) => !v)} />
+            <div>
+              <button type="button" onClick={onHist} aria-expanded={histAberto} aria-controls={"analises-" + p.t} style={btnDisclosure}>
+                <span>{cartaoPosicaoTxt(modo, "historico", { n: nHist })}</span>
+                <span style={{ color: T.accent }}>{cartaoPosicaoTxt(modo, histAberto ? "ocultar" : "ver")}</span>
+              </button>
+              <div id={"analises-" + p.t} hidden={!histAberto}>
+                {histAberto && <HistoricoAnalises p={p} data={data} />}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+      {/* quick 261013-29f (2026-10-13): um só controle abrir/fechar; aberto ele fica DEPOIS do corpo (mesmo elemento, o foco não se perde) */}
       <button
         type="button"
-        onClick={() => setAberto((v) => !v)}
+        onClick={() => {
+          const fechando = aberto;
+          setAberto((v) => !v);
+          if (fechando) requestAnimationFrame(() => { if (raizRef.current) raizRef.current.scrollIntoView({ block: "nearest" }); });
+        }}
         aria-expanded={aberto}
         aria-controls={idCorpo}
         style={{ display: "block", width: "100%", minHeight: 44, marginTop: `${SP[3]}px`, background: "transparent", border: "none", borderTop: `1px solid ${T.borderSubtle}`, color: T.accent, fontSize: TIPO_CARD.corpo, fontWeight: 700, textAlign: "center" }}
       >
         {cartaoPosicaoTxt(modo, aberto ? "rodape_fechar" : "rodape_abrir")}
       </button>
-      <div id={idCorpo} hidden={!aberto}>
-        {aberto && (
-          <div style={{ display: "flex", flexDirection: "column", gap: `${SP[3]}px`, marginTop: `${SP[3]}px` }}>
-            {nPernas > 0 ? (
-              <>
-                <SeletorFace ticker={p.t} face={face} nPernas={nPernas} onTrocar={setFaceEscolhida} modo={modo} />
-                <AreaFlip face={face} render={(f) => (f === "opcoes"
-                  ? <CardPosicaoEstruturada p={p} leitura={leituraEstrutura} cp={cp} operador={operador} ctx={ctx} data={data} onAtualizar={onAtualizar} />
-                  : faceAcao)} />
-              </>
-            ) : faceAcao}
-            {!operador && <TermosTocaveis didatica={e ? e.didatica : (leituraPlano ? leituraPlano.didatica : null)} ctx={ctx} />}
-            <BlocoBorisIA p={p} data={data} modo={modo} ctx={ctx} histAberto={histAberto} onHist={onHist} />
-            {histAberto && <HistoricoAnalises p={p} data={data} />}
-            {editAberto && <EditorStopAlvo p={p} ctx={ctx} />}
-          </div>
-        )}
-      </div>
+      {aberto && <div aria-hidden style={{ height: FOLGA_FAB_PET }} />}
     </div>
   );
 }
@@ -5080,83 +5135,137 @@ function AreaFlip({ face, render }) {
   );
 }
 
-function FaceAcao({ p, leitura, data, total, modo, comprasAberto, onCompras, onEditarPlano, mostrarPlano, simples }) {
+// quick 261013-29f (2026-10-13): corpo aberto enxuto (opção A). Evolução primeiro
+// (par PM -> atual, régua com ✎ Ajustar, chips), Plano só com R:R e setup. Stop e
+// alvo aparecem UMA vez (régua, ou texto quando há estrutura) e nunca são vetados:
+// Ajustar / Falta definir sempre tocáveis. Sem número novo: tudo vem de p/leitura.
+function FaceAcao({ p, leitura, data, total, modo, cp, onEditarPlano, editandoPlano, editorPlano, comEstrutura }) {
   const L = leitura || {};
   const rotulo = { fontSize: TIPO_CARD.rotulo, fontWeight: 400, color: T.textSecondary };
+  const tituloBloco = { fontSize: TIPO_CARD.rotulo, fontWeight: 700, color: T.textSecondary };
   const valor = { fontFamily: MONO, fontSize: TIPO_CARD.corpo, fontWeight: 700, color: T.textPrimary, fontVariantNumeric: "tabular-nums" };
+  const chipPill = { borderRadius: "999px", background: T.bgBase, color: T.textSecondary, fontSize: TIPO_CARD.chip, padding: `${SP[1]}px ${SP[2]}px`, whiteSpace: "nowrap" };
   const linha = (k, rot, val) => (
-    <div key={k} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: `${SP[2]}px`, minHeight: 44, borderTop: `1px solid ${T.borderSubtle}` }}>
-      <span style={rotulo}>{rot}</span>
+    <div key={k} style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: `${SP[2]}px`, minHeight: 44, padding: `${SP[2]}px 0`, boxSizing: "border-box", borderTop: `1px solid ${T.borderSubtle}` }}>
+      <span style={{ ...rotulo, flex: "0 0 auto" }}>{rot}</span>
       {val}
     </div>
   );
   const btnDefinir = (
-    <button type="button" onClick={onEditarPlano} style={{ background: "transparent", border: "none", minHeight: 44, padding: 0, color: T.accent, fontSize: TIPO_CARD.corpo, fontWeight: 700 }}>
+    <button type="button" onClick={onEditarPlano} aria-expanded={!!editandoPlano} style={{ background: "transparent", border: "none", minHeight: 44, padding: 0, color: T.accent, fontSize: TIPO_CARD.corpo, fontWeight: 700 }}>
       {cartaoPosicaoTxt(modo, "falta_definir")}
     </button>
   );
+  const btnAjustar = (
+    <button type="button" onClick={onEditarPlano} aria-expanded={!!editandoPlano} aria-label={cartaoPosicaoTxt(modo, "ajustar_plano_aria", { ticker: p.t })} style={{ background: "transparent", border: "none", minHeight: 44, padding: 0, color: T.accent, fontSize: TIPO_CARD.corpo, fontWeight: 700 }}>
+      {cartaoPosicaoTxt(modo, "ajustar_plano")}
+    </button>
+  );
+  const LEG = (cp && cp.estruturaLegenda) || {};
+  const completo = p.stop != null && p.alvo != null;
   const dias = daysSince(openedAt(data.history, p.t, p));
   const pctCap = pctDoCapital(p.qty, L.preco, total);
   const se = p.setupEntrada;
   const gat = L.gatilhoStatus === "valido" ? ["gatilho_valido", T.positive] : L.gatilhoStatus === "invalidado" ? ["gatilho_invalidado", T.negative] : null;
+  const numTxt = { fontFamily: MONO, fontWeight: 700, fontSize: TIPO_CARD.corpo, fontVariantNumeric: "tabular-nums" };
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: `${SP[3]}px` }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: `${SP[2]}px` }}>
+        <div style={tituloBloco}>{cartaoPosicaoTxt(modo, "evolucao_titulo")}</div>
+        {!comEstrutura && (
+          <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", gap: `${SP[2]}px`, alignItems: "end" }}>
+            <div>
+              <div style={rotulo}>{cartaoPosicaoTxt(modo, "preco_medio")}</div>
+              <div style={valor}>{p.avg == null ? "—" : rsNbsp(p.avg)}</div>
+            </div>
+            <span aria-hidden style={{ color: T.textSecondary, fontSize: TIPO_CARD.corpo }}>→</span>
+            <div style={{ textAlign: "right" }}>
+              <div style={rotulo}>{cartaoPosicaoTxt(modo, "cotacao_atual")}</div>
+              <div style={valor}>{L.preco == null ? "—" : rsNbsp(L.preco)}</div>
+            </div>
+          </div>
+        )}
+        <div>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: `${SP[2]}px`, flexWrap: "wrap" }}>
+            <span style={tituloBloco}>{cartaoPosicaoTxt(modo, "regua_titulo")}</span>
+            {completo ? btnAjustar : (
+              <span style={{ display: "inline-flex", alignItems: "center", flexWrap: "wrap", justifyContent: "flex-end", gap: `${SP[2]}px` }}>
+                {p.stop != null && <span style={rotulo}>{LEG.stop || "Stop"} <b style={{ ...numTxt, color: T.negative }}>{rsNbsp(p.stop)}</b></span>}
+                {p.alvo != null && <span style={rotulo}>{LEG.alvo || "Alvo"} <b style={{ ...numTxt, color: T.positive }}>{rsNbsp(p.alvo)}</b></span>}
+                {btnDefinir}
+              </span>
+            )}
+          </div>
+          {completo && (comEstrutura ? (
+            <div style={rotulo}>
+              <b style={{ ...numTxt, color: T.negative }}>{rsNbsp(p.stop)}</b> · <b style={{ ...numTxt, color: T.positive }}>{rsNbsp(p.alvo)}</b>
+            </div>
+          ) : (
+            <ReguaPlano p={p} leitura={L} cp={cp} modo={modo} />
+          ))}
+        </div>
+        {editorPlano}
+        <div style={{ display: "flex", flexWrap: "wrap", gap: `${SP[2]}px` }}>
+          {!comEstrutura && <ChipEstadoV6 p={p} leitura={L} modo={modo} />}
+          {!comEstrutura && <span style={chipPill}>{cartaoPosicaoTxt(modo, "chip_qtd", { qty: String(p.qty) })}</span>}
+          <span style={chipPill}>{cartaoPosicaoTxt(modo, "em_operacao") + " " + (dias == null ? "—" : dias === 0 ? "hoje" : dias + (dias > 1 ? " dias" : " dia"))}</span>
+          {pctCap != null && <span style={chipPill}>{cartaoPosicaoTxt(modo, "do_capital") + " " + pctCap.toFixed(1).replace(".", ",") + "%"}</span>}
+        </div>
+      </div>
+
+      {(L.rr != null || se) && (
+        <div>
+          <div style={tituloBloco}>{cartaoPosicaoTxt(modo, "plano_titulo")}</div>
+          {L.rr != null && linha("rr", cartaoPosicaoTxt(modo, "rr_atual"), <span style={valor}>{nf2.format(L.rr)}</span>)}
+          {se && linha("setup", cartaoPosicaoTxt(modo, "setup_entrada"), (
+            <span style={{ flex: "1 1 auto", minWidth: 0, textAlign: "right", overflowWrap: "anywhere", fontSize: TIPO_CARD.corpo, color: T.textPrimary }}>
+              <b style={{ fontWeight: 600 }}>{se.setup || "—"}</b>
+              {se.gatilho != null && <span> · <span style={{ fontFamily: MONO, fontVariantNumeric: "tabular-nums" }}>{rsNbsp(se.gatilho)}</span></span>}
+              {gat && <span> · <b style={{ fontWeight: 700, color: gat[1] }}>{cartaoPosicaoTxt(modo, gat[0])}</b></span>}
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// quick 261013-29f (2026-10-13): Compras (N) saiu da FaceAcao e virou disclosure
+// recolhido no fim do corpo. Conteúdo movido sem mudança de números.
+function DetalheCompras({ p, data, leitura, modo, aberto, onToggle }) {
+  const L = leitura || {};
+  const rotulo = { fontSize: TIPO_CARD.rotulo, fontWeight: 400, color: T.textSecondary };
   const cps = comprasDaPosicao(data.history, p.t);
   const idCompras = "compras-" + p.t;
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: `${SP[3]}px` }}>
-      {mostrarPlano ? (
-        <div style={{ background: T.bgBase, border: `1px solid ${T.borderSubtle}`, borderRadius: "10px", padding: `${SP[2]}px ${SP[3]}px`, display: "flex", justifyContent: "space-between", alignItems: "center", gap: `${SP[2]}px`, flexWrap: "wrap" }}>
-          <span style={{ fontSize: TIPO_CARD.rotulo, fontWeight: 700, color: T.textSecondary }}>{cartaoPosicaoTxt(modo, "plano_titulo")}</span>
-          <button type="button" onClick={onEditarPlano} style={{ background: "transparent", border: "none", minHeight: 44, padding: 0, color: T.textPrimary, fontSize: TIPO_CARD.corpo, fontWeight: 700 }}>{cartaoPosicaoTxt(modo, "editar_plano")}</button>
-        </div>
-      ) : (p.stop != null && p.alvo != null) ? (
-        <button type="button" onClick={onEditarPlano} style={{ background: "transparent", border: `1px solid ${T.borderSubtle}`, borderRadius: "10px", minHeight: 44, color: T.textPrimary, fontSize: TIPO_CARD.corpo, fontWeight: 700 }}>{cartaoPosicaoTxt(modo, "editar_plano")}</button>
-      ) : null}
-
-      <div>
-        {L.rr != null && linha("rr", cartaoPosicaoTxt(modo, "rr_atual"), <span style={valor}>{nf2.format(L.rr)}</span>)}
-        {linha("stop", "Stop", p.stop != null ? <span style={{ ...valor, color: T.negative }}>R$ {price(p.stop)}</span> : btnDefinir)}
-        {linha("alvo", "Alvo", p.alvo != null ? <span style={{ ...valor, color: T.positive }}>R$ {price(p.alvo)}</span> : btnDefinir)}
-        {linha("dias", cartaoPosicaoTxt(modo, "em_operacao"), <span style={valor}>{dias == null ? "—" : dias === 0 ? "hoje" : dias + (dias > 1 ? " dias" : " dia")}</span>)}
-        {pctCap != null && linha("cap", cartaoPosicaoTxt(modo, "do_capital"), <span style={valor}>{pctCap.toFixed(1).replace(".", ",")}%</span>)}
-        {simples && L.preco != null && linha("cot", cartaoPosicaoTxt(modo, "cotacao_atual"), <span style={valor}>R$ {price(L.preco)}</span>)}
-        {se && linha("setup", cartaoPosicaoTxt(modo, "setup_entrada"), (
-          <span style={{ ...valor, fontWeight: 400, textAlign: "right" }}>
-            <b style={{ fontWeight: 700 }}>{se.setup || "—"}</b>
-            {se.gatilho != null && <span> · R$ {price(se.gatilho)}</span>}
-            {gat && <span> · <b style={{ fontWeight: 700, color: gat[1] }}>{cartaoPosicaoTxt(modo, gat[0])}</b></span>}
-          </span>
-        ))}
-      </div>
-
-      <div style={{ borderTop: `1px solid ${T.borderSubtle}` }}>
-        {cps.length > 0 ? (
-          <>
-            <button type="button" onClick={onCompras} aria-expanded={comprasAberto} aria-controls={idCompras} style={{ display: "flex", width: "100%", justifyContent: "space-between", alignItems: "center", minHeight: 44, background: "transparent", border: "none", padding: 0, color: T.textPrimary, fontSize: TIPO_CARD.corpo, fontWeight: 700 }}>
-              <span>{cartaoPosicaoTxt(modo, "compras_titulo", { n: cps.length })}</span>
-              <span style={{ color: T.accent }}>{cartaoPosicaoTxt(modo, comprasAberto ? "ocultar" : "ver")}</span>
-            </button>
-            <div id={idCompras} hidden={!comprasAberto}>
-              {comprasAberto && (
-                <>
-                  {cps.map((h, i) => (
-                    <div key={i} style={{ display: "flex", gap: `${SP[2]}px`, minHeight: 44, alignItems: "center", borderTop: `1px solid ${T.borderSubtle}`, fontFamily: MONO, fontSize: TIPO_CARD.rotulo, fontWeight: 400, color: T.textSecondary, fontVariantNumeric: "tabular-nums" }}>
-                      <span style={{ flex: 1.2 }}>{String(h.date || "").slice(0, 10)}</span>
-                      <span style={{ flex: 1.6 }}>▲ {h.qty} × R$ {price(h.price)}</span>
-                      <span style={{ flex: 1, textAlign: "right" }}>{money(totalDaCompra(h))}</span>
-                    </div>
-                  ))}
-                  {L.notaPm && <div style={{ ...rotulo, lineHeight: 1.5, paddingTop: `${SP[2]}px` }}>{L.notaPm}</div>}
-                </>
-              )}
-            </div>
-          </>
-        ) : (
-          <div style={{ paddingTop: `${SP[2]}px` }}>
-            <div style={{ fontSize: TIPO_CARD.corpo, fontWeight: 700, color: T.textPrimary }}>{cartaoPosicaoTxt(modo, "compras_indisponivel")}</div>
-            <div style={{ ...rotulo, lineHeight: 1.5 }}>{cartaoPosicaoTxt(modo, "compras_sem_detalhe")}</div>
+    <div style={{ borderTop: `1px solid ${T.borderSubtle}` }}>
+      {cps.length > 0 ? (
+        <>
+          <button type="button" onClick={onToggle} aria-expanded={aberto} aria-controls={idCompras} style={{ display: "flex", width: "100%", justifyContent: "space-between", alignItems: "center", minHeight: 44, background: "transparent", border: "none", padding: 0, color: T.textPrimary, fontSize: TIPO_CARD.corpo, fontWeight: 700 }}>
+            <span>{cartaoPosicaoTxt(modo, "compras_titulo", { n: cps.length })}</span>
+            <span style={{ color: T.accent }}>{cartaoPosicaoTxt(modo, aberto ? "ocultar" : "ver")}</span>
+          </button>
+          <div id={idCompras} hidden={!aberto}>
+            {aberto && (
+              <>
+                {cps.map((h, i) => (
+                  <div key={i} style={{ display: "flex", gap: `${SP[2]}px`, minHeight: 44, alignItems: "center", borderTop: `1px solid ${T.borderSubtle}`, fontFamily: MONO, fontSize: TIPO_CARD.rotulo, fontWeight: 400, color: T.textSecondary, fontVariantNumeric: "tabular-nums" }}>
+                    <span style={{ flex: 1.2 }}>{String(h.date || "").slice(0, 10)}</span>
+                    <span style={{ flex: 1.6 }}>▲ {h.qty} × R$ {price(h.price)}</span>
+                    <span style={{ flex: 1, textAlign: "right" }}>{money(totalDaCompra(h))}</span>
+                  </div>
+                ))}
+                {L.notaPm && <div style={{ ...rotulo, lineHeight: 1.5, paddingTop: `${SP[2]}px` }}>{L.notaPm}</div>}
+              </>
+            )}
           </div>
-        )}
-      </div>
+        </>
+      ) : (
+        <div style={{ paddingTop: `${SP[2]}px` }}>
+          <div style={{ fontSize: TIPO_CARD.corpo, fontWeight: 700, color: T.textPrimary }}>{cartaoPosicaoTxt(modo, "compras_indisponivel")}</div>
+          <div style={{ ...rotulo, lineHeight: 1.5 }}>{cartaoPosicaoTxt(modo, "compras_sem_detalhe")}</div>
+        </div>
+      )}
     </div>
   );
 }
@@ -5165,8 +5274,7 @@ function FaceAcao({ p, leitura, data, total, modo, comprasAberto, onCompras, onE
 // nunca são vetados, guardrail), Reanalisar, Histórico e a saída. A saída com 0
 // ações livres usa aria-disabled + motivo visível; o backend (store.sell) segue
 // recusando lastro (tudo-ou-nada intacto, T-46-18).
-function BlocoBorisIA({ p, data, modo, ctx, histAberto, onHist }) {
-  const nHist = ((data.analysisLog || {})[p.t] || []).length;
+function BlocoBorisIA({ p, modo, ctx }) {
   const chavePlano = p.stop == null && p.alvo == null ? "plano_ia_definir" : p.stop == null || p.alvo == null ? "plano_ia_completar" : "plano_ia_ajustar";
   const semLivres = qtyLivre(p) === 0;
   const idMotivo = "saida-motivo-" + p.t;
@@ -5174,9 +5282,6 @@ function BlocoBorisIA({ p, data, modo, ctx, histAberto, onHist }) {
     <div style={{ border: `1px solid ${T.borderSubtle}`, borderRadius: "10px", padding: `${SP[3]}px`, display: "flex", flexDirection: "column", gap: `${SP[3]}px` }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: `${SP[2]}px`, flexWrap: "wrap" }}>
         <span style={{ fontSize: TIPO_CARD.rotulo, fontWeight: 700, color: T.accent, letterSpacing: "0.06em" }}>{cartaoPosicaoTxt(modo, "kicker_ia")}</span>
-        <button type="button" onClick={onHist} aria-expanded={histAberto} style={{ background: "transparent", border: "none", minHeight: 44, padding: 0, color: T.textPrimary, fontSize: TIPO_CARD.corpo, fontWeight: 700, textDecoration: "underline" }}>
-          {cartaoPosicaoTxt(modo, "historico", { n: nHist })}
-        </button>
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))", gap: `${SP[2]}px` }}>
         <button type="button" onClick={() => ctx.openStopAlvo(p.t)} style={{ minHeight: 44, borderRadius: "10px", border: `1px solid ${T.accent}`, background: T.accent, color: T.onAccent, fontSize: TIPO_CARD.corpo, fontWeight: 700, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: `${SP[1]}px` }}>
