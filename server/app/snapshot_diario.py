@@ -132,10 +132,16 @@ def _ler_feitas(conn, hoje: str) -> set:
     return {u for u in (v.get("escopos") or []) if isinstance(u, str)}
 
 
-def _gravar_feita(conn, hoje: str, uid: str) -> None:
-    """Persiste a CADA conta gravada: sobrevive a reinicio no meio do tick."""
-    feitas = _ler_feitas(conn, hoje)
-    feitas.add(uid)
+# 2026-10-13 (quick 261013-u7w, orquestrador): a versao anterior relia, ordenava e
+# regravava a lista INTEIRA a cada conta — O(n^2) no event loop (teste de fumaca
+# com 52.642 contas do banco de carga levou minutos). O upsert do snapshot e
+# idempotente por `data` (fechamento sobre fechamento), entao basta persistir o
+# conjunto em LOTES: um reinicio no meio regrava no maximo um lote, sem efeito.
+LOTE_FEITAS = 200
+
+
+def _gravar_feitas(conn, hoje: str, feitas: set) -> None:
+    """Persiste o conjunto do dia (chamado a cada LOTE_FEITAS contas e no fim)."""
     db.kv_set(conn, K_FEITAS, {"data": hoje, "escopos": sorted(feitas)}, user_id=None)
 
 
@@ -204,6 +210,7 @@ async def run_tick(conn, quotes_getter, now: datetime) -> dict:
 
     sem_cot = set()
     gravadas_tick = 0
+    feitas_acum = set(feitas)
     for uid in pendentes:
         try:
             positions = store.get(conn, "positions", user_id=uid) or []
@@ -224,11 +231,15 @@ async def run_tick(conn, quotes_getter, now: datetime) -> dict:
                     {"data": hoje, "patrimonio": r["patr"], "caixa": r["cash"], "posicoesValor": r["posVal"]},
                     user_id=uid, origem="fechamento", fonte=_fonte_conta(positions, quotes),
                     hora=now.strftime("%H:%M"))
-                _gravar_feita(conn, hoje, uid)
+                feitas_acum.add(uid)
                 gravadas_tick += 1
+                if gravadas_tick % LOTE_FEITAS == 0:
+                    _gravar_feitas(conn, hoje, feitas_acum)
         except Exception:  # noqa: BLE001 — erro por conta isolado; ela volta no proximo tick
             res["erros"] += 1
         await asyncio.sleep(0)
+    if gravadas_tick:
+        _gravar_feitas(conn, hoje, feitas_acum)
     res["gravadas"] += gravadas_tick
     res["pendentesRestantes"] = len(pendentes) - gravadas_tick
     res["tickersSemCotacao"] = sorted(sem_cot)[:MAX_TICKERS_SEM_COTACAO]

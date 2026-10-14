@@ -93,7 +93,7 @@ def test_j4_lastrun_de_hoje_no_kv_nao_roda():
 
 def test_j5_apos_17_15_fecha_o_dia_sem_chamar_o_getter():
     c = _conn(); _seed(c, "u1", 100); _seed(c, "u2", 100, [_pos("PETR4")]); g = _getter({"PETR4": 35})
-    sd._gravar_feita(c, HOJE, "u1")
+    sd._gravar_feitas(c, HOJE, {"u1"})  # 2026-10-13 (quick 261013-u7w): helper em lote
     r = _run(c, g, dt(17, 16))
     assert g.calls == [] and r["perdidasNaJanela"] == 1
     assert sd.LAST_RUN["perdidasNaJanela"] == 1 and sd.last_run_date(c) == HOJE
@@ -179,7 +179,7 @@ def test_j12_lote_sem_nenhuma_cotacao_valida():
 
 def test_j13_getter_que_levanta_nao_propaga():
     c = _conn(); _seed(c, "u1", 1, [_pos("PETR4")])
-    sd._gravar_feita(c, HOJE, "uX")
+    sd._gravar_feitas(c, HOJE, {"uX"})  # 2026-10-13 (quick 261013-u7w): helper em lote
 
     async def quebra(tickers):
         raise RuntimeError("rede fora")
@@ -338,3 +338,27 @@ def test_status_nao_vaza_identidade():
     c = _conn(); _seed(c, "u-secreto@x.com", 1000, [_pos("PETR4")])
     _run(c, _getter({"PETR4": 35}), dt(17, 6))
     assert "u-secreto" not in repr(agent.status_snapshot(c)["snapshotDiario"])
+
+
+# 2026-10-13 (quick 261013-u7w, orquestrador): o conjunto de contas feitas é
+# persistido em LOTES (LOTE_FEITAS) e no fim do tick — nunca uma regravação por
+# conta (era O(n^2); teste de fumaça com 52.642 contas levou minutos).
+def test_feitas_persistido_em_lote_e_no_fim():
+    c = _conn()
+    n = sd.LOTE_FEITAS * 2 + 7
+    for i in range(n):
+        _seed(c, f"u{i:04d}", 100)
+    escritas = []
+    orig = db.kv_set
+    def espiao(conn, key, value, user_id=None):
+        if key == sd.K_FEITAS:
+            escritas.append(len(value["escopos"]))
+        return orig(conn, key, value, user_id=user_id)
+    db.kv_set = espiao
+    try:
+        r = asyncio.run(sd.run_tick(c, _getter({}), dt(17, 6)))
+    finally:
+        db.kv_set = orig
+    assert r["gravadas"] == n and r["pendentesRestantes"] == 0
+    assert escritas == [sd.LOTE_FEITAS, sd.LOTE_FEITAS * 2, n]
+    assert sd._ler_feitas(c, HOJE) == {f"u{i:04d}" for i in range(n)}
