@@ -1199,7 +1199,8 @@ async def scheduler_loop(conn, quotes_getter, notify_push=None, interval_s: int 
     resolvidos — hook próprio, gate próprio (`B3_LEDGER_DAILY_HHMM`, default
     09:15), lendo do `candle_cache` sem custo de rede.
     Fase 10: o mesmo laço arma a ponte gatilho→put — hook próprio, gate próprio (`B3_PUT_BRIDGE_HHMM`, default 09:30), lendo o Radar já armazenado, sem custo de rede extra e sem scheduler novo.
-    Fase 11: o mesmo laço avança o ciclo de vida das sugestões de put — hook próprio, gate próprio (`B3_PUT_LIFECYCLE_HHMM`, default 09:45), lendo o cache de candles, sem custo de rede e sem scheduler novo."""
+    Fase 11: o mesmo laço avança o ciclo de vida das sugestões de put — hook próprio, gate próprio (`B3_PUT_LIFECYCLE_HHMM`, default 09:45), lendo o cache de candles, sem custo de rede e sem scheduler novo.
+    quick 261013-u7w: o mesmo laço grava o snapshot de fechamento do patrimônio de cada conta (`snapshot_diario`, janela 17:05-17:15 BRT de dia de pregão) — hook próprio, fora do kill-switch, usa o `quotes_getter` do laço (um lote por tick)."""
     interval = interval_s or int(os.environ.get("B3_AGENT_INTERVAL_S") or INTERVAL_S_DEFAULT)
     # 260824-kc2: preferência por classe de push. Import local (padrão do
     # arquivo, ex.: `_alertar_kill_switch` e os hooks abaixo) e FORA do
@@ -1298,6 +1299,12 @@ async def scheduler_loop(conn, quotes_getter, notify_push=None, interval_s: int 
                 await put_lifecycle.maybe_run(conn)
             except Exception as e:  # noqa: BLE001 — o ciclo de vida nunca derruba o laço
                 print(f"[put-lifecycle] hook do scheduler falhou: {e}")
+            # quick 261013-u7w (2026-10-13): snapshot de FECHAMENTO do patrimônio de cada conta — janela [17:05, 17:15) BRT de dia de pregão, contas pendentes retentadas a cada tick. FORA do gate de kill-switch e de in_market_hours de propósito: mede, nunca executa ordem, e o pregão intraday já fechou às 16:55. `try/except` PRÓPRIO: nenhuma falha daqui chega ao heartbeat nem ao ciclo de stop/alvo.
+            try:
+                from . import snapshot_diario  # import local: sem ciclo de import
+                await snapshot_diario.maybe_run(conn, quotes_getter)
+            except Exception as e:  # noqa: BLE001 — o snapshot nunca derruba o laço
+                print(f"[snapshot-diario] hook do scheduler falhou: {e}")
             if not kill_switch_on() and in_market_hours():
                 # ADR-001 (item 7): passada INTRADAY, GLOBAL, uma por acordar do
                 # laço. Roda ANTES do ciclo por usuário de propósito — assim o
@@ -1546,6 +1553,7 @@ def status_snapshot(conn, interval_s: int = None) -> dict:
     from . import fundamentals  # qa/46 (Fase 2): aquecimento de cache — hoje sem contador exposto
     from . import intraday  # qa/46 (Fase 2): passada intraday global — hoje sem contador exposto
     from . import pending_orders  # Fase 2 (MERC-02, plano 02-03): import local, sem ciclo de import
+    from . import snapshot_diario  # quick 261013-u7w: import local, sem ciclo de import
     # Fase 2 (MERC-02, plano 02-03): fila de ordens pendentes observável no
     # mesmo payload que já mostra `killSwitch`. Lição direta do incidente do
     # kill-switch de v1.0 (ligado sem querer, parou a execução de toda a base
@@ -1567,6 +1575,7 @@ def status_snapshot(conn, interval_s: int = None) -> dict:
     _mk_aval, _org_aval = _marcador_job(conn, analysis_outcomes.JOB_NOME, analysis_outcomes.LAST_EVAL)
     _mk_fund, _org_fund = _marcador_job(conn, fundamentals.JOB_NOME, fundamentals.LAST_WARM)
     _mk_intra, _org_intra = _marcador_job(conn, intraday.JOB_NOME, intraday.LAST_PASS)
+    _mk_snap, _org_snap = _marcador_job(conn, snapshot_diario.JOB_NOME, snapshot_diario.LAST_RUN)  # quick 261013-u7w
     hb = db.kv_get(conn, "agentHeartbeat", None, user_id=None) or {}
     hb_ha_s = int(time.time() - hb["ts"]) if hb.get("ts") else None
     # vivo se bateu dentro de ~2,5 intervalos (tolera 1 tick perdido + folga)
@@ -1588,6 +1597,8 @@ def status_snapshot(conn, interval_s: int = None) -> dict:
         # a função que os calcula já rodava; isto só liga o fio até o snapshot.
         "aquecimentoFundamentos": _mk_fund,
         "intraday": _mk_intra,
+        # ADITIVA 2026-10-13 (quick 261013-u7w): snapshot de fechamento do patrimônio — nenhuma chave existente mudou.
+        "snapshotDiario": _mk_snap,
         # 260911-axj — bloco ADITIVO (nenhuma chave existente mudou de nome ou
         # tipo): o que falta para a tela dizer "aguardando a próxima janela" em
         # vez de "nunca rodou" quando o processo subiu depois da janela do job.
@@ -1601,6 +1612,7 @@ def status_snapshot(conn, interval_s: int = None) -> dict:
                 "avaliacaoAnalises": _org_aval,
                 "aquecimentoFundamentos": _org_fund,
                 "intraday": _org_intra,
+                "snapshotDiario": _org_snap,  # ADITIVA 2026-10-13 (quick 261013-u7w)
             },
             "janelas": {
                 # horário-alvo real (valida o env) + dia útil: antes dele, hoje,
@@ -1609,6 +1621,9 @@ def status_snapshot(conn, interval_s: int = None) -> dict:
                 "intraday": {"pregao": True, "gapMinS": intraday.GAP_MIN_S},
                 "avaliacaoAnalises": {"porDia": 1},
                 "aquecimentoFundamentos": {"porDia": 1},
+                # ADITIVA 2026-10-13 (quick 261013-u7w): janela [hhmm, ate) e se o intervalo do laço cabe nela.
+                "snapshotDiario": {"hhmm": snapshot_diario.janela_hhmm(), "ate": "17:15", "diaUtil": True,
+                                   "intervaloOk": snapshot_diario.intervalo_ok()},
             },
         },
         "pushAutomaticoFalhasHoje": dict(PUSH_FAIL_TODAY),

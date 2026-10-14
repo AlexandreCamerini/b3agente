@@ -6,7 +6,7 @@ import tempfile
 from datetime import datetime, timezone, timedelta
 
 from app import (agent, analysis_outcomes, db, fundamentals, indicators,
-                 intraday, radar_daily, store)
+                 intraday, radar_daily, snapshot_diario, store)
 
 
 def _conn():
@@ -544,6 +544,11 @@ _JOBS_MARCADOS = [
     (intraday.JOB_NOME, intraday.LAST_PASS,
      {"at": "2026-09-10T12:00:00-03:00", "atLabel": "10/09 12:00", "duracaoS": 0.5,
       "ativos": 65, "comLacuna": 2, "erros": 0, "erro": None}),
+    # ADITIVA 2026-10-13 (quick 261013-u7w): snapshot de fechamento — nenhuma chave existente mudou
+    (snapshot_diario.JOB_NOME, snapshot_diario.LAST_RUN,
+     {"date": "2026-10-13", "atLabel": "13/10 17:06", "duracaoS": 0.4, "contas": 3, "gravadas": 2,
+      "puladasSemCotacao": 1, "erros": 0, "perdidasNaJanela": 0, "perdido": False, "tickers": 4,
+      "tickersSemCotacao": ["VALE3"], "fonte": "brapi", "erro": None}),
 ]
 
 # A FORMA que o portal admin lê (web-admin/src/App.jsx:118-130). Lista explícita
@@ -553,6 +558,9 @@ _FORMA_MARCADORES = {
     "avaliacaoAnalises": {"date", "avaliadas", "erro"},
     "aquecimentoFundamentos": {"date", "aquecidos", "erro"},
     "intraday": {"at", "atLabel", "duracaoS", "ativos", "comLacuna", "erros", "erro"},
+    # ADITIVA 2026-10-13 (quick 261013-u7w): snapshot de fechamento — nenhuma chave existente mudou
+    "snapshotDiario": {"date", "atLabel", "duracaoS", "contas", "gravadas", "puladasSemCotacao", "erros",
+                       "perdidasNaJanela", "perdido", "tickers", "tickersSemCotacao", "fonte", "erro"},
 }
 
 
@@ -730,6 +738,7 @@ def test_status_snapshot_mantem_a_forma_que_o_portal_admin_le():
         "ordensPendentes", "intervaloS", "usuariosHabilitados", "protecaoSemOperador",
         "ultimoCiclo", "proximaPassadaEmS", "passadas", "agoraBRT",
         "jobs",   # ADITIVA (260911-axj): nenhuma chave existente mudou
+        "snapshotDiario",   # ADITIVA 2026-10-13 (quick 261013-u7w): snapshot de fechamento — nenhuma chave existente mudou
     }
     for nome, chaves in _FORMA_MARCADORES.items():
         assert set(st[nome]) == chaves, nome
