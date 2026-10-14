@@ -12,6 +12,8 @@ Mantém o espírito da referência: educacional na finalidade (disclaimer), mas
 assertivo na leitura (decisão clara + nível de confiança).
 """
 
+import re
+
 # --- Persona base (comum aos dois modos; a função muda na camada de modo) ----
 PERSONA_BASE = "\n".join([
     "Você atua como um operador sênior do mercado brasileiro (B3), com experiência",
@@ -423,6 +425,58 @@ ENTRADA_AUTO = {
         "por_setup_bloqueado": "Entrada automática bloqueada para {setup} — sem vantagem estatística medida nesta janela.",
     },
 }
+
+
+# Execução simulada fora do pregão (quick 261013-vai, 2026-10-13; D2-emenda
+# 2026-10-14). Espelho byte a byte em `web/src/copy.js`
+# (`COPY[modo].execucaoForaPregao`, Leva B), travado por
+# test_vocabulario_espelho.mjs. Chaves IDÊNTICAS nos dois modos. Cada valor é
+# UMA string literal numa linha só, sem aspas internas (o parser do guardião
+# cruzado exige). Frases com placeholder ({ticker}/{motivo}/{abertura}/
+# {contrato}) NUNCA devolvem "?": falta de valor levanta ValueError e quem
+# chama escolhe a variante *_sem_hora. `aviso_opcao` é GENÉRICO por decisão
+# (D2-emenda): sem preço, sem afirmar que o stop/alvo seria atingido.
+EXECUCAO_FORA_PREGAO = {
+    "operador": {
+        "aviso_diario": "Mercado fechado: {motivo} de {ticker} atingido na última cotação. Nada foi executado; a avaliação é refeita na abertura do próximo pregão, ao preço daquele momento (gap possível).",
+        "aviso_opcao": "Mercado fechado: stop/alvo da opção {contrato} será avaliado na abertura.",
+        "ciclo_fechado": "Mercado fechado — nada foi executado. Stop, alvo e entradas são reavaliados na abertura do próximo pregão, às {abertura}.",
+        "ciclo_fechado_sem_hora": "Mercado fechado — nada foi executado. Stop, alvo e entradas são reavaliados na abertura do próximo pregão.",
+        "status_indeterminado": "Status do mercado indisponível — nada foi executado neste ciclo. Nova tentativa no próximo ciclo.",
+        "opcao_bloqueada": "Mercado fechado — a B3 abre às {abertura}; nenhuma ordem de opção é executada fora do pregão.",
+        "opcao_bloqueada_sem_hora": "Mercado fechado — nenhuma ordem de opção é executada fora do pregão.",
+        "opcao_bloqueada_acao": "Aguarde a abertura do pregão para executar. Cadeia, escada e payoff seguem disponíveis para análise.",
+        "botao_bloqueado": "Mercado fechado — abre às {abertura}",
+        "botao_bloqueado_sem_hora": "Mercado fechado — execução só no pregão",
+    },
+    "educacional": {
+        "aviso_diario": "Mercado fechado: pela última cotação, o {motivo} de {ticker} seria atingido. Fora do pregão nenhuma ordem é executada, nem a simulada. Na abertura do próximo pregão o simulador confere de novo com o preço daquele momento; se o preço abrir além do nível definido (o chamado gap), a execução sai no preço de abertura, que pode ser pior que o {motivo}.",
+        "aviso_opcao": "Mercado fechado: o stop/alvo da opção {contrato} só é conferido na abertura do próximo pregão, com o prêmio daquele momento. Fora do pregão nenhuma ordem é executada, nem a simulada.",
+        "ciclo_fechado": "Mercado fechado — nada foi executado. A bolsa só negocia no pregão, então stop, alvo e entradas são conferidos de novo na abertura, às {abertura}.",
+        "ciclo_fechado_sem_hora": "Mercado fechado — nada foi executado. A bolsa só negocia no pregão, então stop, alvo e entradas são conferidos de novo na abertura.",
+        "status_indeterminado": "Não foi possível confirmar se o mercado está aberto — por segurança, nada foi executado neste ciclo. O simulador tenta de novo no próximo.",
+        "opcao_bloqueada": "Mercado fechado — a B3 abre às {abertura}; nenhuma ordem de opção é executada fora do pregão.",
+        "opcao_bloqueada_sem_hora": "Mercado fechado — nenhuma ordem de opção é executada fora do pregão.",
+        "opcao_bloqueada_acao": "Enquanto a bolsa está fechada, dá para estudar a cadeia, a escada e o payoff; a ordem só pode ser enviada no pregão.",
+        "botao_bloqueado": "Mercado fechado — abre às {abertura}",
+        "botao_bloqueado_sem_hora": "Mercado fechado — execução só no pregão",
+    },
+}
+
+
+def execucao_fora_pregao_txt(modo: str, chave: str, **dados) -> str:
+    """Frase de EXECUCAO_FORA_PREGAO. Modo desconhecido cai em educacional
+    (padrão de `entrada_auto_txt`). Chave desconhecida levanta KeyError e
+    placeholder da frase escolhida sem valor levanta ValueError — falha ALTA,
+    nunca "?" nem hora inventada."""
+    e = EXECUCAO_FORA_PREGAO.get(modo if modo in EXECUCAO_FORA_PREGAO else "educacional")
+    frase = e[chave]
+    for nome in re.findall(r"\{(\w+)\}", frase):
+        valor = dados.get(nome)
+        if valor is None or valor == "":
+            raise ValueError(f"execucao_fora_pregao_txt: falta '{nome}' para '{chave}'")
+        frase = frase.replace("{" + nome + "}", str(valor))
+    return frase
 
 
 # Retorno acumulado (quick 261006-dvf, 2026-10-06): texto por ORIGEM da base

@@ -134,12 +134,19 @@ def _push_run_history(entry: dict):
     del RUN_HISTORY[:-RUN_HISTORY_MAX]
 
 
+def _agora_brt() -> datetime:
+    """Instante corrente em BRT. Ponto único de leitura do relógio do Diário e
+    do vencimento — existe para o teste fixar data/hora sem tocar em
+    `datetime` global (quick 261013-vai)."""
+    return datetime.now(BRT)
+
+
 def _today() -> str:
-    return datetime.now(BRT).strftime("%Y-%m-%d")
+    return _agora_brt().strftime("%Y-%m-%d")
 
 
 def _now_str() -> str:
-    return datetime.now(BRT).strftime("%d/%m %H:%M")
+    return _agora_brt().strftime("%d/%m %H:%M")
 
 
 # ADR-013 (Decisão "Rotas NOVAS propostas", grupo "Execução de ordens
@@ -872,6 +879,71 @@ async def run_cycle_for(conn, scope, quotes_getter, origem: str = "agendado", sn
         _CYCLE_BUSY.discard(key)
 
 
+def _gatilho_saida(par: dict, pos: dict, price) -> tuple:
+    """(breach_stop, hit_alvo) de uma posição de AÇÃO para o preço dado.
+    Pura e reusada pelo laço de execução e pelo aviso fora do pregão (quick
+    261013-vai): a pergunta "stop/alvo atingido?" tem UMA resposta no código."""
+    breach_stop = par["rules"]["stop"] and pos.get("stop") is not None and price <= pos["stop"]
+    hit_alvo = par["rules"]["alvo"] and pos.get("alvo") is not None and price >= pos["alvo"]
+    return breach_stop, hit_alvo
+
+
+def _avisar_fora_pregao(conn, scope, par: dict, app_mode, positions, quotes_data,
+                        option_positions=()) -> list:
+    """Eventos de Diário do ciclo com o mercado FECHADO (quick 261013-vai,
+    D2/D2-emenda). Nada aqui executa ordem.
+
+    - AÇÃO: a cotação já foi buscada pelo ciclo; se stop/alvo seria atingido
+      (stop vence alvo), 1 aviso por (ticker, dia BRT), chave `acao:<ticker>`.
+    - OPÇÃO (não vencida, com stop e/ou alvo): aviso GENÉRICO, chave
+      `opcao:<contractId>`, SEM preço e sem afirmar que seria atingido — fora
+      do pregão não se lê prêmio nem cota de opção (D2-emenda, 2026-10-14).
+
+    Dedupe em kv `avisoForaPregao` = {"data": "YYYY-MM-DD", "chaves": [...]};
+    data diferente zera a lista. Eventos `kind:"warn"` SEM `tag`: o funil de
+    push só considera `kind == "buy"`, então não há push."""
+    modo = "operador" if app_mode == "operador" else "educacional"
+    hoje = _today()
+    try:
+        estado = db.kv_get(conn, "avisoForaPregao", None, user_id=scope)
+    except Exception:  # noqa: BLE001 — dedupe é best-effort
+        estado = None
+    chaves = list(estado.get("chaves") or []) if isinstance(estado, dict) and estado.get("data") == hoje else []
+    novos = []
+
+    def _emitir(chave, ticker, texto):
+        if chave in chaves:
+            return
+        chaves.append(chave)
+        novos.append({"time": _now_str(), "kind": "warn", "t": ticker, "text": texto})
+
+    for pos in positions or []:
+        price = (quotes_data.get(pos["t"]) or {}).get("price")
+        if price is None:
+            continue
+        breach_stop, hit_alvo = _gatilho_saida(par, pos, price)
+        if not (breach_stop or hit_alvo):
+            continue
+        motivo = "stop" if breach_stop else "alvo"
+        _emitir("acao:" + pos["t"], pos["t"],
+                skill_ref.execucao_fora_pregao_txt(modo, "aviso_diario", ticker=pos["t"], motivo=motivo))
+    for op in option_positions or []:
+        if not op.get("id") or isinstance(op.get("lastro"), dict):
+            continue  # lastreada não tem stop/alvo (D-1)
+        if op.get("expiration") and str(op["expiration"]) <= hoje:
+            continue  # vencida: é calendário, trata o vencimento
+        if op.get("stop") is None and op.get("alvo") is None:
+            continue
+        _emitir("opcao:" + str(op["id"]), op.get("underlying"),
+                skill_ref.execucao_fora_pregao_txt(modo, "aviso_opcao", contrato=op["id"]))
+    if novos:
+        try:
+            db.kv_set(conn, "avisoForaPregao", {"data": hoje, "chaves": chaves}, user_id=scope)
+        except Exception:  # noqa: BLE001
+            pass
+    return novos
+
+
 async def _run_cycle_inner(conn, scope, quotes_getter, origem: str, t0: float, snapshot_getter=None,
                            option_quotes_getter=None) -> dict:
     positions = store.get(conn, "positions", user_id=scope) or []
@@ -886,6 +958,24 @@ async def _run_cycle_inner(conn, scope, quotes_getter, origem: str, t0: float, s
     quotes_data = await quotes_getter([p["t"] for p in positions]) if positions else {}
     sem_cotacao = [p["t"] for p in positions if (quotes_data.get(p["t"]) or {}).get("price") is None]
     events, executed = [], 0
+
+    # PORTÃO DE PREGÃO (quick 261013-vai, D1/D2; achado W4 da 261013-u7w):
+    # nenhuma EXECUÇÃO simulada — stop, alvo, trailing, alvo dinâmico, opções,
+    # entrada automática — acontece fora do pregão. O ciclo é disparável fora
+    # do scheduler (PUT /api/position, buy/sell, run-now, /api/cycle), então o
+    # portão mora AQUI e vale para todo chamador, atual ou futuro. Usa o
+    # wrapper `in_market_hours` (→ pregao.in_market_hours: feriados,
+    # B3_AFTER_MARKET, B3_DEV_MERCADO_ABERTO). Fica DEPOIS das cotações
+    # (o aviso precisa do preço) e ANTES de snapshot_getter/opções/entradas.
+    # Na abertura o 1º ciclo reavalia com o preço corrente (gap real).
+    if not in_market_hours():
+        eventos = _avisar_fora_pregao(conn, scope, par, app_mode, positions, quotes_data,
+                                      store.get(conn, "optionPositions", user_id=scope) or [])
+        if eventos:
+            store.push_events(conn, eventos, user_id=scope)
+            if scope:
+                store.push_agent_log(conn, eventos, user_id=scope)
+        return {"events": eventos, "executed": 0, "appMode": app_mode, "mercadoFechado": True}
 
     # F2/F3: insumo técnico (ATR) do trailing dinâmico E do alvo dinâmico — os
     # dois reusam o mesmo contexto. Só busca quando algum dos dois PRECISA; no
@@ -921,8 +1011,7 @@ async def _run_cycle_inner(conn, scope, quotes_getter, origem: str, t0: float, s
                 events.append({"time": _now_str(), "kind": "info",
                                "text": f"Trailing: stop de {pos['t']} ajustado para R$ {novo:.2f} ({criterio})."})
                 pos = {**pos, "stop": novo}
-        breach_stop = par["rules"]["stop"] and pos.get("stop") is not None and price <= pos["stop"]
-        hit_alvo = par["rules"]["alvo"] and pos.get("alvo") is not None and price >= pos["alvo"]
+        breach_stop, hit_alvo = _gatilho_saida(par, pos, price)
         # F3: alvo batido, sem stop rompido — antes de fechar, tenta ESTENDER.
         # Só quando o Alex ligou (`alvoDinamico`); senão o comportamento de
         # sempre (fecha no alvo) continua intacto.
