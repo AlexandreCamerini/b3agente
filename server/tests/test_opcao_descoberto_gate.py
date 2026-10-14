@@ -27,6 +27,18 @@ from fastapi.testclient import TestClient
 
 from app import db, store
 
+import pytest as _pytest_vai
+
+from .relogio_pregao import abrir_pregao as _abrir_pregao_vai
+
+
+@_pytest_vai.fixture(autouse=True)
+def _pregao_aberto(monkeypatch):
+    # 2026-10-13 (quick 261013-vai): a ordem de opção só executa no pregão
+    # (409 fora dele); este arquivo testa execução, então fixa o relógio em
+    # pregão (quarta 14:00 BRT). Teste que monkeypatcha o relógio sobrepõe.
+    _abrir_pregao_vai(monkeypatch)
+
 
 TERMO = {"aceitoEm": "2026-09-13T00:00:00Z", "versao": "1.0"}
 

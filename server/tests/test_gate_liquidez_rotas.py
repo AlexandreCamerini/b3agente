@@ -18,6 +18,18 @@ from fastapi.testclient import TestClient
 from app import opcoes_lastreadas, options_api, options_provider, options_provider_mock, setups, store, technical_snapshot
 from app.main import app, _conn
 
+import pytest as _pytest_vai
+
+from .relogio_pregao import abrir_pregao as _abrir_pregao_vai
+
+
+@_pytest_vai.fixture(autouse=True)
+def _pregao_aberto(monkeypatch):
+    # 2026-10-13 (quick 261013-vai): a ordem de opção só executa no pregão
+    # (409 fora dele); este arquivo testa execução, então fixa o relógio em
+    # pregão (quarta 14:00 BRT). Teste que monkeypatcha o relógio sobrepõe.
+    _abrir_pregao_vai(monkeypatch)
+
 _EXP = "2026-10-30"  # dentro da janela elegível de `opcoes_lastreadas.propor` a partir de qualquer `_HOJE` de teste
 
 

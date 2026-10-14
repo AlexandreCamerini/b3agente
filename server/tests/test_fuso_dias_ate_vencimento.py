@@ -51,6 +51,18 @@ from app import (
 )
 from app.main import app, _conn
 
+import pytest as _pytest_vai
+
+from .relogio_pregao import abrir_pregao as _abrir_pregao_vai
+
+
+@_pytest_vai.fixture(autouse=True)
+def _pregao_aberto(monkeypatch):
+    # 2026-10-13 (quick 261013-vai): a ordem de opção só executa no pregão
+    # (409 fora dele); este arquivo testa execução, então fixa o relógio em
+    # pregão (quarta 14:00 BRT). Teste que monkeypatcha o relógio sobrepõe.
+    _abrir_pregao_vai(monkeypatch)
+
 # 01:30 UTC do dia 10 é 22:30 BRT do dia 9 — o instante que de fato separa os
 # dois dias. Com o relógio naive (UTC, o defeito) o "hoje" é 10/09; com BRT (a
 # correção) é 09/09.

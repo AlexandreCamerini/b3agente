@@ -3007,7 +3007,10 @@ async def cancel_pending_order(order_id: str, scope: Optional[str] = Depends(cur
 @app.put("/api/position/{ticker}")
 async def position(ticker: str, body: dict = Body(default={}), scope: Optional[str] = Depends(current_scope)):
     store.set_position(_conn, ticker.upper(), stop=body.get("stop"), alvo=body.get("alvo"), has_stop=("stop" in body), has_alvo=("alvo" in body), user_id=scope)
-    _disparar_ciclo_imediato(scope)  # 2026-08-07: stop/alvo recém-armado é avaliado na hora
+    # 2026-08-07: stop/alvo recém-armado é avaliado na hora. quick 261013-vai:
+    # registrar é SEMPRE permitido; fora do pregão o ciclo (portão em
+    # agent._run_cycle_inner) só avisa no Diário — nada é vendido.
+    _disparar_ciclo_imediato(scope)
     return store.public_state(_conn, user_id=scope)
 
 
@@ -3024,6 +3027,31 @@ def _idade_cotacao(chain: dict):
         return raw, max(0, int((agora - lido).total_seconds()))
     except (TypeError, ValueError):
         return None, None
+
+
+def _recusar_execucao_fora_do_pregao(scope, tipo=None, t=None, qty=None) -> None:
+    """quick 261013-vai (D4, 2026-10-13): ordem de OPÇÃO só executa no pregão.
+
+    Autoridade é o SERVIDOR (T-02-10, mesmo princípio do /api/buy): o estado do
+    pregão vem só de `pregao.in_market_hours()`, nunca do corpo nem do front.
+    Chamado ANTES de qualquer consulta ao provedor de opções — recusa não gasta
+    cota do mydata. 409 (e não ordem pendente) porque ordem pendente de opção
+    está fora de escopo desta entrega. Com `tipo` e conta logada, grava a
+    rejeição no history (princípio 9, ordem rejeitada com motivo); estrutura
+    multi-perna/proposta (sem `tipo`) só recebe o 409. Registrar stop/alvo
+    NUNCA passa por aqui (guardrail "stop/alvo nunca são vetados")."""
+    from . import pregao  # import local: sem ciclo (padrão do arquivo)
+    if pregao.in_market_hours():
+        return
+    cfg = store.get(_conn, "config", user_id=scope) or {}
+    modo = "operador" if cfg.get("appMode") == "operador" else "educacional"
+    abertura = "%02d:%02d" % pregao.ABERTURA
+    mensagem = skill_ref.execucao_fora_pregao_txt(modo, "opcao_bloqueada", abertura=abertura)
+    if scope is not None and tipo:
+        store.registrar_rejeicao(_conn, tipo, t, qty, None, mensagem, user_id=scope, origem="manual")
+    raise HTTPException(409, {"code": "mercado_fechado", "message": mensagem,
+                              "action": skill_ref.execucao_fora_pregao_txt(modo, "opcao_bloqueada_acao"),
+                              "abertura": abertura})
 
 
 @app.post("/api/options/buy")
@@ -3048,6 +3076,7 @@ async def buy_option(body: dict = Body(default={}), scope: Optional[str] = Depen
         qty = 0
     if len(underlying) < 4 or not contract_symbol or qty <= 0:
         raise HTTPException(400, "Contrato de opção inválido.")
+    _recusar_execucao_fora_do_pregao(scope, "COMPRA", contract_symbol, qty)  # quick 261013-vai (D4)
     # 2026-10-06 (quick 261006-oav): acao do usuario gasta a reserva de cota do mydata (o gate da Mesa esgotara o minuto e o buy levou 502). Envolve SO o await: create_task copia o contexto.
     with mydata_budget.contexto(prioridade="usuario", origem="POST /api/options/buy"):
         chain = await options_provider.get_options(underlying, body.get("expiration"))
@@ -3093,6 +3122,11 @@ async def sell_option(body: dict = Body(default={}), scope: Optional[str] = Depe
     pos = next((p for p in store.get(_conn, "optionPositions", user_id=scope) if p["id"] == contract_symbol), None)
     if not pos:
         raise HTTPException(400, "Sem posição em " + contract_symbol)
+    try:
+        _qty_rej = int(body.get("qty")) if body.get("qty") is not None else pos.get("qty")
+    except (TypeError, ValueError):
+        _qty_rej = None
+    _recusar_execucao_fora_do_pregao(scope, "VENDA", contract_symbol, _qty_rej)  # quick 261013-vai (D4)
     # prioridade usuario: ver /api/options/buy (quick 261006-oav).
     with mydata_budget.contexto(prioridade="usuario", origem="POST /api/options/sell"):
         chain = await options_provider.get_options(pos["underlying"], pos.get("expiration"))
@@ -3745,6 +3779,7 @@ async def options_curadoria_abrir_collar(body: dict = Body(default={}), scope: O
     contratos_body = body.get("contratos")
     if not isinstance(contratos_body, (int, float)) or contratos_body < 1:
         raise HTTPException(400, "Operação lastreada inválida.")
+    _recusar_execucao_fora_do_pregao(scope)  # quick 261013-vai (D4): 409 sem linha de history (estrutura)
 
     # Precondição de ESTADO (mesma ordem/motivo da rota irmã): ANTES da
     # re-derivação, para evitar um fetch de cadeia inútil.
@@ -4259,6 +4294,7 @@ async def options_lastreada_abrir(body: dict = Body(default={}), scope: Optional
     contratos = body.get("contratos")
     if len(underlying) < 4 or not contract_symbol or not isinstance(contratos, (int, float)) or contratos < 1:
         raise HTTPException(400, "Operação lastreada inválida.")
+    _recusar_execucao_fora_do_pregao(scope)  # quick 261013-vai (D4)
     # prioridade usuario: ver /api/options/buy (quick 261006-oav).
     with mydata_budget.contexto(prioridade="usuario", origem="POST /api/options/lastreada/abrir"):
         chain = await options_provider.get_options(underlying, body.get("expiration"))
@@ -4356,6 +4392,7 @@ async def options_lastreada_abrir_collar(body: dict = Body(default={}), scope: O
     contratos_body = body.get("contratos")
     if not isinstance(contratos_body, (int, float)) or contratos_body < 1:
         raise HTTPException(400, "Operação lastreada inválida.")
+    _recusar_execucao_fora_do_pregao(scope)  # quick 261013-vai (D4)
 
     # Fase 19, MULTI-02, critério 3: precondição de ESTADO, não desconfiança
     # do corpo — por isso vem ANTES da re-derivação (evita um fetch de cadeia
@@ -4509,6 +4546,7 @@ async def options_lastreada_fechar(body: dict = Body(default={}), scope: Optiona
     pos = next((p for p in store.get(_conn, "optionPositions", user_id=scope) if p["id"] == contract_symbol), None)
     if not pos:
         raise HTTPException(400, "Sem posição em " + contract_symbol)
+    _recusar_execucao_fora_do_pregao(scope)  # quick 261013-vai (D4): fechar também é execução
     # prioridade usuario: ver /api/options/buy (quick 261006-oav).
     with mydata_budget.contexto(prioridade="usuario", origem="POST /api/options/lastreada/fechar"):
         chain = await options_provider.get_options(pos["underlying"], pos.get("expiration"))
@@ -5292,16 +5330,28 @@ async def _snapshot_para_trailing(ticker: str):
         return None
 
 
+def _frase_ciclo_fechado(scope) -> str:
+    """Frase canônica "Mercado fechado — nada foi executado…" (quick 261013-vai,
+    D2) no modo da conta; usada por /api/cycle e /api/agent/run-now."""
+    from . import pregao
+    cfg = store.get(_conn, "config", user_id=scope) or {}
+    modo = "operador" if cfg.get("appMode") == "operador" else "educacional"
+    return skill_ref.execucao_fora_pregao_txt(modo, "ciclo_fechado", abertura="%02d:%02d" % pregao.ABERTURA)
+
+
 @app.post("/api/cycle")
 async def cycle(scope: Optional[str] = Depends(current_scope)):
     # FASE 3.1: o motor de regras foi PORTADO para agent.py (roda também no
     # scheduler do servidor) — este endpoint (ciclo foreground) o reusa.
     positions = store.get(_conn, "positions", user_id=scope)
-    await agent_mod.run_cycle_for(_conn, scope, candle_provider.get_quotes_exclusive,
-                                  snapshot_getter=_snapshot_para_trailing,  # F2
-                                  option_quotes_getter=options_provider.get_options)  # v2
+    res = await agent_mod.run_cycle_for(_conn, scope, candle_provider.get_quotes_exclusive,
+                                        snapshot_getter=_snapshot_para_trailing,  # F2
+                                        option_quotes_getter=options_provider.get_options) or {}  # v2
     out = store.public_state(_conn, user_id=scope)
     out["quotes"] = await candle_provider.get_quotes_exclusive([p["t"] for p in positions]) if positions else {}
+    if res.get("mercadoFechado"):  # quick 261013-vai (D2): o portão do motor já avisou no Diário
+        out["mercadoFechado"] = True
+        out["mensagem"] = _frase_ciclo_fechado(scope)
     return out
 
 
@@ -5414,6 +5464,13 @@ async def agent_run_now(user: dict = Depends(require_user)):
     if agent_mod.kill_switch_on():
         raise HTTPException(409, "Kill-switch global ligado (B3_AGENT_KILL=1) — desligue para rodar.")
     uid = user["id"]
+    # quick 261013-vai (D2): fora do pregão não há o que executar — responde
+    # com estado completo (princípio 9) e NÃO cria task; o Diário recebe a frase.
+    from . import pregao
+    if not pregao.in_market_hours():
+        frase = _frase_ciclo_fechado(uid)
+        store.push_agent_log(_conn, [{"time": now_str(), "kind": "info", "text": frase}], user_id=uid)
+        return {"ok": True, "iniciado": False, "mercadoFechado": True, "mensagem": frase}
 
     async def _bg():
         try:
