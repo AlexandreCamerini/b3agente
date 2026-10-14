@@ -127,6 +127,11 @@ function VisaoGeral() {
               <Kv label="Aquecimento de fundamentos — aquecidos" value={data.aquecimentoFundamentos?.aquecidos ?? "—"} />
               <Kv label="Intraday — última passada" value={data.intraday?.atLabel || "nunca rodou"} />
               <Kv label="Intraday — ativos com lacuna" value={data.intraday?.comLacuna ?? "—"} />
+              <Kv label="Snapshot de fechamento — última" value={data.snapshotDiario?.atLabel || "nunca rodou"} />
+              <Kv label="Snapshot de fechamento — contas gravadas / puladas sem cotação" value={data.snapshotDiario?.gravadas != null ? `${data.snapshotDiario.gravadas} / ${data.snapshotDiario.puladasSemCotacao ?? 0}` : "—"} tone={data.snapshotDiario?.puladasSemCotacao > 0 ? "negative" : undefined} />
+              <Kv label="Snapshot de fechamento — erros / perdidas na janela" value={data.snapshotDiario?.perdido ? "janela perdida (nenhuma rodada)" : (data.snapshotDiario?.erros != null ? `${data.snapshotDiario.erros} / ${data.snapshotDiario.perdidasNaJanela ?? 0}` : "—")} tone={(data.snapshotDiario?.erros > 0 || data.snapshotDiario?.perdidasNaJanela > 0 || data.snapshotDiario?.perdido) ? "negative" : undefined} />
+              <Kv label="Snapshot de fechamento — tickers sem cotação" value={(data.snapshotDiario?.tickersSemCotacao || []).join(", ") || "nenhum"} />
+              <Kv label="Snapshot de fechamento — erro" value={data.snapshotDiario?.erro || "nenhum"} tone={data.snapshotDiario?.erro ? "negative" : undefined} />
               <EventoComSerie label="Push automático — falhas hoje" value={data.pushAutomaticoFalhasHoje?.falhas ?? 0} serie={paraSparkline(tend?.push_automatico_falhas_dia)} />
             </>
           )}

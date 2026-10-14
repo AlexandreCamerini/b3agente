@@ -116,6 +116,25 @@ function upsertSnapshot(list, snap, ctx) {
   return out.slice(-400);
 }
 
+// 2026-10-13 (quick 261013-u7w, D5): união por `data` entre os pontos do aparelho
+// e os do servidor (que grava o fechamento com o app fechado). Na mesma data vence
+// origem "fechamento"; em empate vence o servidor (conta canônica); datas só locais
+// permanecem. Ordena por data, cap 400 (igual ao servidor). Pura, não muta entradas,
+// descarta item que não seja objeto com `data` string; servidor não-array => cópia
+// ordenada do local. Casos M1-M10 em web/tests/test_snapshot_diario_front.mjs.
+function mesclarSnapshots(local, servidor) {
+  const valido = (s) => s && typeof s === "object" && typeof s.data === "string";
+  const mapa = new Map();
+  for (const s of Array.isArray(local) ? local : []) if (valido(s)) mapa.set(s.data, s);
+  for (const s of Array.isArray(servidor) ? servidor : []) {
+    if (!valido(s)) continue;
+    const l = mapa.get(s.data);
+    if (l && l.origem === "fechamento" && s.origem !== "fechamento") continue;
+    mapa.set(s.data, s);
+  }
+  return Array.from(mapa.values()).sort((a, b) => a.data.localeCompare(b.data)).slice(-400);
+}
+
 const isNative = (() => {
   try {
     return !!(Capacitor && typeof Capacitor.isNativePlatform === "function" && Capacitor.isNativePlatform());
@@ -729,6 +748,9 @@ function deviceStore() {
     // qa/audit-2026-08-08 comentado acima para positions/cash/history.
     if (Array.isArray(r.pendingOrders)) doc.pendingOrders = r.pendingOrders;
     if (typeof r.caixaReservado === "number") doc.caixaReservado = r.caixaReservado;
+    // 2026-10-13 (quick 261013-u7w, D5): o servidor grava o fechamento com o app
+    // fechado; união por data, fechamento vence, datas só do aparelho permanecem.
+    if (Array.isArray(r.equitySnapshots)) doc.equitySnapshots = mesclarSnapshots(doc.equitySnapshots, r.equitySnapshots);
   }
 
   return {

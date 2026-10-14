@@ -2115,7 +2115,7 @@ function CapitalCurve({ ctx }) {
   const m = portfolioMetrics(data.positions, quotes, data.cash, data.caixaReservado || 0, data.optionPositions);
   const patr = m.patr;
   const budget = (data.config && data.config.initialBudget) || 0;
-  const todayYmd = new Date().toISOString().slice(0, 10);
+  const todayYmd = hojeBRT();
   const ec = equityCurve(data.equitySnapshots, budget, patr, todayYmd);
   // 2026-10-06 (quick 261006-dvf): `budget` não é mais divisor (era a 2ª fonte do
   // +10.193 %). O "vs. início" é o MESMO retorno acumulado, medido pela base da série.
@@ -2344,7 +2344,7 @@ function EvolucaoScreen({ ctx }) {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const m = portfolioMetrics(data.positions, quotes, data.cash, data.caixaReservado || 0, data.optionPositions);
   const diaPct = dayReturnPct(m.patr, m.dayVal);
-  const ec = equityCurve(data.equitySnapshots, (data.config || {}).initialBudget, m.patr, new Date().toISOString().slice(0, 10));
+  const ec = equityCurve(data.equitySnapshots, (data.config || {}).initialBudget, m.patr, hojeBRT());
   const hoje = (() => { const d = new Date(); const p2 = (n) => String(n).padStart(2, "0"); return `${p2(d.getDate())}/${p2(d.getMonth() + 1)}/${d.getFullYear()}`; })();
   const opsHoje = (data.history || []).filter((h) => String(h.date || "").startsWith(hoje));
   // qa/mock v2: o hero-carrossel mostra as MELHORES oportunidades da watchlist
@@ -10673,7 +10673,8 @@ export default function App() {
     const temCotacoes = positions.length === 0 || positions.some((p) => quotes[p.t] && quotes[p.t].price != null);
     if (positions.length > 0 && !temCotacoes) return; // espera as cotações
     snapRanRef.current = true;
-    const ymd = new Date().toISOString().slice(0, 10);
+    // 2026-10-13 (quick 261013-u7w): data do snapshot em BRT (antes, depois das 21:00 BRT gravava o dia seguinte).
+    const ymd = hojeBRT();
     const m = portfolioMetrics(positions, quotes, data.cash, data.caixaReservado || 0, data.optionPositions);
     store.putSnapshot({ data: ymd, patrimonio: m.patr, caixa: m.cash, posicoesValor: m.posVal })
       .then((s) => s && setData(s))
@@ -11110,7 +11111,7 @@ export default function App() {
       case "evolucao": {
         const m = portfolioMetrics(data.positions, quotes, data.cash, data.caixaReservado || 0, data.optionPositions);
         const diaPct = dayReturnPct(m.patr, m.dayVal);
-        const hoje = new Date().toISOString().slice(0, 10);
+        const hoje = hojeBRT();
         const ec = equityCurve(data.equitySnapshots, (data.config || {}).initialBudget, m.patr, hoje);
         return {
           patrimonio: m.patr,
