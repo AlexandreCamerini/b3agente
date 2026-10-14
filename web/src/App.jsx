@@ -16,6 +16,9 @@ import { varsCartaoV6, ALFA_ZONA_V6, ALFA_ZONA_MEIO_V6 } from "./cartaoV6Cores.j
 import { useEstadoMemorizado } from "./uiMemo.js";
 import VoltarPadrao from "./VoltarPadrao.jsx"; // Onda B (2026-10-08): Voltar único // Onda B (2026-10-08): estado de UI que sobrevive à troca de aba (só sessão)
 import { prioridadeAtencao, ordenarLinhas } from "./listaPosicoes.js"; // quick 261013-cqk (2026-10-13): prioridade/ordenação puras da lista de posições
+// quick 261013-svo (2026-10-13): painel de atenção/hoje e evolução do resultado por posição (helpers puros)
+import { CHAVE_NIVEL, resumoAtencao, filtroVigente, filtrarPorNivel, painelHoje } from "./painelPosicoes.js";
+import { hojeBRT, reconstruirPosicao, periodoCandles, serieResultadoPosicao, geometriaSerie } from "./evolucaoPosicao.js";
 import { useDialogA11y } from "./useDialogA11y.js"; // Onda A (2026-10-08): Esc + foco + devolução nos modais
 import { defsDaBarra, telaDoAssistente } from "./telas.js";
 import { profundidade, profundidadeDeTela, modalDoTopo, campoDeTextoFocado, subirNivel, reconciliarPilha, entradasOrfas, ehGestoVoltarBorda, chaveDeScroll, chaveDeTela, transicaoDe, classeDaTransicao } from "./navStack.js"; // Onda B (2026-10-08): voltar do sistema
@@ -5029,6 +5032,7 @@ function CartaoPosicao({ p, nomeEmpresa, modoLeitura, leituraEstrutura, leituraP
                   : faceAcao)} />
               </>
             ) : faceAcao}
+            {naFolha && <EvolucaoResultadoPosicao p={p} data={data} modo={modo} comEstrutura={!!e} />}
             {!mostraResumo && explicaBoris}
             {!operador && <TermosTocaveis didatica={e ? e.didatica : (leituraPlano ? leituraPlano.didatica : null)} ctx={ctx} />}
             <BlocoBorisIA p={p} modo={modo} ctx={ctx} />
@@ -5194,6 +5198,184 @@ function LinhaPernaAvulsa({ t, e, modoLeitura, atencao, textoVence, modo, onAbri
   const meio = faixa ? <span style={{ fontSize: TIPO_CARD.rotulo, fontWeight: 400, color: T.textSecondary }}>{faixa}</span> : null;
   return (
     <CorpoLinhaLista ticker={t} selo={cartaoPosicaoTxt(modo, "selo_so_opcoes")} valorTxt={valorTxt} corValor={corValor} chipTopo={null} legendaTopo={null} meio={meio} atencao={atencao} textoVence={textoVence} variacao={null} modo={modo} onAbrir={onAbrir} />
+  );
+}
+
+// ---------------------------------------------------------------------------
+// quick 261013-svo (2026-10-13) — painel de atenção/hoje no topo da aba Posições e
+// evolução do resultado em aberto da posição na folha. Toda conta, data e junção de
+// texto vem pronta de painelPosicoes.js / evolucaoPosicao.js (puros, testados); aqui só
+// se formata e se desenha. Nenhuma IA, nenhuma conta financeira no componente. Cotação e
+// fechamento sem dado válido não viram número: aparece "—" ou o estado sem dados.
+// ---------------------------------------------------------------------------
+function ContadoresAtencao({ resumo, filtro, onFiltro, modo }) {
+  const corNivel = { 0: T.warn, 1: T.warn, 2: T.warn, 3: T.textSecondary, 4: T.accent, 5: T.textMuted };
+  const texto = { fontSize: TIPO_CARD.corpo, fontWeight: 400, color: T.textSecondary };
+  return (
+    <div role="group" aria-label={cartaoPosicaoTxt(modo, "atn_grupo_aria")} style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: `${SP[2]}px` }}>
+      {resumo.estado === "lendo" && <div role="status" style={texto}>{cartaoPosicaoTxt(modo, "atn_lendo")}</div>}
+      {resumo.estado === "nenhum" && <div style={texto}>{cartaoPosicaoTxt(modo, "atn_nenhuma")}</div>}
+      {resumo.estado === "ok" && resumo.grupos.map((g) => {
+        const sel = filtro === g.nivel;
+        const rotulo = cartaoPosicaoTxt(modo, CHAVE_NIVEL[g.nivel]);
+        return (
+          <button key={g.nivel} type="button" aria-pressed={sel} aria-label={cartaoPosicaoTxt(modo, "atn_contador_aria", { rotulo, n: g.n })} onClick={() => onFiltro(sel ? null : g.nivel)} style={{ minHeight: 44, display: "inline-flex", alignItems: "center", gap: `${SP[2]}px`, borderRadius: "999px", padding: `0 ${SP[3]}px`, background: sel ? T.accentTint : "transparent", border: `1px solid ${sel ? T.accent : corNivel[g.nivel]}`, color: sel ? T.accent : T.textPrimary, fontSize: TIPO_CARD.corpo, fontWeight: 400 }}>
+            <span style={{ fontFamily: MONO, fontWeight: 700, color: corNivel[g.nivel] }}>{g.n}</span>
+            <span>{rotulo}</span>
+          </button>
+        );
+      })}
+      {filtro !== null && (
+        <button type="button" onClick={() => onFiltro(null)} style={{ minHeight: 44, background: "transparent", border: "none", padding: `0 ${SP[2]}px`, color: T.accent, fontSize: TIPO_CARD.corpo, fontWeight: 700 }}>
+          {cartaoPosicaoTxt(modo, "atn_ver_todas")}
+        </button>
+      )}
+    </div>
+  );
+}
+
+function BlocoHoje({ hoje, quotesAt, modo, onEvolucao }) {
+  const rotulo = { fontSize: TIPO_CARD.rotulo, fontWeight: 400, color: T.textSecondary };
+  const lote = quotesAt ? cartaoPosicaoTxt(modo, "hoje_lote_hora", { hora: quotesAt }) : cartaoPosicaoTxt(modo, "hoje_sem_hora");
+  const fonteTxt = hoje.tipoFonte === "uma"
+    ? cartaoPosicaoTxt(modo, "hoje_fonte_uma", { fonte: hoje.fontesTxt, lote })
+    : hoje.tipoFonte === "varias"
+      ? cartaoPosicaoTxt(modo, "hoje_fontes", { fontes: hoje.fontesTxt, lote })
+      : cartaoPosicaoTxt(modo, "hoje_sem_fonte", { lote });
+  const cor = hoje.dia ? (sinalResultado(hoje.dia.valor) === "pos" ? T.positive : sinalResultado(hoje.dia.valor) === "neg" ? T.negative : T.textMuted) : T.textMuted;
+  const lista = (titulo, itens, corItem) => (itens.length > 0 ? (
+    <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: `${SP[2]}px` }}>
+      <span style={rotulo}>{cartaoPosicaoTxt(modo, titulo)}</span>
+      {itens.map((i) => <span key={i.t} style={{ fontFamily: MONO, fontSize: TIPO_CARD.corpo, fontWeight: 700, color: corItem }}>{cartaoPosicaoTxt(modo, "hoje_item", { ticker: i.t, pct: pct(i.change) })}</span>)}
+    </div>
+  ) : null);
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: `${SP[2]}px` }}>
+      <div style={{ fontSize: TIPO_CARD.corpo, fontWeight: 700, color: T.textPrimary }}>{cartaoPosicaoTxt(modo, "hoje_titulo")}</div>
+      <div style={{ display: "flex", flexWrap: "wrap", alignItems: "baseline", gap: `${SP[2]}px` }}>
+        <span style={rotulo}>{cartaoPosicaoTxt(modo, "hoje_carteira_dia")}</span>
+        {hoje.dia ? (
+          <>
+            <span style={{ fontFamily: MONO, fontSize: TIPO_CARD.corpo, fontWeight: 700, color: cor }}>{rsSinalNbsp(hoje.dia.valor)}</span>
+            <span style={{ fontFamily: MONO, fontSize: TIPO_CARD.corpo, fontWeight: 400, color: cor }}>{pct(hoje.dia.pct)}</span>
+          </>
+        ) : (
+          <>
+            <span style={{ fontFamily: MONO, fontSize: TIPO_CARD.corpo, fontWeight: 700, color: T.textMuted }}>—</span>
+            <span style={rotulo}>{cartaoPosicaoTxt(modo, "hoje_sem_dado")}</span>
+          </>
+        )}
+      </div>
+      {lista("hoje_altas", hoje.altas, T.positive)}
+      {lista("hoje_baixas", hoje.baixas, T.negative)}
+      {hoje.semCotacao.length > 0 && <div style={rotulo}>{cartaoPosicaoTxt(modo, "hoje_sem_cotacao", { tickers: hoje.semCotacaoTxt })}</div>}
+      <div style={{ fontSize: TIPO_CARD.legenda, fontWeight: 400, color: T.textMuted }}>{fonteTxt}</div>
+      <div>
+        <button type="button" onClick={onEvolucao} style={{ minHeight: 44, background: "transparent", border: "none", padding: 0, color: T.accent, fontSize: TIPO_CARD.corpo, fontWeight: 700, textAlign: "left" }}>
+          {cartaoPosicaoTxt(modo, "hoje_link_evolucao")}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function PainelPosicoes({ resumo, filtro, onFiltro, hoje, quotesAt, modo, onEvolucao }) {
+  return (
+    <div style={{ background: T.bgCard, border: `1px solid ${T.borderSubtle}`, borderRadius: "12px", padding: `${SP[4]}px`, marginBottom: `${SP[4]}px`, display: "flex", flexDirection: "column", gap: `${SP[4]}px` }}>
+      <ContadoresAtencao resumo={resumo} filtro={filtro} onFiltro={onFiltro} modo={modo} />
+      <BlocoHoje hoje={hoje} quotesAt={quotesAt} modo={modo} onEvolucao={onEvolucao} />
+    </div>
+  );
+}
+
+function GraficoResultadoPosicao({ serie, ticker, modo }) {
+  const g = geometriaSerie({ pontos: serie.pontos, marcas: serie.marcas });
+  const aria = cartaoPosicaoTxt(modo, "evo_aria", { ticker, inicio: serie.inicioBr, fim: serie.ateBr, min: rsSinalNbsp(serie.min), max: rsSinalNbsp(serie.max), ultimo: rsSinalNbsp(serie.ultimo) });
+  const eixo = { fontFamily: MONO, fontSize: TIPO_CARD.legenda, fontWeight: 400, color: T.textMuted };
+  const temCompra = serie.marcas.some((mk) => mk.tipo === "compra");
+  const temVenda = serie.marcas.some((mk) => mk.tipo === "venda");
+  return (
+    <div>
+      <div style={eixo}>{rsSinalNbsp(serie.max)}</div>
+      <svg role="img" aria-label={aria} width="100%" height={g.H} viewBox={`0 0 ${g.W} ${g.H}`} preserveAspectRatio="none" style={{ display: "block", overflow: "visible" }}>
+        <line x1={0} x2={g.W} y1={g.yZero} y2={g.yZero} strokeDasharray="4 3" vectorEffect="non-scaling-stroke" style={{ stroke: T.borderSubtle }} />
+        <path d={g.d} fill="none" strokeWidth="1.6" vectorEffect="non-scaling-stroke" style={{ stroke: T.textSecondary }} />
+        {g.marcas.map((mk, i) => (mk.tipo === "compra"
+          ? <path key={i} transform={`translate(${mk.x} ${mk.y})`} d="M0 -5 L-4 3 L4 3 Z" style={{ fill: T.positive }} />
+          : <path key={i} transform={`translate(${mk.x} ${mk.y})`} d="M0 5 L-4 -3 L4 -3 Z" style={{ fill: T.negative }} />))}
+      </svg>
+      <div style={eixo}>{rsSinalNbsp(serie.min)}</div>
+      {(temCompra || temVenda) && (
+        <div style={{ display: "flex", gap: `${SP[3]}px`, fontSize: TIPO_CARD.legenda, fontWeight: 400 }}>
+          {temCompra && <span style={{ color: T.positive }}>{cartaoPosicaoTxt(modo, "evo_leg_compra")}</span>}
+          {temVenda && <span style={{ color: T.negative }}>{cartaoPosicaoTxt(modo, "evo_leg_venda")}</span>}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function EvolucaoResultadoPosicao({ p, data, modo, comEstrutura }) {
+  const [tentativa, setTentativa] = useState(0);
+  const [carga, setCarga] = useState({ status: "carregando", r: null });
+  const rec = reconstruirPosicao({ ticker: p.t, history: data.history, posicao: p });
+  const hojeYmd = hojeBRT();
+  const periodo = rec.ok ? periodoCandles(rec.inicioYmd, hojeYmd) : null;
+  // Candles só ao montar a folha (naFolha), por store.technicals — mesmo caminho do OpsSparkline.
+  // Deps primitivas, sem polling; sem reconstrução que feche ou sem período não há o que buscar.
+  useEffect(() => {
+    if (!periodo) return undefined;
+    let vivo = true;
+    setCarga({ status: "carregando", r: null });
+    store.technicals(p.t, periodo).then((r) => { if (vivo) setCarga({ status: "ok", r }); }).catch(() => { if (vivo) setCarga({ status: "falha", r: null }); });
+    return () => { vivo = false; };
+  }, [p.t, periodo, tentativa]);
+  const texto = { fontSize: TIPO_CARD.corpo, fontWeight: 400, color: T.textSecondary };
+  const rotulo = { fontSize: TIPO_CARD.rotulo, fontWeight: 400, color: T.textMuted };
+  const semDados = (motivoChave) => (
+    <>
+      <div style={texto}>{cartaoPosicaoTxt(modo, "evo_sem_dados")}</div>
+      <div style={rotulo}>{cartaoPosicaoTxt(modo, motivoChave)}</div>
+    </>
+  );
+  let corpo;
+  if (!rec.ok) {
+    corpo = semDados(rec.motivo === "sem_compra" ? "evo_motivo_sem_compra" : "evo_motivo_nao_fecha");
+  } else if (!periodo) {
+    corpo = semDados("evo_motivo_periodo");
+  } else if (carga.status === "carregando") {
+    corpo = <div role="status" style={rotulo}>{cartaoPosicaoTxt(modo, "evo_carregando")}</div>;
+  } else if (carga.status === "falha") {
+    corpo = (
+      <>
+        <div style={texto}>{cartaoPosicaoTxt(modo, "evo_falha")}</div>
+        <button type="button" onClick={() => setTentativa((n) => n + 1)} style={{ minHeight: 44, alignSelf: "flex-start", background: "transparent", border: `1px solid ${T.accent}`, borderRadius: "999px", padding: `0 ${SP[3]}px`, color: T.accent, fontSize: TIPO_CARD.corpo, fontWeight: 700 }}>
+          {cartaoPosicaoTxt(modo, "tentar_de_novo")}
+        </button>
+      </>
+    );
+  } else {
+    const serie = serieResultadoPosicao({ ticker: p.t, history: data.history, candles: carga.r && carga.r.candles, posicao: p, hojeYmd });
+    if (!serie.ok) {
+      corpo = semDados(serie.motivo === "candles_insuficientes" ? "evo_motivo_candles" : "evo_motivo_nao_fecha");
+    } else {
+      const fonte = carga.r && carga.r.source ? FONTE_LABEL(carga.r.source) : cartaoPosicaoTxt(modo, "evo_fonte_desconhecida");
+      corpo = (
+        <>
+          <GraficoResultadoPosicao serie={serie} ticker={p.t} modo={modo} />
+          <div style={rotulo}>{cartaoPosicaoTxt(modo, "evo_fonte", { fonte, data: serie.ateBr })}</div>
+          {serie.parcial && <div style={rotulo}>{cartaoPosicaoTxt(modo, "evo_desde_janela", { data: serie.desdeBr })}</div>}
+          <div style={rotulo}>{cartaoPosicaoTxt(modo, "evo_explica")}</div>
+        </>
+      );
+    }
+  }
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: `${SP[2]}px`, border: `1px solid ${T.borderSubtle}`, borderRadius: "12px", padding: `${SP[3]}px` }}>
+      <div style={{ fontSize: TIPO_CARD.corpo, fontWeight: 700, color: T.textPrimary }}>{cartaoPosicaoTxt(modo, "evo_titulo")}</div>
+      {comEstrutura && <div style={rotulo}>{cartaoPosicaoTxt(modo, "evo_opcoes_fora")}</div>}
+      {corpo}
+    </div>
   );
 }
 
@@ -5870,6 +6052,9 @@ function CarteiraScreen({ ctx }) {
   // (sem persistência); `abertaT` = ticker cuja folha de detalhe está aberta.
   const [ordem, setOrdem] = useState("atencao");
   const [abertaT, setAbertaT] = useState(null);
+  // quick 261013-svo (2026-10-13): nível de atenção filtrado pelo painel (null = todas). O filtro
+  // vigente é derivado (filtroVigente): some sozinho quando o nível zera, sem efeito.
+  const [filtroNivel, setFiltroNivel] = useState(null);
   const { data, quotes, analysis, A, goMercado, cp, operador } = ctx;   // FASE 8B (B1)
   const themeKey = useThemeKey();
   // Fase 45 (D-01..D-04): leitura da estrutura só para ativos com pernas abertas.
@@ -5934,6 +6119,17 @@ function CarteiraScreen({ ctx }) {
     const atencao = prioridadeAtencao({ p: null, estrutura: e, leituraPlano: null, situacaoPlano: "ok" });
     return { t, leitura, modoLeitura, e, atencao, textoVence: textoVenceDe(e), nomeEmpresa: nomeEmpresaCard(t, q, data.catalog, nomesRef.current[t]) };
   };
+  // quick 261013-svo (2026-10-13): painel de atenção/hoje. Contagem, filtro e ranking vêm de
+  // painelPosicoes.js (puro); reusa `m` (nenhuma chamada nova de portfolioMetrics).
+  const modelosAvulsas = avulsas.map(modeloAvulsa);
+  const resumo = resumoAtencao([
+    ...linhas.map((l) => ({ t: l.t, nivel: l.nivel, lendo: l.vig.situacao === "carregando" || l.modoLeitura === "carregando" })),
+    ...modelosAvulsas.map((a) => ({ t: a.t, nivel: a.atencao.nivel, lendo: a.modoLeitura === "carregando" })),
+  ]);
+  const filtro = filtroVigente(filtroNivel, resumo);
+  const hoje = painelHoje({ positions: data.positions, quotes, patr: m.patr, dayVal: m.dayVal, rotuloFonte: FONTE_LABEL });
+  const avulsasVisiveis = new Set(filtrarPorNivel(modelosAvulsas.map((a) => ({ ...a, nivel: a.atencao.nivel })), filtro).map((a) => a.t));
+  const grupoFiltro = filtro !== null && resumo.estado === "ok" ? resumo.grupos.find((g) => g.nivel === filtro) : null;
   // Folha de detalhe (camada "posicao", z 45): o mesmo CartaoPosicao de antes, já aberto.
   const folha = (() => {
     if (!abertaT || !abertaExiste) return null;
@@ -6006,6 +6202,11 @@ function CarteiraScreen({ ctx }) {
         </div>
       )}
 
+      {/* quick 261013-svo (2026-10-13): painel de atenção (contadores que filtram a lista) + "Hoje". */}
+      {data.positions.length + avulsas.length > 0 && (
+        <PainelPosicoes resumo={resumo} filtro={filtro} onFiltro={setFiltroNivel} hoje={hoje} quotesAt={ctx.quotesAt} modo={modo} onEvolucao={() => A.go("evolucao")} />
+      )}
+
       {(() => {
         const conc = concentracaoMaxima(data.positions, quotes, total);
         if (!(conc && conc.pct > LIMIAR_CONCENTRACAO)) return null;
@@ -6047,9 +6248,14 @@ function CarteiraScreen({ ctx }) {
       {/* quick 261013-cqk (2026-10-13, opção B): lista compacta (uma linha de 2 andares por
           posição) e folha de detalhe com o CartaoPosicao reutilizado já aberto. Ordem e chip
           vêm de listaPosicoes.js; nenhuma conta aqui. */}
+      {grupoFiltro && (
+        <div role="status" style={{ fontSize: TIPO_CARD.rotulo, color: T.textSecondary, marginBottom: `${SP[3]}px` }}>
+          {cartaoPosicaoTxt(modo, "atn_mostrando", { rotulo: cartaoPosicaoTxt(modo, CHAVE_NIVEL[grupoFiltro.nivel]), n: grupoFiltro.n })}
+        </div>
+      )}
       {data.positions.length + avulsas.length >= 2 && <ChipsOrdenacaoPosicoes ordem={ordem} onOrdem={setOrdem} modo={modo} />}
       <div style={{ display: "flex", flexDirection: "column", gap: "11px" }}>
-        {ordenarLinhas(linhas, ordem).map((l) => {
+        {ordenarLinhas(filtrarPorNivel(linhas, filtro), ordem).map((l) => {
           const { p } = l;
           return (
             // id: âncora de scroll — mesmo mecanismo já em produção pro deep
@@ -6066,6 +6272,7 @@ function CarteiraScreen({ ctx }) {
           );
         })}
         {avulsas.map((t) => {
+          if (!avulsasVisiveis.has(t)) return null;
           const mA = modeloAvulsa(t);
           return (
             <div key={"avulsa-" + t} id={"posicao-" + t} style={{ ...card, ...varsCartaoV6(themeKey, operador ? "operador" : "estudo") }}>
