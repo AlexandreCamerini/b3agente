@@ -11,6 +11,17 @@ import tempfile
 
 from app import agent, db, store
 
+import pytest as _pytest_vai
+
+from .relogio_pregao import abrir_pregao as _abrir_pregao_vai
+
+
+@_pytest_vai.fixture(autouse=True)
+def _pregao_aberto(monkeypatch):
+    # 2026-10-13 (quick 261013-vai): o ciclo não executa fora do pregão; este
+    # arquivo testa execução, então fixa o relógio em pregão (quarta 14:00 BRT).
+    _abrir_pregao_vai(monkeypatch)
+
 
 def _conn():
     d = tempfile.mkdtemp(prefix="b3_f3_")
@@ -262,8 +273,46 @@ def test_laco_avisa_dentro_do_pregao():
     assert src.count("def _avisar_protecao_sem_operador") == 1
     assert src.count("def list_protecao_sem_operador") == 1
     # o aviso vive DENTRO do gate de pregão (não gasta passada de madrugada)
-    corpo = src.split("if not kill_switch_on() and in_market_hours():", 1)[1]
+    # 2026-10-13 (quick 261013-vai): o portão novo de _run_cycle_inner usa outro
+    # texto; a âncora passa a ser o corpo do scheduler para não depender da
+    # ordem das funções no arquivo.
+    scheduler = src.split("async def scheduler_loop", 1)[1]
+    corpo = scheduler.split("if not kill_switch_on() and in_market_hours():", 1)[1]
     assert "_avisar_protecao_sem_operador(conn)" in corpo.split("await asyncio.sleep(interval)", 1)[0]
+
+
+def _corpo(src: str, assinatura: str) -> str:
+    """Corpo de uma função top-level: da assinatura até o próximo def/async def
+    de coluna 0."""
+    import re
+    resto = src.split(assinatura, 1)[1]
+    return re.split(r"\n(?:async )?def |\n# ----", resto, maxsplit=1)[0]
+
+
+def test_portao_de_pregao_antes_de_qualquer_execucao_no_ciclo():
+    """quick 261013-vai (guardião novo): o portão `if not in_market_hours():`
+    precede toda execução em `_run_cycle_inner`, e fora do pregão só o
+    VENCIMENTO de opção (`somente_vencimento=True`) roda — nunca trailing/
+    stop/alvo de opção nem leitura de cota de opção por fora de `_avaliar_opcoes`."""
+    import pathlib
+    src = (pathlib.Path(__file__).resolve().parents[1] / "app" / "agent.py").read_text(encoding="utf-8")
+    ciclo = _corpo(src, "async def _run_cycle_inner(")
+    portao = ciclo.index("if not in_market_hours():")
+    for marca in ("store.set_position(", "store.sell(", "_avaliar_entradas(", "snapshot_getter("):
+        assert portao < ciclo.index(marca), f"o portão precisa vir antes de {marca}"
+    # ramo fechado: do portão até o primeiro "return {" depois dele
+    fechado = ciclo[portao:ciclo.index("return {", portao)]
+    assert fechado.count("_avaliar_opcoes(") == 1 and "somente_vencimento=True" in fechado
+    assert "option_quotes_getter(" not in fechado.replace("_avaliar_opcoes(conn, scope, ag, par, option_quotes_getter", "")
+    assert "_avaliar_entradas(" not in fechado and "store.sell" not in fechado
+    # fora do ramo fechado a chamada de opções é a de execução plena
+    aberto = ciclo[ciclo.index("return {", portao):]
+    assert "somente_vencimento=False" in aberto
+    opcoes = _corpo(src, "async def _avaliar_opcoes(")
+    corte = opcoes.index("if somente_vencimento:\n            continue")
+    assert corte < opcoes.index("nivel_trailing(") and corte < opcoes.index("store.sell_option(")
+    avisar = _corpo(src, "def _avisar_fora_pregao(")
+    assert "option_quotes_getter" not in avisar, "aviso fora do pregão não lê cota (D2-emenda)"
 
 
 if __name__ == "__main__":

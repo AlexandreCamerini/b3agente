@@ -540,7 +540,7 @@ async def _option_quotes(option_quotes_getter, opts: list) -> dict:
 
 
 async def _avaliar_opcoes(conn, scope, ag, par, option_quotes_getter, executed: int, events: list,
-                           app_mode=None) -> int:
+                           app_mode=None, somente_vencimento: bool = False) -> int:
     """Segunda passada do ciclo: `optionPositions`, separada da de `positions`
     porque a unidade (prêmio, não preço do ativo) e o terceiro motivo de saída
     (vencimento) não têm equivalente em ação. Retorna o `executed` atualizado.
@@ -553,10 +553,22 @@ async def _avaliar_opcoes(conn, scope, ag, par, option_quotes_getter, executed: 
     modelo antigo. `app_mode` decide o vocabulário do texto do vencimento
     forçado (Estudo explica, Operador registra — mesmo padrão de `skill_ref`)."""
     opts = store.get(conn, "optionPositions", user_id=scope) or []
+    hoje = _today()
+    if somente_vencimento:
+        # quick 261013-vai (2026-10-13): fora do pregão o ciclo só liquida
+        # VENCIMENTO — evento de calendário, não ordem; nada de trailing/stop/
+        # alvo. Filtra ANTES de consultar o provedor (sem vencida, zero cota
+        # gasta). Dia do vencimento antes da abertura: pula — o pregão do
+        # vencimento ainda não aconteceu e o spot disponível seria da véspera.
+        _agora = _agora_brt()
+        from . import pregao as _pregao  # import local: pregao não importa agent
+        opts = [p for p in opts
+                if p.get("expiration") and str(p["expiration"]) <= hoje
+                and not (str(p["expiration"]) == hoje
+                         and (_agora.hour, _agora.minute) < _pregao.ABERTURA)]
     if not opts or option_quotes_getter is None:
         return executed
     quotes = await _option_quotes(option_quotes_getter, opts)
-    hoje = _today()
     for pos in list(opts):
         payload = quotes.get((pos.get("underlying"), pos.get("expiration")))
         # ADR-004: sem cotação confiável, nem liquida por vencimento nem avalia
@@ -613,6 +625,8 @@ async def _avaliar_opcoes(conn, scope, ag, par, option_quotes_getter, executed: 
                            "text": f"Vencimento: {pos['id']} ({pos.get('underlying')}) liquidado pelo "
                                    f"intrínseco (R$ {intrinseco:.2f}/ação)."})
             continue
+        if somente_vencimento:
+            continue  # nunca entra em trailing/stop/alvo de opção fora do pregão
         if price is None:
             continue
         # F2 (trailing técnico): ATR é em R$ do ativo-objeto, unidade incompatível
@@ -971,11 +985,13 @@ async def _run_cycle_inner(conn, scope, quotes_getter, origem: str, t0: float, s
     if not in_market_hours():
         eventos = _avisar_fora_pregao(conn, scope, par, app_mode, positions, quotes_data,
                                       store.get(conn, "optionPositions", user_id=scope) or [])
+        executed = await _avaliar_opcoes(conn, scope, ag, par, option_quotes_getter, 0, eventos,
+                                          app_mode=app_mode, somente_vencimento=True)
         if eventos:
             store.push_events(conn, eventos, user_id=scope)
             if scope:
                 store.push_agent_log(conn, eventos, user_id=scope)
-        return {"events": eventos, "executed": 0, "appMode": app_mode, "mercadoFechado": True}
+        return {"events": eventos, "executed": executed, "appMode": app_mode, "mercadoFechado": True}
 
     # F2/F3: insumo técnico (ATR) do trailing dinâmico E do alvo dinâmico — os
     # dois reusam o mesmo contexto. Só busca quando algum dos dois PRECISA; no
@@ -1093,7 +1109,7 @@ async def _run_cycle_inner(conn, scope, quotes_getter, origem: str, t0: float, s
         events.append({"time": _now_str(), "kind": "buy", "t": pos["t"],
                        "tag": "stop" if breach_stop else "alvo", "pnl": pnl, "text": _txt})
     executed = await _avaliar_opcoes(conn, scope, ag, par, option_quotes_getter, executed, events,
-                                      app_mode=app_mode)
+                                      app_mode=app_mode, somente_vencimento=False)
     # Fase B: entrada automática — DEPOIS da saída (stop/alvo) e das opções,
     # de propósito (não faz sentido abrir posição nova no mesmo ciclo em que
     # talvez feche outra do mesmo ticker). Early return interno cobre

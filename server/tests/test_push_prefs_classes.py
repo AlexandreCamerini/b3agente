@@ -46,6 +46,17 @@ from app import agent, db, pending_orders, push, radar_daily, skill_ref, store
 # `_Espiao` é o espião de 4 argumentos que SÓ COLETA.
 from tests.test_push_payload import _Espiao, _conn, _quotes, _seed
 
+import pytest as _pytest_vai
+
+from .relogio_pregao import abrir_pregao as _abrir_pregao_vai
+
+
+@_pytest_vai.fixture(autouse=True)
+def _pregao_aberto_fixture_vai(monkeypatch):
+    # 2026-10-13 (quick 261013-vai): o ciclo não executa fora do pregão; este
+    # arquivo testa execução, então fixa o relógio em pregão (quarta 14:00 BRT).
+    _abrir_pregao_vai(monkeypatch)
+
 _SRC_AGENT = (pathlib.Path(__file__).resolve().parents[1] / "app" / "agent.py").read_text(encoding="utf-8")
 _SRC_TIMING_WATCH = (pathlib.Path(__file__).resolve().parents[1] / "app" / "timing_watch.py").read_text(encoding="utf-8")
 

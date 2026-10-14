@@ -30,6 +30,17 @@ import pytest
 
 from app import agent, candles, db, intraday, pending_orders, radar_daily, signal_ledger, skill_ref, store
 
+import pytest as _pytest_vai
+
+from .relogio_pregao import abrir_pregao as _abrir_pregao_vai
+
+
+@_pytest_vai.fixture(autouse=True)
+def _pregao_aberto(monkeypatch):
+    # 2026-10-13 (quick 261013-vai): o ciclo não executa fora do pregão; este
+    # arquivo testa execução, então fixa o relógio em pregão (quarta 14:00 BRT).
+    _abrir_pregao_vai(monkeypatch)
+
 HOJE = "2026-08-07"
 AGORA = datetime(2026, 8, 7, 14, 30, tzinfo=intraday.BRT)   # pregão aberto
 SETUP = "IFR2 (alta)"  # nome real do catálogo (server/app/setups.py)

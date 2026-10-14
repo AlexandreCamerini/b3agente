@@ -249,3 +249,171 @@ def test_s1_vocabulario():
               "botao_bloqueado", "botao_bloqueado_sem_hora"}
     for modo in ("operador", "educacional"):
         assert set(skill_ref.EXECUCAO_FORA_PREGAO[modo]) == chaves
+
+
+# ---------------------------------------------------------------------------
+# Tarefa 1b — vencimento é calendário (roda fora do pregão), aviso GENÉRICO de
+# opção (D2-emenda, 2026-10-14: sem preço, sem leitura de prêmio), T5, B2.
+# ---------------------------------------------------------------------------
+SEXTA_VENC = "2026-10-16"
+SEX_1720 = datetime(2026, 10, 16, 17, 20, tzinfo=BRT)
+SAB_14H = datetime(2026, 10, 17, 14, 0, tzinfo=BRT)
+
+
+def _payload(underlying, expiration, contrato, premio, spot, tipo="call", strike=38.0):
+    c = {"contractSymbol": contrato, "optionType": tipo, "strike": strike, "lastPrice": premio}
+    return {"providerStatus": "ok", "underlyingPrice": spot, "expiration": expiration,
+            "calls": [c] if tipo == "call" else [], "puts": [c] if tipo == "put" else []}
+
+
+def _getter(payloads, chamadas):
+    async def g(underlying, expiration):
+        chamadas.append((underlying, expiration))
+        return payloads.get((underlying, expiration))
+    return g
+
+
+def _legado(id_="PETRH380", expiration=SEXTA_VENC, stop=None, alvo=None, underlying="PETR4"):
+    return {"id": id_, "underlying": underlying, "optionType": "call", "strike": 38.0,
+            "expiration": expiration, "qty": 100, "avg": 1.0, "stop": stop, "alvo": alvo}
+
+
+def _lastreada(c, expiration=SEXTA_VENC):
+    store.buy(c, "PETR4", 200, 35.0, user_id="u1")
+    store.abrir_call_coberta(c, {"id": "PETRG380", "underlying": "PETR4", "optionType": "call",
+                                  "strike": 38.0, "expiration": expiration, "ivEntrada": 0.35,
+                                  "deltaEntrada": 0.5, "hv21Entrada": 0.3}, 2, 1.50, user_id="u1")
+    db.kv_set(c, "agent", {"autonomous": True, "serverEnabled": True, "mode": "executar",
+                            "maxOpsDia": 5}, user_id="u1")
+    db.kv_set(c, "positions", [p for p in store.get(c, "positions", user_id="u1")], user_id="u1")
+
+
+def test_t5_somente_vencimento_so_fechado(monkeypatch):
+    vistos = []
+    original = agent._avaliar_opcoes
+
+    async def espiao(*a, **k):
+        vistos.append(k.get("somente_vencimento", False))
+        return await original(*a, **k)
+    monkeypatch.setattr(agent, "_avaliar_opcoes", espiao)
+    fixar_instante(monkeypatch, SAB_14H)
+    c = _conn()
+    _seed(c)
+    _run(c, {"PETR4": 40.0})
+    fixar_instante(monkeypatch, QUA_14H)
+    _run(c, {"PETR4": 40.0})
+    assert vistos == [True, False]
+
+
+@pytest.mark.parametrize("instante", [SEX_1720, SAB_14H], ids=["V1-sexta-1720", "V2-sabado"])
+def test_v1_v2_vencimento_lastreado_liquida_fora_do_pregao(monkeypatch, instante):
+    fixar_instante(monkeypatch, instante)
+    c = _conn()
+    _lastreada(c)
+    chamadas, liquidadas = [], []
+    original = store.liquidar_lastreada_vencida
+
+    def espiao(conn, id_, spot, **kw):
+        liquidadas.append((id_, spot))
+        return original(conn, id_, spot, **kw)
+    monkeypatch.setattr(store, "liquidar_lastreada_vencida", espiao)
+    g = _getter({("PETR4", SEXTA_VENC): _payload("PETR4", SEXTA_VENC, "PETRG380", 3.0, 41.0)}, chamadas)
+    r = _run(c, {}, option_quotes_getter=g)
+    assert liquidadas == [("PETRG380", 41.0)]
+    assert store.get(c, "optionPositions", user_id="u1") == []
+    pos = next(p for p in store.get(c, "positions", user_id="u1") if p["t"] == "PETR4")
+    assert pos["qtyTravada"] == 0
+    assert any(e.get("tag") == "protecao-opcao" for e in r["events"])
+    assert r["mercadoFechado"] is True and r["executed"] == 1
+
+
+def test_v3_vencimento_legado_liquida_pelo_intrinseco_no_sabado(monkeypatch):
+    fixar_instante(monkeypatch, SAB_14H)
+    c = _conn()
+    _seed(c, opts=[_legado()])
+    chamadas = []
+    g = _getter({("PETR4", SEXTA_VENC): _payload("PETR4", SEXTA_VENC, "PETRH380", 3.0, 41.0)}, chamadas)
+    r = _run(c, {"PETR4": 40.0}, option_quotes_getter=g)
+    assert store.get(c, "optionPositions", user_id="u1") == []
+    h = store.get(c, "history", user_id="u1")[0]
+    assert h["motivo"] == "vencimento" and h["price"] == 3.0
+    assert r["executed"] == 1
+
+
+def test_v4_nao_liquida_antes_da_abertura_do_dia_do_vencimento(monkeypatch):
+    c = _conn()
+    _seed(c, opts=[_legado()])
+    chamadas = []
+    g = _getter({("PETR4", SEXTA_VENC): _payload("PETR4", SEXTA_VENC, "PETRH380", 3.0, 41.0)}, chamadas)
+    fixar_instante(monkeypatch, datetime(2026, 10, 16, 9, 30, tzinfo=BRT))
+    r = _run(c, {"PETR4": 40.0}, option_quotes_getter=g)
+    assert r["executed"] == 0 and len(store.get(c, "optionPositions", user_id="u1")) == 1
+    assert chamadas == []
+    fixar_instante(monkeypatch, datetime(2026, 10, 16, 10, 30, tzinfo=BRT))
+    r = _run(c, {"PETR4": 40.0}, option_quotes_getter=g)
+    assert r["executed"] == 1 and store.get(c, "optionPositions", user_id="u1") == []
+
+
+def test_v5_v6_stop_de_opcao_nao_executa_fechado_e_nao_le_provedor(monkeypatch):
+    c = _conn()
+    _seed(c, opts=[_legado(expiration="2026-12-18", stop=1.0)], positions=[])
+    chamadas = []
+    g = _getter({("PETR4", "2026-12-18"): _payload("PETR4", "2026-12-18", "PETRH380", 0.8, 40.0)}, chamadas)
+    fixar_instante(monkeypatch, SAB_14H)
+    r = _run(c, {}, option_quotes_getter=g)
+    assert r["executed"] == 0 and chamadas == []  # V6
+    op = store.get(c, "optionPositions", user_id="u1")
+    assert len(op) == 1 and op[0]["stop"] == 1.0
+    fixar_instante(monkeypatch, QUA_14H)  # regressão: no pregão vende
+    r = _run(c, {}, option_quotes_getter=g)
+    assert r["executed"] == 1 and store.get(c, "optionPositions", user_id="u1") == []
+
+
+@pytest.mark.parametrize("modo", ["operador", None])
+def test_v7_aviso_generico_de_opcao_sem_preco(monkeypatch, modo):
+    fixar_instante(monkeypatch, SAB_14H)
+    c = _conn(modo=modo)
+    _seed(c, opts=[_legado(expiration="2026-12-18", stop=1.0)], positions=[])
+    chamadas = []
+    g = _getter({}, chamadas)
+    r = _run(c, {}, option_quotes_getter=g)
+    esperado = skill_ref.execucao_fora_pregao_txt(modo or "educacional", "aviso_opcao", contrato="PETRH380")
+    av = _avisos(r)
+    assert [e["text"] for e in av] == [esperado]
+    assert "R$" not in esperado and "atingido" not in esperado
+    assert chamadas == []
+    kv = db.kv_get(c, "avisoForaPregao", user_id="u1")
+    assert kv["chaves"] == ["opcao:PETRH380"]
+    op = store.get(c, "optionPositions", user_id="u1")
+    assert len(op) == 1 and op[0]["stop"] == 1.0
+
+
+def test_v8_opcao_sem_stop_nem_alvo_nao_avisa(monkeypatch):
+    fixar_instante(monkeypatch, SAB_14H)
+    c = _conn()
+    _seed(c, opts=[_legado(expiration="2026-12-18")], positions=[])
+    chamadas = []
+    r = _run(c, {}, option_quotes_getter=_getter({}, chamadas))
+    assert _avisos(r) == [] and chamadas == []
+
+
+def test_v9_dedupe_da_opcao_por_dia(monkeypatch):
+    c = _conn()
+    _seed(c, opts=[_legado(expiration="2026-12-18", alvo=3.0)], positions=[])
+    g = _getter({}, [])
+    fixar_instante(monkeypatch, SAB_14H)
+    assert len(_avisos(_run(c, {}, option_quotes_getter=g))) == 1
+    assert _avisos(_run(c, {}, option_quotes_getter=g)) == []
+    fixar_instante(monkeypatch, datetime(2026, 10, 18, 14, 0, tzinfo=BRT))
+    assert len(_avisos(_run(c, {}, option_quotes_getter=g))) == 1
+
+
+def test_b2_acao_e_opcao_avisam_uma_vez_cada(monkeypatch):
+    fixar_instante(monkeypatch, SAB_14H)
+    c = _conn()
+    _seed(c, opts=[_legado(expiration="2026-12-18", stop=1.0)])
+    g = _getter({}, [])
+    r1 = _run(c, {"PETR4": 37.5}, option_quotes_getter=g)
+    assert len(_avisos(r1)) == 2
+    assert set(db.kv_get(c, "avisoForaPregao", user_id="u1")["chaves"]) == {"acao:PETR4", "opcao:PETRH380"}
+    assert _avisos(_run(c, {"PETR4": 37.5}, option_quotes_getter=g)) == []

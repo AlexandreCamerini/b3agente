@@ -6,6 +6,17 @@ import tempfile
 
 from app import agent, db, mydata_budget, options_provider_mydata, store
 
+import pytest as _pytest_vai
+
+from .relogio_pregao import abrir_pregao as _abrir_pregao_vai
+
+
+@_pytest_vai.fixture(autouse=True)
+def _pregao_aberto(monkeypatch):
+    # 2026-10-13 (quick 261013-vai): o ciclo não executa fora do pregão; este
+    # arquivo testa execução, então fixa o relógio em pregão (quarta 14:00 BRT).
+    _abrir_pregao_vai(monkeypatch)
+
 
 def _conn():
     d = tempfile.mkdtemp()
