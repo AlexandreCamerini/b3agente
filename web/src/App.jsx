@@ -9549,11 +9549,6 @@ export default function App() {
   // "chuta" aberto/fechado — CLAUDE.md princípio 4). A rota é pública
   // (server/app/main.py:833), então a consulta roda ANTES de qualquer login.
   const [mercado, setMercado] = useState(null);
-  // Quick 261013-vai (2026-10-14), D3/D4: ref espelho de `mercado` para o setInterval do modo
-  // autônomo e para os A.* de opções lerem o pregão SEM pôr `mercado` nas deps do useMemo de A
-  // (guardadas por test_wiring_deps.mjs).
-  const mercadoRef = useRef(null);
-  mercadoRef.current = mercado;
   // Fase 2 (02-06, T-02-30): ref para a MESMA função de consulta do efeito
   // abaixo — expor ctx.recarregarMercado (botão "tentar de novo" nos modais
   // de compra/venda quando o status falhou) sem criar uma segunda consulta
@@ -9650,6 +9645,11 @@ export default function App() {
   // background/app-state. Sem isso, closures diferentes.
   const cfgPending = useRef(null);
   const cycleRef = useRef(null);
+  // Quick 261013-vai (2026-10-14), D3/D4: ref espelho de `mercado` para o setInterval do modo
+  // autônomo e para os A.* de opções lerem o pregão SEM pôr `mercado` nas deps do useMemo de A
+  // (guardadas por test_wiring_deps.mjs).
+  const mercadoRef = useRef(null);
+  mercadoRef.current = mercado;
   // Pull-to-refresh (mobile) sobre o scroller principal.
   const mainRef = useRef(null);
   const [pullY, setPullY] = useState(0);
