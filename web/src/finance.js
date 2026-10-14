@@ -78,6 +78,13 @@ export function markPrice(quote, position) {
   return avg;
 }
 
+// 2026-10-13 (quick 261013-svo): predicado ÚNICO do "dia" — cotação com preço > 0 e variação numérica.
+// portfolioMetrics (dayVal) e o ranking do painel de Posições usam esta mesma função, para o total do
+// dia e as maiores variações nunca divergirem. Refatoração sem mudança de comportamento.
+export function cotacaoDoDiaValida(quote) {
+  return !!quote && typeof quote.price === "number" && quote.price > 0 && typeof quote.change === "number";
+}
+
 // Fase 14 (Plano 05, D-6 do 14-CONTEXT.md): patrimônio total passa a somar
 // as pernas de opção LASTREADAS (call coberta vendida / put de proteção
 // comprada, `abrir_call_coberta`/`comprar_put_protecao`, Plano 14-02). 5º e
@@ -132,7 +139,7 @@ export function portfolioMetrics(positions, quotes, cash, reservado, optionPosit
     posVal += qty * price;
     cost += qty * avg;
     openPnL += (price - avg) * qty;
-    if (typeof quote.price === "number" && quote.price > 0 && typeof quote.change === "number") {
+    if (cotacaoDoDiaValida(quote)) {
       dayVal += qty * quote.price * (quote.change / 100);
     }
   }

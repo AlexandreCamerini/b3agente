@@ -84,6 +84,17 @@ const NEUTRAS = [
   "estado_perto_stop", "estado_perto_alvo", "ordenar_aria", "ordenar_atencao",
   "ordenar_resultado", "ordenar_vencimento", "selo_estrutura", "selo_so_opcoes",
   "linha_faixa", "folha_aria",
+  // 2026-10-13 (quick 261013-svo): + chaves do painel de atenção/hoje e da evolução por posição.
+  "atn_grupo_aria", "atn_risco", "atn_perto_stop", "atn_vence",
+  "atn_sem_plano", "atn_perto_alvo", "atn_sem_leitura", "atn_contador_aria",
+  "atn_lendo", "atn_ver_todas", "atn_mostrando", "hoje_titulo",
+  "hoje_carteira_dia", "hoje_altas", "hoje_baixas", "hoje_item",
+  "hoje_sem_cotacao", "hoje_sem_dado", "hoje_fonte_uma", "hoje_fontes",
+  "hoje_sem_fonte", "hoje_lote_hora", "hoje_sem_hora", "hoje_link_evolucao",
+  "evo_titulo", "evo_fonte", "evo_fonte_desconhecida", "evo_desde_janela",
+  "evo_opcoes_fora", "evo_carregando", "evo_falha", "evo_motivo_sem_compra",
+  "evo_motivo_nao_fecha", "evo_motivo_candles", "evo_motivo_periodo", "evo_leg_compra",
+  "evo_leg_venda", "evo_aria",
 ];
 
 // --- (1) CARTAO_POSICAO <-> COPY[modo].cartaoPosicao
@@ -117,7 +128,8 @@ for (const k of NEUTRAS) {
      typeof E[k] === "string" && E[k].length > 0 && E[k] === O[k], `estudo=${E[k]} operador=${O[k]}`);
 }
 // 2026-10-13 (quick 261013-cqk): + chaves da lista/folha (opção B).
-const ESPECIFICAS = ["rodape_abrir", "saida", "saida_sem_livres", "apoio_saida", "linha_aria", "linha_aria_sem_estado"];
+// 2026-10-13 (quick 261013-svo): + chaves do painel de atenção/hoje e da evolução por posição.
+const ESPECIFICAS = ["rodape_abrir", "saida", "saida_sem_livres", "apoio_saida", "linha_aria", "linha_aria_sem_estado", "atn_nenhuma", "evo_sem_dados", "evo_explica"];
 for (const k of ESPECIFICAS) {
   ok(`${k} difere entre Estudo e Operador (muda só o registro)`, E[k] !== O[k] && E[k].length > 0 && O[k].length > 0);
 }
