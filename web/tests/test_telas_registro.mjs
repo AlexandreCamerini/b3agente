@@ -214,10 +214,23 @@ for (const id of idsSwitchRegistro) {
      "entrada snapshot:'switch' sem case → cai no default: return {} e o Boris fala sem dado (achado A1 da Fase 26)");
 }
 const sha256Switch = createHash("sha256").update(blocoSwitch, "utf8").digest("hex");
+// 2026-10-13 (quick 261013-u7w): mudança INTENCIONAL dentro do bloco — `case "evolucao"`
+// trocou `new Date().toISOString().slice(0, 10)` por `hojeBRT()` (data da curva em BRT, não UTC).
+// A asserção original (sha256 === fixture, "switch intocado") passou a ser a LINHA DE BASE
+// HISTÓRICA: o fixture segue congelado e a ÚNICA diferença admitida é essa troca, provada abaixo
+// por reversão textual (revertendo `hojeBRT()` -> expressão UTC o bloco volta a bater o sha do fixture).
+// Substituta: o sha do bloco atual é travado em SHA_SWITCH_2026_10_13.
+const SHA_SWITCH_2026_10_13 = "bc5046801e408214c261f337feb4d4ee29cd5b7068a1fe448713db54ee10d917";
+const blocoRevertido = blocoSwitch.replace("const hoje = hojeBRT();", "const hoje = new Date().toISOString().slice(0, 10);");
 ok(
-  "o sha256 do bloco do switch é igual ao do fixture (switch intocado, D-03)",
-  sha256Switch === baseline.switchPetSnapshot.sha256,
-  "esperado=" + baseline.switchPetSnapshot.sha256 + " obtido=" + sha256Switch
+  "o sha256 do bloco do switch é igual ao do fixture, salvo a troca datada hojeBRT() (D-03; quick 261013-u7w)",
+  createHash("sha256").update(blocoRevertido, "utf8").digest("hex") === baseline.switchPetSnapshot.sha256,
+  "esperado=" + baseline.switchPetSnapshot.sha256
+);
+ok(
+  "o sha256 do bloco atual do switch é o travado em 2026-10-13 (qualquer outra mexida no switch exige nota nova)",
+  sha256Switch === SHA_SWITCH_2026_10_13,
+  "esperado=" + SHA_SWITCH_2026_10_13 + " obtido=" + sha256Switch
 );
 
 if (fails) { console.error(`\n${fails} falha(s)`); process.exit(1); }
