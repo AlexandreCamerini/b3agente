@@ -42,6 +42,19 @@ export function hojeBRT(agora = new Date()) {
   }).format(agora);
 }
 
+// Hora do dia na B3 (America/Sao_Paulo) em "HH:MM" (00:00–23:59); relógio inválido -> null.
+// Quick 261013-vai (2026-10-14): mesma técnica de fuso de `hojeBRT`; serve ao deviceStore.cycle
+// para não liquidar vencimento antes da abertura do próprio dia (espelho de pregao.ABERTURA).
+export function horaMinutoBRT(agora = new Date()) {
+  if (!(agora instanceof Date) || Number.isNaN(agora.getTime())) return null;
+  const partes = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "America/Sao_Paulo", hour: "2-digit", minute: "2-digit", hourCycle: "h23",
+  }).formatToParts(agora);
+  const h = partes.find((p) => p.type === "hour").value;
+  const m = partes.find((p) => p.type === "minute").value;
+  return h + ":" + m;
+}
+
 // "AAAA-MM-DD" -> "dd/mm/aaaa" | null.
 export function ymdParaBr(ymd) {
   if (typeof ymd !== "string") return null;

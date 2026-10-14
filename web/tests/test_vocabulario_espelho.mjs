@@ -120,7 +120,8 @@ function paresDoModo(modoSrc) {
 // Fase 43 (HIER-03): dict novo entra no mesmo guardião cruzado.
 // 2026-10-06 (quick 261006-dvf): RETORNO_ACUMULADO entra no mesmo guardião.
 // 2026-10-06 (quick 261006-qre): CURVA_EVOLUCAO (legenda do trecho pré-janela) idem.
-const DICTS = ["HISTORICO", "HISTORICO_ROTULO", "ENTRADA_AUTO", "RECONCILIACAO_ELEGIBILIDADE", "RETORNO_ACUMULADO", "CURVA_EVOLUCAO"];
+// 2026-10-13 (quick 261013-vai): EXECUCAO_FORA_PREGAO entra no mesmo guardião.
+const DICTS = ["HISTORICO", "HISTORICO_ROTULO", "ENTRADA_AUTO", "RECONCILIACAO_ELEGIBILIDADE", "RETORNO_ACUMULADO", "CURVA_EVOLUCAO", "EXECUCAO_FORA_PREGAO"];
 // Python "educacional" ↔ JS "estudo"; "operador" ↔ "operador".
 const MODO_JS = { educacional: "estudo", operador: "operador" };
 const CHAVE_JS = {
@@ -128,6 +129,7 @@ const CHAVE_JS = {
   RECONCILIACAO_ELEGIBILIDADE: "reconciliacaoElegibilidade",
   RETORNO_ACUMULADO: "retornoAcumulado",
   CURVA_EVOLUCAO: "curvaEvolucao",
+  EXECUCAO_FORA_PREGAO: "execucaoForaPregao",
 };
 const CHAVES_ESPERADAS = {
   HISTORICO: ["elegivel", "inelegivel", "insuficiente", "nunca_medido", "aposentado", "desatualizado"],
@@ -136,6 +138,7 @@ const CHAVES_ESPERADAS = {
   RECONCILIACAO_ELEGIBILIDADE: ["elegivel", "inelegivel", "insuficiente", "nunca_medido", "aposentado"],
   RETORNO_ACUMULADO: ["carimbada", "carimbada_reinicio", "primeiro_registro", "sem_serie", "inconsistente"],
   CURVA_EVOLUCAO: ["antes_da_base"],
+  EXECUCAO_FORA_PREGAO: ["aviso_diario", "aviso_opcao", "ciclo_fechado", "ciclo_fechado_sem_hora", "status_indeterminado", "opcao_bloqueada", "opcao_bloqueada_sem_hora", "opcao_bloqueada_acao", "botao_bloqueado", "botao_bloqueado_sem_hora"],
 };
 
 const paresPorDictModo = {}; // paresPorDictModo[NOME][modoPy] = {chave: valor}

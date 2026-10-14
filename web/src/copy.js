@@ -606,6 +606,19 @@ export const COPY = {
       nunca_medido: "SEM HISTÓRICO MEDIDO",
       aposentado: "APOSENTADO (ADR-016)",
     },
+    // Quick 261013-vai (2026-10-13): espelho byte a byte de skill_ref.EXECUCAO_FORA_PREGAO.
+    execucaoForaPregao: {
+      aviso_diario: "Mercado fechado: pela última cotação, o {motivo} de {ticker} seria atingido. Fora do pregão nenhuma ordem é executada, nem a simulada. Na abertura do próximo pregão o simulador confere de novo com o preço daquele momento; se o preço abrir além do nível definido (o chamado gap), a execução sai no preço de abertura, que pode ser pior que o {motivo}.",
+      aviso_opcao: "Mercado fechado: o stop/alvo da opção {contrato} só é conferido na abertura do próximo pregão, com o prêmio daquele momento. Fora do pregão nenhuma ordem é executada, nem a simulada.",
+      ciclo_fechado: "Mercado fechado — nada foi executado. A bolsa só negocia no pregão, então stop, alvo e entradas são conferidos de novo na abertura, às {abertura}.",
+      ciclo_fechado_sem_hora: "Mercado fechado — nada foi executado. A bolsa só negocia no pregão, então stop, alvo e entradas são conferidos de novo na abertura.",
+      status_indeterminado: "Não foi possível confirmar se o mercado está aberto — por segurança, nada foi executado neste ciclo. O simulador tenta de novo no próximo.",
+      opcao_bloqueada: "Mercado fechado — a B3 abre às {abertura}; nenhuma ordem de opção é executada fora do pregão.",
+      opcao_bloqueada_sem_hora: "Mercado fechado — nenhuma ordem de opção é executada fora do pregão.",
+      opcao_bloqueada_acao: "Enquanto a bolsa está fechada, dá para estudar a cadeia, a escada e o payoff; a ordem só pode ser enviada no pregão.",
+      botao_bloqueado: "Mercado fechado — abre às {abertura}",
+      botao_bloqueado_sem_hora: "Mercado fechado — execução só no pregão",
+    },
     // Quick 261006-dvf (2026-10-06): espelho byte a byte de skill_ref.RETORNO_ACUMULADO.
     retornoAcumulado: {
       carimbada: "Desde o capital inicial desta simulação, o retorno acumulado é de {pct}.",
@@ -1997,6 +2010,19 @@ export const COPY = {
       nunca_medido: "SEM HISTÓRICO MEDIDO",
       aposentado: "APOSENTADO (ADR-016)",
     },
+    // Quick 261013-vai (2026-10-13): espelho byte a byte de skill_ref.EXECUCAO_FORA_PREGAO.
+    execucaoForaPregao: {
+      aviso_diario: "Mercado fechado: {motivo} de {ticker} atingido na última cotação. Nada foi executado; a avaliação é refeita na abertura do próximo pregão, ao preço daquele momento (gap possível).",
+      aviso_opcao: "Mercado fechado: stop/alvo da opção {contrato} será avaliado na abertura.",
+      ciclo_fechado: "Mercado fechado — nada foi executado. Stop, alvo e entradas são reavaliados na abertura do próximo pregão, às {abertura}.",
+      ciclo_fechado_sem_hora: "Mercado fechado — nada foi executado. Stop, alvo e entradas são reavaliados na abertura do próximo pregão.",
+      status_indeterminado: "Status do mercado indisponível — nada foi executado neste ciclo. Nova tentativa no próximo ciclo.",
+      opcao_bloqueada: "Mercado fechado — a B3 abre às {abertura}; nenhuma ordem de opção é executada fora do pregão.",
+      opcao_bloqueada_sem_hora: "Mercado fechado — nenhuma ordem de opção é executada fora do pregão.",
+      opcao_bloqueada_acao: "Aguarde a abertura do pregão para executar. Cadeia, escada e payoff seguem disponíveis para análise.",
+      botao_bloqueado: "Mercado fechado — abre às {abertura}",
+      botao_bloqueado_sem_hora: "Mercado fechado — execução só no pregão",
+    },
     // Quick 261006-dvf (2026-10-06): espelho byte a byte de skill_ref.RETORNO_ACUMULADO.
     retornoAcumulado: {
       carimbada: "Retorno acumulado desde o capital inicial: {pct}.",
@@ -2847,6 +2873,23 @@ export function retornoAcumuladoTxt(mode, estado, vals) {
   return frase
     .replace("{pct}", (vals && vals.pct) || "—")
     .replace("{desde}", (vals && vals.desde) || "?");
+}
+
+// Espelho de `skill_ref.execucao_fora_pregao_txt` (quick 261013-vai): falha ALTA,
+// igual ao Python — placeholder sem valor lança Error (nunca devolve "?" nem
+// inventa hora; quem chama escolhe a variante *_sem_hora) e chave desconhecida
+// também. vals: { ticker, motivo, abertura, contrato }.
+export function execucaoForaPregaoTxt(mode, chave, vals) {
+  const e = copyFor(mode).execucaoForaPregao;
+  const frase = e[chave];
+  if (frase === undefined) throw new Error("execucaoForaPregaoTxt: chave desconhecida '" + chave + "'");
+  return frase.replace(/\{(\w+)\}/g, (_, nome) => {
+    const v = vals ? vals[nome] : undefined;
+    if (v === undefined || v === null || v === "") {
+      throw new Error("execucaoForaPregaoTxt: falta '" + nome + "' para '" + chave + "'");
+    }
+    return String(v);
+  });
 }
 
 // Espelho de `skill_ref.curva_evolucao_txt` (quick 261006-qre): legenda do trecho

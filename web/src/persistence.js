@@ -32,6 +32,10 @@ import { canAddTicker, canGrowWatchlistTo, erroDeLimiteWatchlist } from "./plan.
 // fala com o servidor ATRAVÉS dela; deviceStore segue local-first, EXCETO a
 // carteira quando logado (ver cabeçalho do arquivo).
 import * as sync from "./sync.js";
+// Quick 261013-vai (2026-10-14): portão de pregão do ciclo local (D3) — vocabulário espelhado
+// de skill_ref.EXECUCAO_FORA_PREGAO e relógio BRT (nunca UTC).
+import { execucaoForaPregaoTxt } from "./copy.js";
+import { hojeBRT, horaMinutoBRT } from "./evolucaoPosicao.js";
 
 // Normaliza a entrada do usuario igual ao servidor: sem espacos, MAIUSCULAS,
 // sem sufixo .SA, mantendo so A-Z0-9. Ex.: "petr4 " -> "PETR4".
@@ -1987,10 +1991,35 @@ function deviceStore() {
     },
     async cycle() {
       ensure();
-      const r = await api.getQuotes(doc.positions.map((p) => p.t).join(","));
-      const quotes = (r && r.quotes) || {};
+      // Quick 261013-vai (2026-10-14), D3: espelho do portão de agent._run_cycle_inner. Só
+      // `aberto === true` explícito libera stop/alvo/trailing (ação e opção). `aberto === false`
+      // = fechado; qualquer outra coisa (erro, rede, resposta sem o campo) = indeterminado, que
+      // também NÃO executa (princípio 4: sem confirmação do pregão não se simula execução).
+      // Vencimento de opção é evento de calendário, não ordem: roda nos dois casos.
+      let estado = "indeterminado";
+      let abertura = null;
+      try {
+        const st = await api.marketStatus();
+        if (st && !st.erro) {
+          if (st.aberto === true) estado = "aberto";
+          else if (st.aberto === false) {
+            estado = "fechado";
+            abertura = typeof st.abertura === "string" && st.abertura ? st.abertura : null;
+          }
+        }
+      } catch { estado = "indeterminado"; }
+      const aberto = estado === "aberto";
+      const modo = doc.config && doc.config.appMode === "operador" ? "operador" : "estudo";
+      let quotes = {};
+      try {
+        const r = await api.getQuotes(doc.positions.map((p) => p.t).join(","));
+        quotes = (r && r.quotes) || {};
+      } catch (e) {
+        // remarcação é leitura: fora do pregão a falha de cotação não derruba o ciclo
+        if (aberto) throw e;
+      }
       const events = [];
-      for (const pos of [...doc.positions]) {
+      for (const pos of aberto ? [...doc.positions] : []) {
         const price = quotes[pos.t] && quotes[pos.t].price;
         if (price == null) continue;
         const breachStop = pos.stop != null && price <= pos.stop;
@@ -2010,7 +2039,16 @@ function deviceStore() {
       // tetos, mesma divergência já documentada do resto deste ciclo), mas
       // SEM esse ramo o usuário majoritariamente-iOS teria contratos vencendo
       // sem liquidar — o motivo pelo qual o ADR exige replicar aqui.
-      const opts = doc.optionPositions || [];
+      const avaliarOpcoesLocal = async ({ somenteVencimento = false } = {}) => {
+      // Quick 261013-vai (2026-10-14): com `somenteVencimento` (mercado não aberto) só entram as
+      // posições com expiration <= hoje (BRT, não UTC) e o dia do vencimento só vale depois das
+      // 10:00 BRT (antes disso o spot disponível é o da véspera); nunca stop/alvo de opção.
+      const hoje = hojeBRT();
+      let opts = doc.optionPositions || [];
+      if (somenteVencimento) {
+        const hm = horaMinutoBRT();
+        opts = opts.filter((p) => p.expiration && p.expiration <= hoje && !(p.expiration === hoje && hm < "10:00"));
+      }
       if (opts.length) {
         const pares = [...new Set(opts.map((p) => p.underlying + "|" + p.expiration))];
         const chains = {};
@@ -2019,8 +2057,8 @@ function deviceStore() {
           try { chains[key] = await api.optionsChain(underlying, expiration); }
           catch { chains[key] = null; }
         }
-        const hoje = new Date().toISOString().slice(0, 10);
         for (const pos of [...(doc.optionPositions || [])]) {
+          if (somenteVencimento && !opts.includes(pos)) continue;
           const chain = chains[pos.underlying + "|" + pos.expiration];
           if (!chain || chain.providerStatus !== "ok") continue;  // ADR-004: sem cotação confiável, tenta no próximo ciclo
           const spot = chain.underlyingPrice;
@@ -2088,6 +2126,7 @@ function deviceStore() {
             }
             continue;
           }
+          if (somenteVencimento) continue; // fora do pregão nunca entra em stop/alvo de opção
           if (typeof price !== "number") continue;
           const breachStop = pos.stop != null && price <= pos.stop;
           const hitAlvo = pos.alvo != null && price >= pos.alvo;
@@ -2102,11 +2141,59 @@ function deviceStore() {
           }
         }
       }
-      if (!events.length) events.push({ time: "Agora", kind: "info", text: "Ciclo executado - posicoes remarcadas a mercado. Nenhum stop/alvo atingido." });
+      };
+      if (aberto) {
+        await avaliarOpcoesLocal();
+        if (!events.length) events.push({ time: "Agora", kind: "info", text: "Ciclo executado - posicoes remarcadas a mercado. Nenhum stop/alvo atingido." });
+        doc.agent.events = [...events, ...doc.agent.events].slice(0, 50);
+        write();
+        const out = pub();
+        out.quotes = quotes;
+        return out;
+      }
+      // Mercado fechado/indeterminado: só vencimento (calendário) + avisos, nada de ordem.
+      await avaliarOpcoesLocal({ somenteVencimento: true });
+      const hojeS = hojeBRT();
+      let av = doc.agent.avisoForaPregao;
+      if (!av || av.data !== hojeS || !Array.isArray(av.chaves)) av = { data: hojeS, chaves: [] };
+      const avisar = (chave, t, text) => {
+        if (av.chaves.includes(chave)) return;
+        av.chaves.push(chave);
+        events.push({ time: "Agora", kind: "warn", t, text });
+      };
+      let mensagem;
+      if (estado === "fechado") {
+        // Espelho de agent._avisar_fora_pregao: ação só avisa se a cotação já buscada atinge
+        // stop/alvo (stop vence); opção não vencida com stop/alvo definidos tem aviso GENÉRICO,
+        // sem preço e sem nenhuma leitura de prêmio (D2-emenda). Chaves `acao:`/`opcao:`.
+        for (const pos of doc.positions) {
+          const price = quotes[pos.t] && quotes[pos.t].price;
+          if (price == null) continue;
+          const breachStop = pos.stop != null && price <= pos.stop;
+          const hitAlvo = pos.alvo != null && price >= pos.alvo;
+          if (!(breachStop || hitAlvo)) continue;
+          avisar("acao:" + pos.t, pos.t, execucaoForaPregaoTxt(modo, "aviso_diario", { ticker: pos.t, motivo: breachStop ? "stop" : "alvo" }));
+        }
+        for (const pos of doc.optionPositions || []) {
+          if (pos.lastro && typeof pos.lastro === "object") continue;
+          if (!(pos.expiration && pos.expiration > hojeS)) continue;
+          if (pos.stop == null && pos.alvo == null) continue;
+          avisar("opcao:" + pos.id, pos.underlying, execucaoForaPregaoTxt(modo, "aviso_opcao", { contrato: pos.id }));
+        }
+        mensagem = abertura
+          ? execucaoForaPregaoTxt(modo, "ciclo_fechado", { abertura })
+          : execucaoForaPregaoTxt(modo, "ciclo_fechado_sem_hora");
+      } else {
+        mensagem = execucaoForaPregaoTxt(modo, "status_indeterminado");
+        events.push({ time: "Agora", kind: "warn", text: mensagem });
+      }
+      doc.agent.avisoForaPregao = av;
       doc.agent.events = [...events, ...doc.agent.events].slice(0, 50);
       write();
       const out = pub();
       out.quotes = quotes;
+      out.mercadoFechado = true;
+      out.mensagem = mensagem;
       return out;
     },
   };

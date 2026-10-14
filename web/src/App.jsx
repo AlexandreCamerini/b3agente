@@ -6,7 +6,7 @@ import { testServer, describeRuntimeConfig, getApiBase, PROD_BASE } from "./api.
 import { createChart, ColorType, CrosshairMode, LineStyle } from "lightweight-charts";
 import { sampleTechnicals } from "./demo.js";
 import { DISCLAIMERS, TERMO_OPERADOR_VERSAO, TERMO_DESCOBERTO_VERSAO } from "./disclaimers.js";
-import { copyFor, retornoAcumuladoTxt, curvaEvolucaoTxt, historicoTxt, entradaAutoTxt, reconciliacaoTxt, reconciliacaoPorQueImporta, reconciliacaoPorQueImportaRotulo, estruturaCardTxt, cartaoPosicaoTxt, cartaoDidaticaTxt } from "./copy.js";
+import { copyFor, retornoAcumuladoTxt, curvaEvolucaoTxt, historicoTxt, entradaAutoTxt, reconciliacaoTxt, reconciliacaoPorQueImporta, reconciliacaoPorQueImportaRotulo, estruturaCardTxt, cartaoPosicaoTxt, cartaoDidaticaTxt, execucaoForaPregaoTxt } from "./copy.js";
 import { tickersComPernas, tickersSoComPernas, assinaturaEstrutura, estadoLeitura, mostraAvisoSemStop, mostraRR, valorRR, criarFilaLeituras, tipoPillTravada, chipVencimento, ddmmDeIso, tomDoEstado, dominioRegua, posRegua, sinalResultado, kickerResultadoSoAcoes, ancoraRotulo, estadoPrincipalV6, linhasResultadoV6, chipsMetaV6, rsSinalNbsp, fonteValorCabecalho, pctCapitalTexto, flipDuracaoMs, prefereMovimentoReduzido, faceInicial, pontoDoIndice, indiceNomeado, zonaVisual, rotulosSemColisao, colunasDaGrade, rsNbsp, nomeEmpresaCard, sigPosicaoLeitura, situacaoLeituraPlano } from "./estruturaCard.js";
 import { varsCartaoV6, ALFA_ZONA_V6, ALFA_ZONA_MEIO_V6 } from "./cartaoV6Cores.js"; // 2026-10-01: cores do design v6 ESCOPADAS ao card (CSS vars no wrapper); não toca T/PALETTE
 // Fase 41 (TELAS-01): registro único das 8 telas que o assistente conhece —
@@ -980,6 +980,15 @@ function Ticker({ items, live }) {
 // (T.positive/T.negative/T.warn) — NUNCA T.accent: o acento muda de matiz
 // entre os modos Estudo/Operador e nem existe contexto de modo pré-login, e
 // o badge precisa renderizar IDÊNTICO nos dois pontos de render.
+
+// Quick 261013-vai (2026-10-14), D4: texto do bloqueio das ordens manuais de opção com o pregão
+// confirmado fechado. Sem `abertura` usa a variante *_sem_hora (nunca "?" no lugar da hora).
+function opcaoBloqueadaTxt(modo, abertura) {
+  return abertura
+    ? execucaoForaPregaoTxt(modo, "opcao_bloqueada", { abertura })
+    : execucaoForaPregaoTxt(modo, "opcao_bloqueada_sem_hora");
+}
+
 function MarketStatusBadge({ mercado, cp }) {
   // 1ª consulta ainda em voo: nada é afirmado (nunca "fechado" por default).
   if (!mercado) return null;
@@ -9540,6 +9549,11 @@ export default function App() {
   // "chuta" aberto/fechado — CLAUDE.md princípio 4). A rota é pública
   // (server/app/main.py:833), então a consulta roda ANTES de qualquer login.
   const [mercado, setMercado] = useState(null);
+  // Quick 261013-vai (2026-10-14), D3/D4: ref espelho de `mercado` para o setInterval do modo
+  // autônomo e para os A.* de opções lerem o pregão SEM pôr `mercado` nas deps do useMemo de A
+  // (guardadas por test_wiring_deps.mjs).
+  const mercadoRef = useRef(null);
+  mercadoRef.current = mercado;
   // Fase 2 (02-06, T-02-30): ref para a MESMA função de consulta do efeito
   // abaixo — expor ctx.recarregarMercado (botão "tentar de novo" nos modais
   // de compra/venda quando o status falhou) sem criar uma segunda consulta
@@ -10175,6 +10189,8 @@ export default function App() {
     // um preço que o próprio sistema não confia.
     buyOption: async (underlying, contract, expiration, meta) => {
       try {
+        // Quick 261013-vai: pregão confirmado fechado -> mesma frase do 409 do servidor, pelo catch/flash existente.
+        if (mercadoRef.current && !mercadoRef.current.erro && mercadoRef.current.aberto === false) throw new Error(opcaoBloqueadaTxt(appMode, mercadoRef.current.abertura));
         const s = await store.optionsBuy({ underlying, contractSymbol: contract.contractSymbol, expiration, qty: 100, meta: meta || undefined });
         setData(s);
         track("trade_simulated", { side: "buy", ticker: underlying, instrument: "option" }); // qa/47 (Fase 2)
@@ -10183,6 +10199,8 @@ export default function App() {
     },
     sellOption: async (contractId) => {
       try {
+        // Quick 261013-vai: pregão confirmado fechado -> mesma frase do 409 do servidor, pelo catch/flash existente.
+        if (mercadoRef.current && !mercadoRef.current.erro && mercadoRef.current.aberto === false) throw new Error(opcaoBloqueadaTxt(appMode, mercadoRef.current.abertura));
         const s = await store.optionsSell({ contractSymbol: contractId });
         setData(s);
         track("trade_simulated", { side: "sell", contract: contractId, instrument: "option" }); // qa/47 (Fase 2)
@@ -10195,6 +10213,8 @@ export default function App() {
     // nunca reescreve o motivo.
     abrirLastreada: async (body) => {
       try {
+        // Quick 261013-vai: pregão confirmado fechado -> mesma frase do 409 do servidor, pelo catch/flash existente.
+        if (mercadoRef.current && !mercadoRef.current.erro && mercadoRef.current.aberto === false) throw new Error(opcaoBloqueadaTxt(appMode, mercadoRef.current.abertura));
         const s = await store.optionsAbrirLastreada(body);
         setData(s);
         track("trade_simulated", { side: "abrir", ticker: body.underlying, instrument: "opcao_lastreada" });
@@ -10207,6 +10227,8 @@ export default function App() {
     // prontos do servidor — o flash só repassa `e.message`).
     abrirCollar: async (body) => {
       try {
+        // Quick 261013-vai: pregão confirmado fechado -> mesma frase do 409 do servidor, pelo catch/flash existente.
+        if (mercadoRef.current && !mercadoRef.current.erro && mercadoRef.current.aberto === false) throw new Error(opcaoBloqueadaTxt(appMode, mercadoRef.current.abertura));
         const s = await store.optionsAbrirCollar(body);
         setData(s);
         track("trade_simulated", { side: "abrir", ticker: body.underlying, instrument: "opcao_collar" });
@@ -10223,6 +10245,8 @@ export default function App() {
     // Quem chama (CuradoriaEstruturas) grava `e.message` no próprio estado
     // do card.
     executarCandidatoCurado: async (cand, opts) => {
+      // Quick 261013-vai: mesmo bloqueio, relançado ao painel do card (como o erro do servidor).
+      if (mercadoRef.current && !mercadoRef.current.erro && mercadoRef.current.aberto === false) throw new Error(opcaoBloqueadaTxt(appMode, mercadoRef.current.abertura));
       const s = await executarCandidato(cand, { store, aceitaLiquidezDificil: opts && opts.aceitaLiquidezDificil });
       setData(s);
       // Quick 260923-ndy: `origem: "analisar"` (ExecutarProposta.jsx) usa o
@@ -10234,6 +10258,8 @@ export default function App() {
     },
     fecharLastreada: async (body) => {
       try {
+        // Quick 261013-vai: pregão confirmado fechado -> mesma frase do 409 do servidor, pelo catch/flash existente.
+        if (mercadoRef.current && !mercadoRef.current.erro && mercadoRef.current.aberto === false) throw new Error(opcaoBloqueadaTxt(appMode, mercadoRef.current.abertura));
         const s = await store.optionsFecharLastreada(body);
         setData(s);
         track("trade_simulated", { side: "fechar", contract: body.contractSymbol, instrument: "opcao_lastreada" });
@@ -10452,7 +10478,7 @@ export default function App() {
       const beforeN = (data.agent && data.agent.events ? data.agent.events.length : 0);
       try {
         const s = await store.cycle();
-        setData(s); if (s.quotes) setQuotes((q) => ({ ...q, ...s.quotes })); flash("Ciclo executado.");
+        setData(s); if (s.quotes) setQuotes((q) => ({ ...q, ...s.quotes })); flash(s.mercadoFechado && s.mensagem ? s.mensagem : "Ciclo executado.");
         const n = s.config && s.config.notif;
         const evs = (s.agent && s.agent.events) || [];
         if (n && n.enabled && n.agente !== false && evs.length > beforeN) {
@@ -10560,7 +10586,11 @@ export default function App() {
   useEffect(() => {
     if (!autoOn) return undefined;
     const mins = Math.max(1, autoMin);
-    const id = setInterval(() => { if (cycleRef.current) cycleRef.current(); }, mins * 60000);
+    // Quick 261013-vai (2026-10-14), D3: só dispara com o pregão CONFIRMADO aberto (mesma
+    // expressão da guarda das notificações); status nulo/erro/fechado não roda ciclo.
+    const id = setInterval(() => {
+      if (cycleRef.current && mercadoRef.current && !mercadoRef.current.erro && mercadoRef.current.aberto) cycleRef.current();
+    }, mins * 60000);
     return () => clearInterval(id);
   }, [autoOn, autoMin]);
 
