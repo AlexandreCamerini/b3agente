@@ -165,7 +165,7 @@ export function useAceiteLastreado({ A, cp, ticker }) {
 // CTA × explicação pelo modo (T-14-23, defesa em UI — o servidor recusa com
 // 403 mesmo que este código tivesse um bug).
 // Movido de App.jsx:3314-3424 (Fase 28, 28-01) — corpo verbatim.
-export function PropostaLastreada({ r, operador, cp, busy, onAbrir, onFechar, posAberta, onVerbeteLiquidez }) {
+export function PropostaLastreada({ r, operador, cp, busy, onAbrir, onFechar, posAberta, onVerbeteLiquidez, bloqueioMercado }) {
   if (!r) return null; // ainda carregando — silêncio, a proposta é secundária ao card (sem esqueleto)
   if (!r.proposta) {
     return (
@@ -188,6 +188,9 @@ export function PropostaLastreada({ r, operador, cp, busy, onAbrir, onFechar, po
   const isCollar = p.tipo === "collar";
   const eyebrow = isCollar ? cp.eyebrowPropostaCollar : isCall ? cp.eyebrowPropostaCall : cp.eyebrowPropostaPut;
   const degradado = r.providerStatus !== "ok";
+  // Quick 261013-vai (2026-10-14), D4: `disabled={busy || degradado}` fica como está; o motivo de mercado usa aria-disabled +
+  // aria-describedby e o onClick não executa enquanto bloqueado.
+  const idBloqueio = "proposta-bloqueio-mercado-" + (r.ticker || "") + "-" + (p.contractSymbol || p.tipo || "");
   // Fase 17 (Plano 04, FLOW-01): payoff completo que a Fase 16 já calcula
   // (proposta.estrutura/proposta.caixa) — ausente em proposta de FECHAMENTO
   // (proposta_fechar não devolve estrutura/caixa/precoObjeto), por isso o
@@ -258,8 +261,10 @@ export function PropostaLastreada({ r, operador, cp, busy, onAbrir, onFechar, po
           com uma posição já lastreada neste contrato), o botão vira fechar. */}
       {operador && (
         <button
-          onClick={posAberta ? onFechar : onAbrir}
+          onClick={bloqueioMercado ? undefined : (posAberta ? onFechar : onAbrir)}
           disabled={busy || degradado}
+          aria-disabled={bloqueioMercado ? "true" : undefined}
+          aria-describedby={bloqueioMercado ? idBloqueio : undefined}
           style={{ marginTop: "12px", width: "100%", minHeight: "44px", borderRadius: "9px", border: `1px solid ${T.accent}`, background: T.accentTint, color: T.accent, fontWeight: 800, fontSize: "13px" }}
         >
           {degradado
@@ -274,6 +279,9 @@ export function PropostaLastreada({ r, operador, cp, busy, onAbrir, onFechar, po
             ? cp.ctaVendaCoberta(p.contratos, r.ticker, price(p.strike), price(p.premioTotal))
             : cp.ctaPutProtecao(p.contratos, r.ticker, price(p.strike), price(p.premioTotal))}
         </button>
+      )}
+      {operador && bloqueioMercado && (
+        <p id={idBloqueio} role="status" style={{ marginTop: "6px", marginBottom: 0, fontSize: "12px", color: T.textPrimary, lineHeight: 1.5 }}>{bloqueioMercado}</p>
       )}
       <FonteDoDadoProposta r={r} cp={cp} />
     </div>

@@ -53,7 +53,7 @@ import { reduzido, transicaoTela } from "./fluxoEstilo.js";
 import VoltarPadrao from "../VoltarPadrao.jsx"; // Onda B (2026-10-08): Voltar único
 const useIsoLayoutEffect = typeof window !== "undefined" ? useLayoutEffect : useEffect; // SSR dos guardiões não emite aviso
 import { profundidadeOpcoes, profundidadeSheetsOpcoes, transicaoDe, classeDaTransicao } from "../navStack.js"; // Onda B (2026-10-08): transição entre níveis
-import { opcoesEscadaTxt } from "../copy.js";
+import { opcoesEscadaTxt, execucaoForaPregaoTxt } from "../copy.js";
 // Fase 27 (27-02): `finance.js` é módulo PURO — zero import de `App.jsx` —,
 // então o isolamento do ADR-027 continua intacto (o guardião proíbe importar
 // `App.jsx`, não `finance.js`). `qtyLivre` é a FONTE ÚNICA da subtração
@@ -792,6 +792,14 @@ export default function OpcoesScreen({ ctx }) {
 
   const mercadoAberto = (ctx && ctx.mercado && !ctx.mercado.erro && typeof ctx.mercado.aberto === "boolean")
     ? ctx.mercado.aberto : null;
+  // Quick 261013-vai (2026-10-14), D4: bloqueio de TODA execução de opção só com o pregão CONFIRMADO fechado
+  // (`mercadoAberto === false`; null/erro não bloqueia — o servidor é a autoridade e recusa com 409).
+  // Sem `abertura` usa a variante *_sem_hora (nunca "?" no lugar da hora). Stop/alvo/plano não recebem esta prop.
+  const bloqueioMercado = mercadoAberto === false
+    ? (ctx.mercado.abertura
+      ? execucaoForaPregaoTxt(mode, "botao_bloqueado", { abertura: ctx.mercado.abertura })
+      : execucaoForaPregaoTxt(mode, "botao_bloqueado_sem_hora"))
+    : null;
   const situacaoHub = (frescor && frescor.medido === true)
     ? (frescor.bloqueia ? "atrasado" : (pregoesAtras ? "fim_pregao" : "em_dia"))
     : (mercadoAberto === false ? "fim_pregao" : null);
@@ -904,6 +912,7 @@ export default function OpcoesScreen({ ctx }) {
           // a saída das pernas não passa por gate de liquidez, só pelo veto do motor.
           pernasAbertas={myOptionPositions.length > 0 ? (
             <PernasAbertas
+              bloqueioMercado={bloqueioMercado}
               mode={mode}
               ticker={nav.ticker}
               optionPositions={optionPositionsAll}
@@ -919,6 +928,7 @@ export default function OpcoesScreen({ ctx }) {
           ) : null}
           estruturaAberta={myOptionPositions.length > 0 ? (
             <PropostaDoAtivo
+              bloqueioMercado={bloqueioMercado}
               ticker={nav.ticker}
               posicao={carteira.find((p) => p.t === nav.ticker) || null}
               cp={cp}
@@ -982,6 +992,7 @@ export default function OpcoesScreen({ ctx }) {
 
       {nav.nivel === "confirmar" ? (
         <ConfirmarEstrutura
+          bloqueioMercado={bloqueioMercado}
           cp={cp}
           mode={mode}
           operador={!!(ctx && ctx.operador)}
@@ -1025,6 +1036,7 @@ export default function OpcoesScreen({ ctx }) {
               <LastroDoAtivo pos={posicaoSelecionada} cp={cp} />
               {/* Fase 48 gap G-02 (2026-10-05): mesma lista de pernas do nível objetivo; saída sem gate de liquidez. */}
               <PernasAbertas
+                bloqueioMercado={bloqueioMercado}
                 mode={mode}
                 ticker={ticker}
                 optionPositions={optionPositionsAll}
@@ -1124,6 +1136,7 @@ export default function OpcoesScreen({ ctx }) {
                de aba. */
             <div>
               <SecaoAnalisar
+                bloqueioMercado={bloqueioMercado}
                 ticker={ticker}
                 temLeitura={temLeitura}
                 semCandles={semCandles}
@@ -1311,7 +1324,7 @@ export default function OpcoesScreen({ ctx }) {
 // custo zero que o orquestrador já buscou para a carteira inteira
 // (`useOpcoesPropostas`).
 function PropostaDoAtivo({
-  ticker, posicao, cp, ctx, opcoesPorTicker, opcoesPorTickerCarregando, onMontar,
+  ticker, posicao, cp, ctx, opcoesPorTicker, opcoesPorTickerCarregando, onMontar, bloqueioMercado,
 }) {
   const A = ctx && ctx.A;
   // Fonte única de appMode (FIX-C21) — nunca redevirar de ctx.data.config.
@@ -1368,6 +1381,7 @@ function PropostaDoAtivo({
           <div data-sem-gesto-voltar style={carouselTrackStyle({ marginTop: "11px", gap: "10px", scrollbarWidth: "none", paddingBottom: "2px" })}>
             {candidatos.map((c) => (
               <CandidatoOpcao
+                bloqueioMercado={bloqueioMercado}
                 key={c.tipo + "-" + (c.contractSymbol || "collar")}
                 p={c}
                 r={prop}
@@ -1383,6 +1397,7 @@ function PropostaDoAtivo({
         </>
       ) : (
         <PropostaLastreada
+          bloqueioMercado={bloqueioMercado}
           r={prop}
           operador={operador}
           cp={cp}

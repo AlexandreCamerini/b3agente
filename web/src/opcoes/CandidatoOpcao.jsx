@@ -42,7 +42,7 @@ const carouselItemStyle = (align = "start") => ({ scrollSnapAlign: align });
 // Fase 18 (test_carteira_opcoes_tira.mjs) trava esse componente aos dois
 // pontos de uso já existentes (AtivoCard + PropostaDaPosicao de candidato
 // único).
-export default function CandidatoOpcao({ p, r, cp, operador, busy, onAceitar, onVerbeteLiquidez }) {
+export default function CandidatoOpcao({ p, r, cp, operador, busy, onAceitar, onVerbeteLiquidez, bloqueioMercado }) {
   const isCollar = p.tipo === "collar";
   const isCall = p.optionType === "call";
   // mesma regra de polaridade da manchete do card (App.jsx:3038): nunca
@@ -50,6 +50,9 @@ export default function CandidatoOpcao({ p, r, cp, operador, busy, onAceitar, on
   const cor = isCall ? T.positive : T.negative;
   const eyebrow = isCollar ? cp.eyebrowPropostaCollar : isCall ? cp.eyebrowPropostaCall : cp.eyebrowPropostaPut;
   const degradado = r.providerStatus !== "ok";
+  // Quick 261013-vai (2026-10-14), D4: o `disabled={busy || degradado}` fica como está (guardião); o motivo de mercado usa
+  // aria-disabled + aria-describedby e o onClick não executa enquanto bloqueado.
+  const idBloqueio = "candidato-bloqueio-mercado-" + (r.ticker || "") + "-" + (p.idCandidato || p.contractSymbol || p.tipo || "");
   const est = p.estrutura || null;
   // ATENÇÃO: `null * 100 === 0` em JS — só multiplica NÚMERO; null/undefined
   // continuam null e caem em price(null) → "—" (regra "null nunca 0.0"
@@ -135,8 +138,10 @@ export default function CandidatoOpcao({ p, r, cp, operador, busy, onAceitar, on
       {operador && (
         <button
           type="button"
-          onClick={() => onAceitar(p)}
+          onClick={() => { if (bloqueioMercado) return; onAceitar(p); }}
           disabled={busy || degradado}
+          aria-disabled={bloqueioMercado ? "true" : undefined}
+          aria-describedby={bloqueioMercado ? idBloqueio : undefined}
           style={{ marginTop: "12px", width: "100%", minHeight: "44px", borderRadius: "9px", border: `1px solid ${T.accent}`, background: T.accentTint, color: T.accent, fontWeight: 800, fontSize: "13px" }}
         >
           {degradado
@@ -149,6 +154,9 @@ export default function CandidatoOpcao({ p, r, cp, operador, busy, onAceitar, on
             ? cp.ctaVendaCoberta(p.contratos, r.ticker, price(p.strike), price(p.premioTotal))
             : cp.ctaPutProtecao(p.contratos, r.ticker, price(p.strike), price(p.premioTotal))}
         </button>
+      )}
+      {operador && bloqueioMercado && (
+        <p id={idBloqueio} role="status" style={{ marginTop: "6px", marginBottom: 0, fontSize: "12px", color: T.textPrimary, lineHeight: 1.5 }}>{bloqueioMercado}</p>
       )}
     </div>
   );

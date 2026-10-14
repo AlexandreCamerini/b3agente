@@ -58,7 +58,9 @@ ok("nenhuma chave de copy.js carrega a manchete do motor (\"Se você tivesse\")"
 // exigindo a assinatura INTEIRA, agora com o parâmetro novo.
 // ATUALIZADO 2026-09-13 (Fase 28, 28-01): a assinatura exata mora agora no
 // módulo — PropostaLastreada saiu de App.jsx.
-ok("componente PropostaLastreada existe", /function PropostaLastreada\(\{ r, operador, cp, busy, onAbrir, onFechar, posAberta, onVerbeteLiquidez \}\)/.test(modulo));
+// ATUALIZADO 2026-10-14 (quick 261013-vai): a assinatura ganha `bloqueioMercado` (prop de bloqueio por
+// pregão fechado, D4) ao FINAL; a exigência de assinatura exata segue — só aceita este campo novo, opcional.
+ok("componente PropostaLastreada existe", /function PropostaLastreada\(\{ r, operador, cp, busy, onAbrir, onFechar, posAberta, onVerbeteLiquidez(?:, bloqueioMercado)? \}\)/.test(modulo));
 // ATUALIZADO 2026-09-13 (Fase 28, 28-01): "PropostaLastreada vem antes de
 // OpcoesCamada NO ARQUIVO" media ordem de definição dentro do MESMO arquivo —
 // com a proposta em outro módulo, ordem entre arquivos não é um invariante.

@@ -45,7 +45,7 @@ export function excluirParaRota(excluidas, ids) {
 }
 
 // Linha do 48-16, intacta: usada como fallback e para posição sem item na anatomia.
-function LinhaPerna48({ pos, motor, tx, carregandoEstrutura, confirmando, setConfirmando, ocupado, encerrar }) {
+function LinhaPerna48({ pos, motor, tx, carregandoEstrutura, confirmando, setConfirmando, ocupado, encerrar, bloqueioMercado }) {
   const m = motor.find((p) => p && p.id === pos.id) || null;
   const tipo = String((m && m.tipo) || pos.optionType || "").toUpperCase() || "—";
   const lado = (m && m.lado) || (pos.side === "vendida" ? "venda" : "compra");
@@ -67,6 +67,7 @@ function LinhaPerna48({ pos, motor, tx, carregandoEstrutura, confirmando, setCon
   const avisoEnc = encerrarAviso(m && m.encerrar);
   const encerravel = !pos.lastro && pos.side !== "vendida";
   const idVeto = "perna-veto-" + pos.id;
+  const idMercado = "perna-mercado-" + pos.id;
   const emConfirmacao = confirmando === pos.id;
   const emCurso = ocupado === pos.id;
   return (
@@ -92,6 +93,16 @@ function LinhaPerna48({ pos, motor, tx, carregandoEstrutura, confirmando, setCon
         </div>
       ) : emCurso ? (
         <div role="status" aria-busy="true" style={{ ...TIPO.corpo, color: T.textSecondary }}>{tx("pernas_encerrando")}</div>
+      ) : bloqueioMercado ? (
+        // Quick 261013-vai (2026-10-14), D4: pregão confirmado fechado — encerrar (e a confirmação) fica bloqueado com o motivo visível;
+        // aria-disabled (sem disabled nativo) mantém o botão focável. Stop/alvo não passam por aqui.
+        <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+          <button type="button" aria-disabled="true" aria-label={tx("pernas_encerrar_aria", { id: pos.id })}
+            aria-describedby={idMercado} {...comFoco} style={{ ...BOTAO, alignSelf: "flex-start", cursor: "not-allowed", opacity: 0.7 }}>
+            {tx("pernas_encerrar")}
+          </button>
+          <div id={idMercado} role="status" style={{ ...TIPO.corpo, color: T.textPrimary }}>{bloqueioMercado}</div>
+        </div>
       ) : emConfirmacao ? (
         <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
           <div role="status" style={{ ...TIPO.corpo, color: T.textPrimary }}>{tx("pernas_confirmar", { id: pos.id })}</div>
@@ -127,7 +138,7 @@ const LISTA = { listStyle: "none", margin: 0, padding: 0, display: "flex", flexD
 
 export default function PernasAbertas({
   mode, ticker, optionPositions, estrutura, carregandoEstrutura, A, store,
-  anatomia: anatomiaInjetada, didatica, kbCatalogo, onAbrirVerbete,
+  anatomia: anatomiaInjetada, didatica, kbCatalogo, onAbrirVerbete, bloqueioMercado,
 }) {
   const tx = (k, v) => opcoesEscadaTxt(mode, k, v);
   const [confirmando, setConfirmando] = useState(null);
@@ -192,7 +203,7 @@ export default function PernasAbertas({
 
   const linha = (pos) => (
     <LinhaPerna48 key={pos.id} pos={pos} motor={motor} tx={tx} carregandoEstrutura={carregandoEstrutura}
-      confirmando={confirmando} setConfirmando={setConfirmando} ocupado={ocupado} encerrar={encerrar} />
+      confirmando={confirmando} setConfirmando={setConfirmando} ocupado={ocupado} encerrar={encerrar} bloqueioMercado={bloqueioMercado} />
   );
 
   if (comAnatomia) {

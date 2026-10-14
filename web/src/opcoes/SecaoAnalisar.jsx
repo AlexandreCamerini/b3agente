@@ -247,7 +247,7 @@ export default function SecaoAnalisar({
   proposta, montarProposta,
   cadeia, operaveis, abrirCadeia, abrirOperaveis,
   custos, cp, palette,
-  operador, onExecutarProposta,
+  operador, onExecutarProposta, bloqueioMercado,
 }) {
   // "" | "cadeia" | "operaveis" — visual, exclusivo deste job (Pitfall 6).
   const [painel, setPainel] = useState("");
@@ -424,6 +424,7 @@ export default function SecaoAnalisar({
                     operador={operador}
                     onExecutar={onExecutarProposta}
                     cp={cp}
+                    bloqueioMercado={bloqueioMercado}
                   />
                 </>
               ) : null}

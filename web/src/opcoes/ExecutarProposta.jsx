@@ -54,7 +54,7 @@ export function ehRecusaLiquidezDificil(msg) {
 // não bate mais com `dados` (a estrutura mudou, o bloco reseta sozinho).
 const INICIAL = { ref: null, busy: false, erro: null, ok: false, aceite: false };
 
-export default function ExecutarProposta({ dados, operador, onExecutar, cp }) {
+export default function ExecutarProposta({ dados, operador, onExecutar, cp, bloqueioMercado }) {
   const [st, setSt] = useState(INICIAL);
 
   const ex = dados && dados.execucao;
@@ -113,7 +113,8 @@ export default function ExecutarProposta({ dados, operador, onExecutar, cp }) {
   };
 
   const recusaLiquidez = ehRecusaLiquidezDificil(atual.erro);
-  const travado = atual.busy || (recusaLiquidez && atual.aceite !== true);
+  // Quick 261013-vai (2026-10-14), D4: pregão confirmado fechado trava a execução (motivo visível, ligado por aria-describedby).
+  const travado = atual.busy || (recusaLiquidez && atual.aceite !== true) || !!bloqueioMercado;
 
   return (
     <div style={{ marginTop: "10px" }}>
@@ -142,10 +143,14 @@ export default function ExecutarProposta({ dados, operador, onExecutar, cp }) {
               {atual.erro}
             </div>
           )}
+          {bloqueioMercado ? (
+            <p id="executar-proposta-bloqueio-mercado" role="status" style={{ marginTop: "8px", marginBottom: 0, fontSize: "12px", color: T.textSecondary, lineHeight: 1.5 }}>{bloqueioMercado}</p>
+          ) : null}
           <button
             type="button"
             onClick={handleExecutar}
             disabled={travado}
+            aria-describedby={bloqueioMercado ? "executar-proposta-bloqueio-mercado" : undefined}
             style={{
               marginTop: "8px", minHeight: "44px", width: "100%", padding: "10px 14px",
               borderRadius: "11px", border: `1px solid ${T.accent}`, background: "transparent",

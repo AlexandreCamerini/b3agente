@@ -35,7 +35,7 @@ const INICIAL = { busy: false, erro: null, aceite: false };
 
 export default function ConfirmarEstrutura({
   cp, mode, operador, ticker, degrau, onExecutar, onConcluido, onVoltar, onCriarVigia,
-  didatica, A, kbCatalogo, onAbrirVerbete,
+  didatica, A, kbCatalogo, onAbrirVerbete, bloqueioMercado,
 }) {
   const [st, setSt] = useState(INICIAL);
   const tx = (k, v) => opcoesEscadaTxt(mode, k, v);
@@ -66,7 +66,8 @@ export default function ConfirmarEstrutura({
   };
 
   const recusaLiquidez = ehRecusaLiquidezDificil(st.erro);
-  const travado = st.busy || (recusaLiquidez && st.aceite !== true);
+  // Quick 261013-vai (2026-10-14), D4: pregão confirmado fechado trava a execução (motivo visível abaixo, ligado por aria-describedby).
+  const travado = st.busy || (recusaLiquidez && st.aceite !== true) || !!bloqueioMercado;
 
   let acao;
   if (!operador) {
@@ -89,7 +90,10 @@ export default function ConfirmarEstrutura({
             <span>{cp && cp.curadoriaLiquidezConsentir}</span>
           </label>
         )}
-        <button type="button" onClick={executar} disabled={travado} {...comFoco}
+        {bloqueioMercado ? (
+          <p id="confirmar-bloqueio-mercado" role="status" style={{ ...TIPO.corpo, color: T.textPrimary, margin: 0 }}>{bloqueioMercado}</p>
+        ) : null}
+        <button type="button" onClick={executar} disabled={travado} aria-describedby={bloqueioMercado ? "confirmar-bloqueio-mercado" : undefined} {...comFoco}
           style={{
             minHeight: CTA_MIN + "px", width: "100%", padding: "8px 16px", borderRadius: "12px",
             border: "none", background: T.accent, color: T.onAccent, ...TIPO.titulo,

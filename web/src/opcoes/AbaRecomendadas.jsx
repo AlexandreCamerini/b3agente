@@ -23,7 +23,7 @@ import CuradoriaEstruturas from "./CuradoriaEstruturas.jsx";
 import { CarimboFrescor } from "./uiOpcoes.jsx";
 
 export default function AbaRecomendadas({
-  curadoria, onAbrir, onExecutar, onNarrar, onRecarregar, operador, palette, cp, infoBotao,
+  curadoria, onAbrir, onExecutar, onNarrar, onRecarregar, operador, palette, cp, infoBotao, bloqueioMercado,
 }) {
   const meta = curadoria && curadoria.meta;
   return (
@@ -46,6 +46,7 @@ export default function AbaRecomendadas({
         operador={operador}
         palette={palette}
         infoBotao={infoBotao}
+        bloqueioMercado={bloqueioMercado}
       />
     </>
   );

@@ -350,8 +350,10 @@ ok("(Fase 32/32-03) getElementById(\"posicao-\" + t) seguido de scrollIntoView( 
 // (D-09) — guardião de igualdade exata continua, agora com o campo novo.
 // ATUALIZADO 2026-09-13 (Fase 28, 28-01): a definição saiu de App.jsx para
 // o módulo — a fonte da asserção muda, a exigência de assinatura exata não.
+// ATUALIZADO 2026-10-14 (quick 261013-vai): a assinatura ganha `bloqueioMercado` (prop de bloqueio por
+// pregão fechado, D4) ao FINAL; a exigência de assinatura exata segue — só aceita este campo novo, opcional.
 ok("assinatura de PropostaLastreada é { r, operador, cp, busy, onAbrir, onFechar, posAberta, onVerbeteLiquidez }",
-  /function PropostaLastreada\(\{ r, operador, cp, busy, onAbrir, onFechar, posAberta, onVerbeteLiquidez \}\)/.test(modulo));
+  /function PropostaLastreada\(\{ r, operador, cp, busy, onAbrir, onFechar, posAberta, onVerbeteLiquidez(?:, bloqueioMercado)? \}\)/.test(modulo));
 // ATUALIZADO 2026-09-13 (Fase 28, 28-03): o ponto de uso de AtivoCard foi
 // REMOVIDO (28-CONTEXT D1) — Watchlist/Radar deixaram de abrir/fechar
 // operação lastreada. Restava 1x em App.jsx (PropostaDaPosicao).

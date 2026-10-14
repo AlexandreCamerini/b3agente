@@ -79,7 +79,7 @@ const ROTULO_TIPO_CURADORIA = {
   opcao_a_descoberto: "curadoriaTipoDescoberto",
 };
 
-export default function CuradoriaEstruturas({ top, meta, carregando, erro, concluido, narrativa, narrando, erroNarrativa, onNarrar, onRecarregar, cp, onAbrir, onExecutar, operador, palette, infoBotao }) {
+export default function CuradoriaEstruturas({ top, meta, carregando, erro, concluido, narrativa, narrando, erroNarrativa, onNarrar, onRecarregar, cp, onAbrir, onExecutar, operador, palette, infoBotao, bloqueioMercado }) {
   // WR-01 (32-REVIEW.md, 2026-09-16, quick 260916-cod): mesmo defeito de
   // App.jsx/LinhaChamadaOpcoes, mesma fonte (`ctx.curadoria`) — na janela
   // antes da primeira busca terminar, `top: [], carregando: false,
@@ -110,7 +110,8 @@ export default function CuradoriaEstruturas({ top, meta, carregando, erro, concl
   const liquidezDificil = !!(item && item.liquidez && item.liquidez.faixa === "DIFÍCIL");
   const liquidezSemAviso = liquidezDificil && !item.liquidez.aviso;
   const consentido = idAberto ? !!liquidezOk[idAberto] : false;
-  const executarTravado = execAtual.busy || (liquidezDificil && (liquidezSemAviso || !consentido));
+  // Quick 261013-vai (2026-10-14), D4: pregão confirmado fechado trava a execução (motivo visível, ligado por aria-describedby).
+  const executarTravado = execAtual.busy || (liquidezDificil && (liquidezSemAviso || !consentido)) || !!bloqueioMercado;
   const handleExecutar = async () => {
     if (!item || !idAberto) return;
     setExecucao((s) => ({ ...s, [idAberto]: { busy: true, erro: null, ok: false } }));
@@ -302,10 +303,15 @@ export default function CuradoriaEstruturas({ top, meta, carregando, erro, concl
                   <button type="button" onClick={() => setAbertoId(null)} style={{ minHeight: "44px", padding: "8px 14px", borderRadius: "8px", border: `1px solid ${T.borderSubtle}`, background: "transparent", color: T.textSecondary, fontWeight: 700, fontSize: "12px" }}>{cp.curadoriaFechar}</button>
                 </div>
               ) : (
+                <>
+                {bloqueioMercado ? (
+                  <p id="curadoria-bloqueio-mercado" role="status" style={{ marginTop: "10px", marginBottom: 0, fontSize: "12px", color: T.textPrimary, lineHeight: 1.5 }}>{bloqueioMercado}</p>
+                ) : null}
                 <button
                   type="button"
                   onClick={handleExecutar}
                   disabled={executarTravado}
+                  aria-describedby={bloqueioMercado ? "curadoria-bloqueio-mercado" : undefined}
                   // Fase 39 (NAV-01, correção obrigatória UI-SPEC/Dimension 3):
                   // T.onAccent, nunca "#fff" literal — mesma razão medida na
                   // Fase 35 (35-UI-SPEC.md): #fff reprova AA em Dark·Estudo
@@ -314,6 +320,7 @@ export default function CuradoriaEstruturas({ top, meta, carregando, erro, concl
                 >
                   {execAtual.busy ? cp.curadoriaExecutando : cp.curadoriaExecutarCta}
                 </button>
+                </>
               )}
             </>
           )}
