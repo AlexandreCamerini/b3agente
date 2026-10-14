@@ -149,7 +149,9 @@ ok("recorte do AtivoCard não é vazio (recorte vazio é falha, nunca pass silen
 const componentesV6 = ["ReguaPlano", "FaixaVencimento", "LinhaEstadoV6", "CartaoPosicao", "LinhasResultadoV6", "ChipsMetaV6", "SeletorFace",
   "AreaFlip", "FaceAcao", "ChipEstadoV6", "DetalheCompras", "BlocoBorisIA", "SimuladorEstudo", "TermosTocaveis", "PayoffOperador", "GradeConta",
   // 2026-10-13 (quick 261013-cqk): + lista compacta de posições e folha (opção B).
-  "ChipsOrdenacaoPosicoes", "ChipAtencaoLista", "MiniReguaLista", "LinhaPosicao", "LinhaPernaAvulsa", "CorpoLinhaLista"]
+  "ChipsOrdenacaoPosicoes", "ChipAtencaoLista", "MiniReguaLista", "LinhaPosicao", "LinhaPernaAvulsa", "CorpoLinhaLista",
+  // 2026-10-13 (quick 261013-svo): + painel de atenção/hoje e evolução por posição.
+  "PainelPosicoes", "ContadoresAtencao", "BlocoHoje", "EvolucaoResultadoPosicao", "GraficoResultadoPosicao"]
   .map((n) => [n, functionBody(n) || ""]);
 for (const [n, corpo] of componentesV6) ok(`recorte ${n} (card v6) não é vazio`, corpo.length > 200);
 
