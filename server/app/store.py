@@ -608,6 +608,24 @@ def scopes_com_pendentes(conn) -> list:
     return out
 
 
+def scopes_com_carteira(conn) -> list:
+    """quick 261013-u7w (D1): todo user_id com carteira gravada (`u:{uid}:cash`
+    ou `u:{uid}:positions`), ordenado. Molde de `scopes_com_pendentes`, mas o
+    escopo anonimo legado (chave sem prefixo `u:`) NUNCA entra — login e
+    obrigatorio, o balde anonimo nao e conta. Varre o kv (e nao `list_users`,
+    com limit) para nao perder conta alguma."""
+    rows = conn.execute(
+        "SELECT key FROM kv WHERE key LIKE 'u:%:cash' OR key LIKE 'u:%:positions'"
+    ).fetchall()
+    out = set()
+    for (key,) in rows:
+        if key.endswith(":cash"):
+            out.add(key[len("u:"):-len(":cash")])
+        else:
+            out.add(key[len("u:"):-len(":positions")])
+    return sorted(u for u in out if u)
+
+
 def caixa_reservado(conn, user_id=None) -> float:
     """Soma dos `caixaReservado` das ordens pendentes de COMPRA — valor
     DERIVADO, calculado na leitura a partir da lista de `pendingOrders`, não
@@ -675,6 +693,67 @@ def valor_opcoes(option_positions, option_quotes=None) -> dict:
             valor += qty * preco
             pnl += (preco - avg) * qty
     return {"valor": valor, "pnl": pnl, "sem_marcacao": sem_marcacao}
+
+
+def patrimonio_conta(positions, quotes, cash, reservado=0, option_positions=None, option_quotes=None) -> dict:
+    """Patrimonio de UMA conta — PURA, sem I/O, nao muta as entradas.
+
+    Espelho de web/src/finance.js portfolioMetrics — quick 261013-u7w,
+    2026-10-13; paridade travada por
+    server/tests/fixtures/patrimonio_conta_paridade.json.
+
+    `patr = cash + reservado + posVal + opcoesVal`. Preco da posicao = cotacao
+    so se for numero (nao bool), finito e > 0; senao o fallback de `markPrice`
+    (`avg` se for numero, senao 0) — identico ao front, para o NUMERO bater.
+
+    DIVERGENCIA DELIBERADA: o fallback por `avg` existe so para a paridade do
+    numero. Cada ticker com qty != 0 que caiu no fallback entra em `semCotacao`
+    (sem duplicar, ordem de aparicao); quem GRAVA ponto (snapshot_diario)
+    recusa a conta se `semCotacao` nao for vazia — o servidor nunca grava
+    patrimonio com preco medio silencioso (CLAUDE.md, principio 4). Sem
+    arredondamento interno (e de exibicao)."""
+    def _num(x):
+        if isinstance(x, bool):
+            return 0.0
+        try:
+            v = float(x)
+        except (TypeError, ValueError):
+            return 0.0
+        return v if math.isfinite(v) else 0.0
+
+    def _numero(x):
+        return isinstance(x, (int, float)) and not isinstance(x, bool)
+
+    qd = quotes if isinstance(quotes, dict) else {}
+    pos_val = 0.0
+    sem_cotacao = []
+    for p in (positions if isinstance(positions, (list, tuple)) else []):
+        if not isinstance(p, dict):
+            continue
+        qty = _num(p.get("qty"))
+        t = p.get("t")
+        q = qd.get(t)
+        px = q.get("price") if isinstance(q, dict) else None
+        if _numero(px) and math.isfinite(px) and px > 0:
+            preco = float(px)
+        else:
+            avg = p.get("avg")
+            preco = float(avg) if _numero(avg) and math.isfinite(avg) else 0.0
+            if qty != 0 and t not in sem_cotacao:
+                sem_cotacao.append(t)
+        pos_val += qty * preco
+    ops = valor_opcoes(option_positions, option_quotes)
+    c = _num(cash)
+    r = _num(reservado)
+    return {
+        "patr": c + r + pos_val + ops["valor"],
+        "posVal": pos_val,
+        "cash": c,
+        "reservado": r,
+        "opcoesVal": ops["valor"],
+        "opcoesSemMarcacao": ops["sem_marcacao"],
+        "semCotacao": sem_cotacao,
+    }
 
 
 def qty_livre(pos: dict) -> int:
@@ -1540,12 +1619,27 @@ def _sem_operacao(conn, user_id=None) -> bool:
     return True
 
 
-def upsert_snapshot(conn, snap: dict, user_id=None) -> list:
+def upsert_snapshot(conn, snap: dict, user_id=None, *, origem="app", fonte=None, hora=None) -> list:
     """Grava UM snapshot de patrimonio por dia (chave = `data`, formato YYYY-MM-DD).
-    Reabrir no mesmo dia SOBRESCREVE o registro do dia, sem duplicar."""
+    Reabrir no mesmo dia SOBRESCREVE o registro do dia, sem duplicar.
+
+    2026-10-13 (quick 261013-u7w, D3/D4): o registro ganha `origem`
+    ("fechamento" = gravado pelo servidor no pregao | "app"), `fonte` (fonte
+    efetiva das cotacoes, ou None) e `hora` (HH:MM BRT da GRAVACAO). So os
+    kwargs definem esses campos: o corpo `snap` NUNCA os define (o cliente nao
+    forja fechamento; a rota POST /api/snapshot chama sem kwargs = "app").
+    Regra D4: ponto "app" NAO sobrescreve ponto "fechamento" da mesma `data`
+    (o app grava valor intraday ao abrir) — devolve a lista atual sem gravar;
+    o inverso vale. Registro legado sem `origem` conta como "app". Espelho:
+    `upsertSnapshot` em web/src/persistence.js; casos em
+    fixtures/snapshot_convivencia_casos.json."""
     data = str((snap or {}).get("data") or "").strip()
     cur = get(conn, "equitySnapshots", user_id=user_id) or []
     if not data:
+        return cur
+    origem = "fechamento" if origem == "fechamento" else "app"
+    if origem == "app" and any(
+            isinstance(s, dict) and s.get("data") == data and s.get("origem") == "fechamento" for s in cur):
         return cur
     # BASE DA SÉRIE: o capital com que ESTA simulação começou, carimbado no
     # snapshot. Histórico: o "retorno acumulado" era medido contra
@@ -1574,6 +1668,9 @@ def upsert_snapshot(conn, snap: dict, user_id=None) -> list:
         "caixa": _snap_num((snap or {}).get("caixa")),
         "posicoesValor": _snap_num((snap or {}).get("posicoesValor")),
         "base": base,
+        "origem": origem,
+        "fonte": fonte if isinstance(fonte, str) and fonte else None,
+        "hora": hora if isinstance(hora, str) and hora else datetime.now(timezone(timedelta(hours=-3))).strftime("%H:%M"),
     }
     snaps = [s for s in cur if isinstance(s, dict) and s.get("data") != data]
     snaps.append(rec)

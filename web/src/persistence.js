@@ -84,10 +84,17 @@ function sanitizeTradeMeta(meta) {
 // herda do registro mais recente com data <= nova; sem registro com base = null
 // (desconhecida, nunca 0 nem initialBudget). `ctx = { semOperacao, caixa }` é
 // montado por deviceStore.putSnapshot; a função segue privada.
+// 2026-10-13 (quick 261013-u7w, D4): o registro ganha `origem` ("fechamento" |
+// "app"), `fonte` e `hora` (HH:MM BRT) — só `ctx` os define, nunca o corpo do
+// snap. Ponto "app" NÃO sobrescreve "fechamento" da mesma data (devolve `arr`
+// intacto); legado sem origem conta como "app". Casos C1-C7 compartilhados com
+// o servidor: server/tests/fixtures/snapshot_convivencia_casos.json.
 function upsertSnapshot(list, snap, ctx) {
   const data = String((snap || {}).data || "").trim();
   const arr = Array.isArray(list) ? list : [];
   if (!data) return arr;
+  const origem = ctx && ctx.origem === "fechamento" ? "fechamento" : "app";
+  if (origem === "app" && arr.some((s) => s && s.data === data && s.origem === "fechamento")) return arr;
   const num = (v) => { const n = Math.round((Number(v) || 0) * 100) / 100; return Number.isFinite(n) ? n : 0; };
   let base = null;
   if (ctx && ctx.semOperacao) {
@@ -98,7 +105,11 @@ function upsertSnapshot(list, snap, ctx) {
     const b = ant.length ? ant[ant.length - 1].base : null;
     if (typeof b === "number" && isFinite(b) && b > 0) base = b;
   }
-  const rec = { data, patrimonio: num((snap || {}).patrimonio), caixa: num((snap || {}).caixa), posicoesValor: num((snap || {}).posicoesValor), base };
+  const fonte = ctx && typeof ctx.fonte === "string" && ctx.fonte ? ctx.fonte : null;
+  const hora = ctx && typeof ctx.hora === "string" && ctx.hora
+    ? ctx.hora
+    : new Intl.DateTimeFormat("en-GB", { timeZone: "America/Sao_Paulo", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(new Date());
+  const rec = { data, patrimonio: num((snap || {}).patrimonio), caixa: num((snap || {}).caixa), posicoesValor: num((snap || {}).posicoesValor), base, origem, fonte, hora };
   const out = arr.filter((s) => s && s.data !== data);
   out.push(rec);
   out.sort((a, b) => (a.data || "").localeCompare(b.data || ""));

@@ -1,0 +1,33 @@
+{
+  "_nota": "Casos C1-C7 da regra de convivencia fechamento x app no mesmo dia (D4, quick 261013-u7w, 2026-10-13). Lida por server/tests/test_snapshot_convivencia.py (store.upsert_snapshot) e web/tests/test_snapshot_convivencia.mjs (upsertSnapshot do deviceStore). `inicial` semeia registros LEGADOS (sem `origem`, tratados como 'app'); cada passo aplica um upsert com a origem indicada. `final` compara data/patrimonio/origem da lista resultante, na ordem.",
+  "casos": [
+    {"nome": "C1: app -> fechamento = fechamento",
+     "inicial": [],
+     "passos": [{"data": "2026-10-13", "patrimonio": 100, "origem": "app"}, {"data": "2026-10-13", "patrimonio": 200, "origem": "fechamento"}],
+     "final": [{"data": "2026-10-13", "patrimonio": 200, "origem": "fechamento"}]},
+    {"nome": "C2: fechamento -> app = fechamento intacto",
+     "inicial": [],
+     "passos": [{"data": "2026-10-13", "patrimonio": 200, "origem": "fechamento"}, {"data": "2026-10-13", "patrimonio": 999, "origem": "app"}],
+     "final": [{"data": "2026-10-13", "patrimonio": 200, "origem": "fechamento"}]},
+    {"nome": "C3: fechamento -> fechamento = o segundo",
+     "inicial": [],
+     "passos": [{"data": "2026-10-13", "patrimonio": 200, "origem": "fechamento"}, {"data": "2026-10-13", "patrimonio": 300, "origem": "fechamento"}],
+     "final": [{"data": "2026-10-13", "patrimonio": 300, "origem": "fechamento"}]},
+    {"nome": "C4: app -> app = o segundo",
+     "inicial": [],
+     "passos": [{"data": "2026-10-13", "patrimonio": 100, "origem": "app"}, {"data": "2026-10-13", "patrimonio": 150, "origem": "app"}],
+     "final": [{"data": "2026-10-13", "patrimonio": 150, "origem": "app"}]},
+    {"nome": "C5: legado sem origem -> app = app",
+     "inicial": [{"data": "2026-10-13", "patrimonio": 100}],
+     "passos": [{"data": "2026-10-13", "patrimonio": 180, "origem": "app"}],
+     "final": [{"data": "2026-10-13", "patrimonio": 180, "origem": "app"}]},
+    {"nome": "C6: legado sem origem -> fechamento = fechamento",
+     "inicial": [{"data": "2026-10-13", "patrimonio": 100}],
+     "passos": [{"data": "2026-10-13", "patrimonio": 250, "origem": "fechamento"}],
+     "final": [{"data": "2026-10-13", "patrimonio": 250, "origem": "fechamento"}]},
+    {"nome": "C7: fechamento em D1, app em D2 coexistem ordenados",
+     "inicial": [],
+     "passos": [{"data": "2026-10-14", "patrimonio": 400, "origem": "app"}, {"data": "2026-10-13", "patrimonio": 200, "origem": "fechamento"}],
+     "final": [{"data": "2026-10-13", "patrimonio": 200, "origem": "fechamento"}, {"data": "2026-10-14", "patrimonio": 400, "origem": "app"}]}
+  ]
+}

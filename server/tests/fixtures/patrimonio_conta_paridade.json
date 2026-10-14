@@ -1,0 +1,74 @@
+{
+  "_nota": "Fonte unica de numeros da paridade servidor x front do patrimonio da conta (quick 261013-u7w, 2026-10-13). Lida por server/tests/test_patrimonio_conta_paridade.py (store.patrimonio_conta) e web/tests/test_patrimonio_conta_paridade.mjs (finance.portfolioMetrics). `semCotacao` so existe no servidor: o front cai no avg em silencio (markPrice), o servidor devolve a lista e quem grava ponto recusa a conta (princípio 4). Em `patr`, `posVal` e `opcoesVal` o front e o servidor tem de bater.",
+  "casos": [
+    {
+      "nome": "A: duas acoes cotadas",
+      "cash": 1000, "reservado": 0,
+      "positions": [
+        {"t": "PETR4", "qty": 100, "avg": 30},
+        {"t": "VALE3", "qty": 50, "avg": 60}
+      ],
+      "quotes": {"PETR4": {"price": 35}, "VALE3": {"price": 70}},
+      "optionPositions": [], "optionQuotes": {},
+      "esperado": {"patr": 8000, "posVal": 7000, "opcoesVal": 0, "semCotacao": []}
+    },
+    {
+      "nome": "B: acao + reservado + opcao avulsa sem cotacao de contrato",
+      "cash": 500, "reservado": 1000,
+      "positions": [{"t": "PETR4", "qty": 100, "avg": 30}],
+      "quotes": {"PETR4": {"price": 35}},
+      "optionPositions": [
+        {"id": "VALEV731W2", "underlying": "VALE3", "optionType": "put", "qty": 100, "avg": 0.92}
+      ],
+      "optionQuotes": {},
+      "esperado": {"patr": 5092, "posVal": 3500, "opcoesVal": 92, "semCotacao": []}
+    },
+    {
+      "nome": "C: acao sem cotacao (front cai no avg; servidor lista o ticker)",
+      "cash": 200, "reservado": 0,
+      "positions": [{"t": "PETR4", "qty": 100, "avg": 30}],
+      "quotes": {},
+      "optionPositions": [], "optionQuotes": {},
+      "esperado": {"patr": 3200, "posVal": 3000, "opcoesVal": 0, "semCotacao": ["PETR4"]}
+    },
+    {
+      "nome": "D: precos invalidos 0 / -1 / '10' (str) / true (bool) viram fallback",
+      "cash": 100, "reservado": 0,
+      "positions": [
+        {"t": "AAA1", "qty": 10, "avg": 10},
+        {"t": "BBB1", "qty": 10, "avg": 20},
+        {"t": "CCC1", "qty": 10, "avg": 5},
+        {"t": "DDD1", "qty": 10, "avg": 4}
+      ],
+      "quotes": {"AAA1": {"price": 0}, "BBB1": {"price": -1}, "CCC1": {"price": "10"}, "DDD1": {"price": true}},
+      "optionPositions": [], "optionQuotes": {},
+      "esperado": {"patr": 490, "posVal": 390, "opcoesVal": 0, "semCotacao": ["AAA1", "BBB1", "CCC1", "DDD1"]}
+    },
+    {
+      "nome": "E: carteira vazia (patr = cash)",
+      "cash": 7777.5, "reservado": 0,
+      "positions": [], "quotes": {},
+      "optionPositions": [], "optionQuotes": {},
+      "esperado": {"patr": 7777.5, "posVal": 0, "opcoesVal": 0, "semCotacao": []}
+    },
+    {
+      "nome": "F: call coberta vendida lastreada com cotacao de contrato",
+      "cash": 1200, "reservado": 0,
+      "positions": [{"t": "PETR4", "qty": 100, "avg": 30, "qtyTravada": 100}],
+      "quotes": {"PETR4": {"price": 35}},
+      "optionPositions": [
+        {"id": "PETR4C100", "side": "vendida", "qty": 100, "avg": 2.0, "lastro": {"t": "PETR4", "qty": 100}}
+      ],
+      "optionQuotes": {"PETR4C100": 1.0},
+      "esperado": {"patr": 4600, "posVal": 3500, "opcoesVal": -100, "semCotacao": []}
+    },
+    {
+      "nome": "G: qty 0 sem cotacao nao entra em semCotacao",
+      "cash": 100, "reservado": 0,
+      "positions": [{"t": "PETR4", "qty": 0, "avg": 30}],
+      "quotes": {},
+      "optionPositions": [], "optionQuotes": {},
+      "esperado": {"patr": 100, "posVal": 0, "opcoesVal": 0, "semCotacao": []}
+    }
+  ]
+}
