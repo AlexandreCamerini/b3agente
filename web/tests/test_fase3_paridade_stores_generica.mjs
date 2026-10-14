@@ -21,12 +21,15 @@
 // a forma dos dois incidentes citados acima (o método EXISTIA no deviceStore;
 // ele só não sincronizava). Sem teste pontual de comportamento, e escrevendo
 // estado, estão hoje:
-//     putSkill, putProfile, putSnapshot, putLlmPrompts,
+//     putSkill, putProfile, putLlmPrompts,
 //     optionsBuy, optionsSell, restoreSkill
 // (verificado em 2026-09-11: zero referência em `web/tests/*.mjs` fora deste
 // arquivo). É a MESMA classe de método dos dois incidentes. Escrever esses
 // testes é escopo próprio, não deste guardião; este comentário é o rastro
 // honesto até lá — se alguém cobrir um deles, tire-o da lista.
+// 2026-10-13 (quick 261013-u7w): putSnapshot passou a ter comportamento coberto — regra D4 em
+// test_snapshot_convivencia.mjs (upsertSnapshot do deviceStore) e test_snapshot_convivencia.py
+// (servidor, via POST /api/snapshot = origem app).
 // Roda sem build: `node web/tests/test_fase3_paridade_stores_generica.mjs`.
 import { readFileSync } from "fs";
 import { fileURLToPath } from "url";
