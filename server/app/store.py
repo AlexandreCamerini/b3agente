@@ -305,11 +305,35 @@ def set_config(conn, patch: dict, user_id=None) -> dict:
                 # sobreviver à saída do Operador (a trava de LEITURA em
                 # `_avaliar_entradas` já cobre o ciclo, mas o dado salvo
                 # ficaria inconsistente com a UI/Diário até o próximo set_agent).
+                desligou_execucao = mudou
+                desligou_entrada = False
                 if ag.get("entradaAuto"):
                     ag["entradaAuto"] = False
                     mudou = True
+                    desligou_entrada = True
                 if mudou:
+                    # Quick 261014-upj (2026-10-14): a migração deixou de ser
+                    # SILENCIOSA. Voltar ao Operador não religa nada (guardião
+                    # test_entrar_no_operador_nao_mexe_no_mode_sinalizar), então
+                    # o desligamento precisa de rastro: marcador no `agent` (o
+                    # que distingue "rebaixado aqui" de "escolheu sinalizar",
+                    # lido pelo aviso da tela do Operador via /api/agent/status)
+                    # e um `warn` no Diário. Sem push: push_agent_log não
+                    # notifica. Só grava quando algo mudou — sair de novo com
+                    # nada ligado não duplica o evento.
+                    from . import skill_ref
+                    ant = ag.get("rebaixadoOperador") if isinstance(ag.get("rebaixadoOperador"), dict) else {}
+                    ag["rebaixadoOperador"] = {
+                        "em": datetime.now(BRT).isoformat(timespec="seconds"),
+                        "execucao": bool(ant.get("execucao")) or desligou_execucao,
+                        "entradaAuto": bool(ant.get("entradaAuto")) or desligou_entrada,
+                    }
                     db.kv_set(conn, "agent", ag, user_id=user_id)
+                    chave = ("diario_ambos" if desligou_execucao and desligou_entrada
+                             else "diario_execucao" if desligou_execucao else "diario_entrada")
+                    push_agent_log(conn, [{"time": now_str(), "kind": "warn", "tag": "rebaixamento-operador",
+                                           "text": skill_ref.rebaixamento_operador_txt("educacional", chave)}],
+                                   user_id=user_id)
     # FASE 29: flag de opção a descoberto (sem lastro) — mesma regra de
     # aceite de operadorTermo/appMode acima: ligar EXIGE descobertoTermo
     # (aceitoEm+versao) já registrado ou vindo no MESMO patch.
@@ -553,6 +577,24 @@ def set_agent(conn, patch: dict, user_id=None) -> dict:
         ag["maxValorOp"] = max(0.0, float(patch["maxValorOp"]))
     if isinstance(patch.get("lastSeenAt"), str):
         ag["lastSeenAt"] = patch["lastSeenAt"]
+    # Quick 261014-upj: o marcador de rebaixamento (gravado na saída do
+    # Operador, ver set_config) sai quando a conta, JÁ em Operador, decide de
+    # novo `mode` ou `entradaAuto` — religar ou manter sinalizar é escolha
+    # explícita, o aviso cumpriu o papel. Limpa POR CAMPO (`mode` responde por
+    # `execucao`, `entradaAuto` por ele mesmo): mexer só na entrada não pode
+    # esconder o aviso da execução ainda desligada. Fora do Operador não limpa:
+    # a escolha ainda não pôde ser feita.
+    reb = ag.get("rebaixadoOperador")
+    if operador and isinstance(reb, dict):
+        reb = dict(reb)
+        if patch.get("mode") in ("executar", "sinalizar"):
+            reb["execucao"] = False
+        if isinstance(patch.get("entradaAuto"), bool):
+            reb["entradaAuto"] = False
+        if reb.get("execucao") or reb.get("entradaAuto"):
+            ag["rebaixadoOperador"] = reb
+        else:
+            ag.pop("rebaixadoOperador", None)
     db.kv_set(conn, "agent", ag, user_id=user_id)
     return ag
 

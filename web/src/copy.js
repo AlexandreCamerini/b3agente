@@ -619,6 +619,18 @@ export const COPY = {
       botao_bloqueado: "Mercado fechado — abre às {abertura}",
       botao_bloqueado_sem_hora: "Mercado fechado — execução só no pregão",
     },
+    // Quick 261014-upj (2026-10-14): espelho byte a byte de skill_ref.REBAIXAMENTO_OPERADOR.
+    rebaixamentoOperador: {
+      diario_execucao: "Você saiu do Modo Operador, então a execução automática no stop e no alvo foi desligada: o Operador passou a apenas sinalizar. Se voltar ao Modo Operador, ela não religa sozinha — é preciso escolher Executar de novo na tela do Operador IA.",
+      diario_entrada: "Você saiu do Modo Operador, então a entrada automática foi desligada. Se voltar ao Modo Operador, ela não religa sozinha — é preciso ligá-la de novo na tela do Operador IA.",
+      diario_ambos: "Você saiu do Modo Operador, então a execução automática no stop e no alvo e a entrada automática foram desligadas: o Operador passou a apenas sinalizar. Se voltar ao Modo Operador, nada disso religa sozinho — é preciso religar na tela do Operador IA.",
+      aviso_titulo: "Automação desligada quando você saiu do Modo Operador",
+      aviso_execucao: "A execução no stop e no alvo foi desligada. Agora o Operador apenas sinaliza: quando o preço chega ao stop ou ao alvo, ele avisa e não vende a posição simulada.",
+      aviso_entrada: "A entrada automática foi desligada e continua assim até você religar no card Entrada automática.",
+      botao_religar: "Religar Executar",
+      botao_manter: "Manter apenas sinalizar",
+      botao_ciente: "Ciente — manter desligada",
+    },
     // Quick 261006-dvf (2026-10-06): espelho byte a byte de skill_ref.RETORNO_ACUMULADO.
     retornoAcumulado: {
       carimbada: "Desde o capital inicial desta simulação, o retorno acumulado é de {pct}.",
@@ -2022,6 +2034,18 @@ export const COPY = {
       opcao_bloqueada_acao: "Aguarde a abertura do pregão para executar. Cadeia, escada e payoff seguem disponíveis para análise.",
       botao_bloqueado: "Mercado fechado — abre às {abertura}",
       botao_bloqueado_sem_hora: "Mercado fechado — execução só no pregão",
+    },
+    // Quick 261014-upj (2026-10-14): espelho byte a byte de skill_ref.REBAIXAMENTO_OPERADOR.
+    rebaixamentoOperador: {
+      diario_execucao: "Saída do Modo Operador: execução no stop/alvo desligada (modo Apenas sinalizar). Ao voltar ao Operador ela não religa sozinha — religue em Operador IA → Executar.",
+      diario_entrada: "Saída do Modo Operador: entrada automática desligada. Ao voltar ao Operador ela não religa sozinha — religue em Operador IA → Entrada automática.",
+      diario_ambos: "Saída do Modo Operador: execução no stop/alvo (modo Apenas sinalizar) e entrada automática desligadas. Ao voltar ao Operador nada religa sozinho — religue em Operador IA.",
+      aviso_titulo: "Automação desligada na saída do Modo Operador",
+      aviso_execucao: "Execução no stop/alvo desligada. O Operador está em Apenas sinalizar: no stop ou no alvo ele avisa e não vende.",
+      aviso_entrada: "Entrada automática desligada. Segue assim até você religar no card Entrada automática.",
+      botao_religar: "Religar Executar",
+      botao_manter: "Manter apenas sinalizar",
+      botao_ciente: "Ciente — manter desligada",
     },
     // Quick 261006-dvf (2026-10-06): espelho byte a byte de skill_ref.RETORNO_ACUMULADO.
     retornoAcumulado: {

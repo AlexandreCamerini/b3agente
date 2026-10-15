@@ -121,7 +121,8 @@ function paresDoModo(modoSrc) {
 // 2026-10-06 (quick 261006-dvf): RETORNO_ACUMULADO entra no mesmo guardião.
 // 2026-10-06 (quick 261006-qre): CURVA_EVOLUCAO (legenda do trecho pré-janela) idem.
 // 2026-10-13 (quick 261013-vai): EXECUCAO_FORA_PREGAO entra no mesmo guardião.
-const DICTS = ["HISTORICO", "HISTORICO_ROTULO", "ENTRADA_AUTO", "RECONCILIACAO_ELEGIBILIDADE", "RETORNO_ACUMULADO", "CURVA_EVOLUCAO", "EXECUCAO_FORA_PREGAO"];
+// 2026-10-14 (quick 261014-upj): REBAIXAMENTO_OPERADOR idem.
+const DICTS = ["HISTORICO", "HISTORICO_ROTULO", "ENTRADA_AUTO", "RECONCILIACAO_ELEGIBILIDADE", "RETORNO_ACUMULADO", "CURVA_EVOLUCAO", "EXECUCAO_FORA_PREGAO", "REBAIXAMENTO_OPERADOR"];
 // Python "educacional" ↔ JS "estudo"; "operador" ↔ "operador".
 const MODO_JS = { educacional: "estudo", operador: "operador" };
 const CHAVE_JS = {
@@ -130,6 +131,7 @@ const CHAVE_JS = {
   RETORNO_ACUMULADO: "retornoAcumulado",
   CURVA_EVOLUCAO: "curvaEvolucao",
   EXECUCAO_FORA_PREGAO: "execucaoForaPregao",
+  REBAIXAMENTO_OPERADOR: "rebaixamentoOperador",
 };
 const CHAVES_ESPERADAS = {
   HISTORICO: ["elegivel", "inelegivel", "insuficiente", "nunca_medido", "aposentado", "desatualizado"],
@@ -139,6 +141,7 @@ const CHAVES_ESPERADAS = {
   RETORNO_ACUMULADO: ["carimbada", "carimbada_reinicio", "primeiro_registro", "sem_serie", "inconsistente"],
   CURVA_EVOLUCAO: ["antes_da_base"],
   EXECUCAO_FORA_PREGAO: ["aviso_diario", "aviso_opcao", "ciclo_fechado", "ciclo_fechado_sem_hora", "status_indeterminado", "opcao_bloqueada", "opcao_bloqueada_sem_hora", "opcao_bloqueada_acao", "botao_bloqueado", "botao_bloqueado_sem_hora"],
+  REBAIXAMENTO_OPERADOR: ["diario_execucao", "diario_entrada", "diario_ambos", "aviso_titulo", "aviso_execucao", "aviso_entrada", "botao_religar", "botao_manter", "botao_ciente"],
 };
 
 const paresPorDictModo = {}; // paresPorDictModo[NOME][modoPy] = {chave: valor}

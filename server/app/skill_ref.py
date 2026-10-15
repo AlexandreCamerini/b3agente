@@ -479,6 +479,47 @@ def execucao_fora_pregao_txt(modo: str, chave: str, **dados) -> str:
     return frase
 
 
+# Rebaixamento do Operador na saída do modo (quick 261014-upj, 2026-10-14).
+# Sair do Modo Operador desliga a execução no stop/alvo (mode → "sinalizar") e
+# a entrada automática; voltar NÃO religa (decisão travada). `diario_*` vai
+# para o Diário no momento da migração (store.set_config); `aviso_*`/`botao_*`
+# são o aviso da tela do Operador IA ao reentrar. Espelho byte a byte em
+# `web/src/copy.js` (`COPY[modo].rebaixamentoOperador`), travado por
+# test_vocabulario_espelho.mjs. Chaves IDÊNTICAS nos dois modos, uma string
+# literal por linha, sem aspas internas e sem placeholder.
+REBAIXAMENTO_OPERADOR = {
+    "operador": {
+        "diario_execucao": "Saída do Modo Operador: execução no stop/alvo desligada (modo Apenas sinalizar). Ao voltar ao Operador ela não religa sozinha — religue em Operador IA → Executar.",
+        "diario_entrada": "Saída do Modo Operador: entrada automática desligada. Ao voltar ao Operador ela não religa sozinha — religue em Operador IA → Entrada automática.",
+        "diario_ambos": "Saída do Modo Operador: execução no stop/alvo (modo Apenas sinalizar) e entrada automática desligadas. Ao voltar ao Operador nada religa sozinho — religue em Operador IA.",
+        "aviso_titulo": "Automação desligada na saída do Modo Operador",
+        "aviso_execucao": "Execução no stop/alvo desligada. O Operador está em Apenas sinalizar: no stop ou no alvo ele avisa e não vende.",
+        "aviso_entrada": "Entrada automática desligada. Segue assim até você religar no card Entrada automática.",
+        "botao_religar": "Religar Executar",
+        "botao_manter": "Manter apenas sinalizar",
+        "botao_ciente": "Ciente — manter desligada",
+    },
+    "educacional": {
+        "diario_execucao": "Você saiu do Modo Operador, então a execução automática no stop e no alvo foi desligada: o Operador passou a apenas sinalizar. Se voltar ao Modo Operador, ela não religa sozinha — é preciso escolher Executar de novo na tela do Operador IA.",
+        "diario_entrada": "Você saiu do Modo Operador, então a entrada automática foi desligada. Se voltar ao Modo Operador, ela não religa sozinha — é preciso ligá-la de novo na tela do Operador IA.",
+        "diario_ambos": "Você saiu do Modo Operador, então a execução automática no stop e no alvo e a entrada automática foram desligadas: o Operador passou a apenas sinalizar. Se voltar ao Modo Operador, nada disso religa sozinho — é preciso religar na tela do Operador IA.",
+        "aviso_titulo": "Automação desligada quando você saiu do Modo Operador",
+        "aviso_execucao": "A execução no stop e no alvo foi desligada. Agora o Operador apenas sinaliza: quando o preço chega ao stop ou ao alvo, ele avisa e não vende a posição simulada.",
+        "aviso_entrada": "A entrada automática foi desligada e continua assim até você religar no card Entrada automática.",
+        "botao_religar": "Religar Executar",
+        "botao_manter": "Manter apenas sinalizar",
+        "botao_ciente": "Ciente — manter desligada",
+    },
+}
+
+
+def rebaixamento_operador_txt(modo: str, chave: str) -> str:
+    """Frase de REBAIXAMENTO_OPERADOR. Modo desconhecido cai em educacional
+    (padrão de `execucao_fora_pregao_txt`); chave desconhecida levanta
+    KeyError — falha alta, nunca frase vazia."""
+    return REBAIXAMENTO_OPERADOR[modo if modo in REBAIXAMENTO_OPERADOR else "educacional"][chave]
+
+
 # Retorno acumulado (quick 261006-dvf, 2026-10-06): texto por ORIGEM da base
 # (`store.resolver_base_serie`). Espelho byte a byte em `web/src/copy.js`
 # (`COPY[modo].retornoAcumulado`), travado por test_vocabulario_espelho.mjs.

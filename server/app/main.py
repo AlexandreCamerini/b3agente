@@ -5438,6 +5438,16 @@ async def agent_status(scope: Optional[str] = Depends(current_scope)):
     st = agent_mod.status_snapshot(_conn)
     ag = store.get(_conn, "agent", user_id=scope) or {}
     st["meuServerEnabled"] = bool(ag.get("serverEnabled"))
+    # Quick 261014-upj: o aviso de rebaixamento da tela do Operador lê a
+    # VERDADE do servidor daqui (o `doc.agent` do iPhone não vê a migração
+    # feita em store.set_config). `meuRebaixamento` só existe enquanto algo
+    # desligado na saída do Operador segue sem nova escolha do usuário.
+    st["meuModo"] = "executar" if ag.get("mode") == "executar" else "sinalizar"
+    st["minhaEntradaAuto"] = bool(ag.get("entradaAuto"))
+    reb = ag.get("rebaixadoOperador")
+    st["meuRebaixamento"] = ({"em": reb.get("em"), "execucao": bool(reb.get("execucao")),
+                              "entradaAuto": bool(reb.get("entradaAuto"))}
+                             if isinstance(reb, dict) and (reb.get("execucao") or reb.get("entradaAuto")) else None)
     # qa/41 (H6): EU tenho stop/alvo armado com o Operador desligado? Se True,
     # minha proteção só é avaliada com o app aberto — e isso não é bug do laço.
     st["minhaProtecaoSemOperador"] = bool(scope) and scope in agent_mod.list_protecao_sem_operador(_conn)

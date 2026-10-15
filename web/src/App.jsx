@@ -6450,10 +6450,6 @@ function AgenteScreen({ ctx }) {
   // backend (agent.agent_params/store.set_agent) já trava a leitura e a
   // escrita; aqui é só a UI não OFERECER o que o servidor vai recusar.
   const { operador } = ctx;
-  // Defensivo: se o dado local ainda tem "executar" salvo de antes desta
-  // migração (ou não sincronizou), a UI mostra "sinalizar" mesmo assim —
-  // nunca exibe um estado que o backend já rejeitou.
-  const modoEfetivo = operador ? (ag.mode || (ag.autonomous ? "executar" : "sinalizar")) : "sinalizar";
   // FASE 6 (fix 4): a ativação/teste do push moraram aqui e na Observabilidade —
   // agora vivem na CENTRAL de notificações (Perfil → Conta & preferências).
   // Este atalho só leva o usuário para lá.
@@ -6466,6 +6462,36 @@ function AgenteScreen({ ctx }) {
     try { setSrv(await store.agentStatus()); } catch { /* a confirmação do toggle é best-effort aqui */ }
   }, []);
   useEffect(() => { loadSrv(); const id = setInterval(loadSrv, 20000); return () => clearInterval(id); }, [loadSrv]);
+  // Defensivo: se o dado local ainda tem "executar" salvo de antes desta
+  // migração (ou não sincronizou), a UI mostra "sinalizar" mesmo assim —
+  // nunca exibe um estado que o backend já rejeitou.
+  // Quick 261014-upj: com conta, o modo exibido é o do SERVIDOR
+  // (`srv.meuModo`, /api/agent/status). No iPhone o `doc.agent.mode` local
+  // nunca relê o servidor: depois que a saída do Operador rebaixou a conta
+  // para "sinalizar" (store.set_config), a tela seguia mostrando "Executar" e
+  // os stops viravam só sinal — o defeito de 14/10. Fora do Operador segue
+  // caindo para "sinalizar".
+  const modoServidor = logged && srv && (srv.meuModo === "executar" || srv.meuModo === "sinalizar") ? srv.meuModo : null;
+  const modoEfetivo = operador ? (modoServidor || ag.mode || (ag.autonomous ? "executar" : "sinalizar")) : "sinalizar";
+  // Grava o modo e RELÊ o servidor (o `modoEfetivo` acima vem dele): sem a
+  // releitura, o botão tocado voltaria ao estado antigo até o próximo poll.
+  const escolherModo = async (m) => {
+    try { await putAg({ mode: m }); }
+    catch (e) { A.flash && A.flash("Não deu para mudar o modo: " + ((e && e.message) || String(e))); }
+    finally { loadSrv(); }
+  };
+  // Quick 261014-upj: aviso de rebaixamento. Só em Operador (implica termo
+  // aceito) e só com o marcador do servidor — quem ESCOLHEU sinalizar não vê
+  // nada. Cada parte só aparece enquanto ainda é verdade no servidor.
+  const reb = operador && logged && srv ? srv.meuRebaixamento : null;
+  const rebExec = !!(reb && reb.execucao && srv.meuModo === "sinalizar");
+  const rebEntrada = !!(reb && reb.entradaAuto && !srv.minhaEntradaAuto);
+  const cpReb = copyFor("operador").rebaixamentoOperador;
+  const cienteEntrada = async () => {
+    try { await putAg({ entradaAuto: false }); }
+    catch (e) { A.flash && A.flash("Não deu para registrar: " + ((e && e.message) || String(e))); }
+    finally { loadSrv(); }
+  };
   // FASE 3 — fim do timeout fantasma: a flag do SERVIDOR só muda com resposta
   // do servidor (caminho LIVE no persistence.js) e é reconfirmada pelo status.
   const setServer = async (on) => {
@@ -6534,7 +6560,7 @@ function AgenteScreen({ ctx }) {
               // resolvido acima; faltava o vínculo semântico com o parágrafo de
               // explicação para quem navega por leitor de tela — aria-describedby
               // fecha esse lado.
-              <button key={m} onClick={() => !desabilitado && putAg({ mode: m })} disabled={desabilitado} aria-describedby={desabilitado ? "executar-gate-hint" : undefined}
+              <button key={m} onClick={() => !desabilitado && escolherModo(m)} disabled={desabilitado} aria-describedby={desabilitado ? "executar-gate-hint" : undefined}
                 style={{ flex: 1, minWidth: "140px", padding: "10px", borderRadius: "10px", border: `1px solid ${on ? T.accent : T.borderSubtle}`, background: on ? T.accentTint : T.bgBase, color: desabilitado ? T.textFaint : (on ? T.accent : T.textSecondary), fontWeight: 800, fontSize: "12px", opacity: desabilitado ? 0.6 : 1, cursor: desabilitado ? "not-allowed" : "pointer" }}>
                 {m === "executar" ? "Executar (vende no stop/alvo)" : "Apenas sinalizar"}
               </button>
@@ -6548,6 +6574,34 @@ function AgenteScreen({ ctx }) {
               Trocar para Modo Operador →
             </button>
           </p>
+        )}
+        {/* Quick 261014-upj: a saída do Modo Operador desliga execução e
+            entrada automática e a volta NÃO religa (decisão travada no
+            servidor). Este aviso é o que impede o rebaixamento de ser
+            silencioso. role="status": leitor de tela anuncia sem roubar foco. */}
+        {(rebExec || rebEntrada) && (
+          <div role="status" data-testid="aviso-rebaixamento-operador" style={{ marginTop: "12px", padding: "11px 13px", borderRadius: "10px", border: `1px solid ${T.warn}`, background: "color-mix(in srgb, " + T.warn + " 10%, transparent)" }}>
+            <div style={{ fontSize: "13px", fontWeight: 800, color: T.warn }}>{cpReb.aviso_titulo}</div>
+            {rebExec && <p style={{ margin: "5px 0 0", fontSize: "12px", lineHeight: 1.5, color: T.textSecondary }}>{cpReb.aviso_execucao}</p>}
+            {rebEntrada && <p style={{ margin: "5px 0 0", fontSize: "12px", lineHeight: 1.5, color: T.textSecondary }}>{cpReb.aviso_entrada}</p>}
+            <div style={{ marginTop: "9px", display: "flex", gap: "8px", flexWrap: "wrap" }}>
+              {rebExec && (
+                <button onClick={() => escolherModo("executar")} style={{ padding: "9px 14px", minHeight: "44px", borderRadius: "10px", border: `1px solid ${T.accent}`, background: T.accentTint, color: T.accent, fontWeight: 800, fontSize: "12px" }}>
+                  {cpReb.botao_religar}
+                </button>
+              )}
+              {rebExec && (
+                <button onClick={() => escolherModo("sinalizar")} style={{ padding: "9px 14px", minHeight: "44px", borderRadius: "10px", border: `1px solid ${T.borderSubtle}`, background: T.bgBase, color: T.textSecondary, fontWeight: 700, fontSize: "12px" }}>
+                  {cpReb.botao_manter}
+                </button>
+              )}
+              {!rebExec && rebEntrada && (
+                <button onClick={cienteEntrada} style={{ padding: "9px 14px", minHeight: "44px", borderRadius: "10px", border: `1px solid ${T.borderSubtle}`, background: T.bgBase, color: T.textSecondary, fontWeight: 700, fontSize: "12px" }}>
+                  {cpReb.botao_ciente}
+                </button>
+              )}
+            </div>
+          </div>
         )}
       </div>
 

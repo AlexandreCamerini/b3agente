@@ -40,8 +40,12 @@ ok("ctx expõe `operador` derivado de `appMode` (fonte única, guard pra data=nu
 ok("o botão \"Executar\" tem uma condição de disabled ligada a appMode !== operador",
    /const desabilitado = m === "executar" && !operador;/.test(screen)
    && /disabled=\{desabilitado\}/.test(screen));
+// Quick 261014-upj (2026-10-14): o clique passa por `escolherModo(m)`, que
+// chama o MESMO `putAg({ mode: m })` e depois relê o servidor. A guarda
+// `!desabilitado &&` na frente é a mesma — o que este guardião trava.
 ok("o botão desabilitado não dispara putAg (clique não manda mode=executar em Modo Estudo)",
-   /onClick=\{\(\) => !desabilitado && putAg\(\{ mode: m \}\)\}/.test(screen));
+   /onClick=\{\(\) => !desabilitado && escolherModo\(m\)\}/.test(screen)
+   && /const escolherModo = async \(m\) => \{\s*try \{ await putAg\(\{ mode: m \}\); \}/.test(screen));
 
 // ------------------------------------------------------------ texto explica
 ok("existe texto explicando por que \"Executar\" está indisponível fora do Operador",
@@ -58,8 +62,14 @@ ok("o botão \"Executar\" aponta aria-describedby para o hint só quando desabil
    /aria-describedby=\{desabilitado \? "executar-gate-hint" : undefined\}/.test(screen));
 
 // --------------------------------------------------- estado defensivo (UI)
+// Quick 261014-upj (2026-10-14), evolução deliberada: com conta, o modo
+// exibido prefere o do SERVIDOR (`modoServidor`, de /api/agent/status) — o
+// `doc.agent.mode` do iPhone nunca relê o servidor e mostrava "Executar"
+// depois que a saída do Operador rebaixou a conta. A garantia original
+// (fora do Operador, sempre "sinalizar") é a mesma; só o ramo de dentro ganhou
+// a fonte do servidor na frente do dado local.
 ok("o modo exibido (header · badge) cai para \"sinalizar\" fora do Operador, mesmo com mode=\"executar\" salvo",
-   /const modoEfetivo = operador \? \(ag\.mode \|\| \(ag\.autonomous \? "executar" : "sinalizar"\)\) : "sinalizar";/.test(screen));
+   /const modoEfetivo = operador \? \(modoServidor \|\| ag\.mode \|\| \(ag\.autonomous \? "executar" : "sinalizar"\)\) : "sinalizar";/.test(screen));
 
 if (fails) { console.error(`\n${fails} falha(s)`); process.exit(1); }
 console.log("\ntodos os testes passaram");
