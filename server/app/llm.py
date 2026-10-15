@@ -2,6 +2,7 @@
 JSON dos KPIs), chama o provedor e devolve (texto, kpis). Tambem testa conexao.
 As chaves ficam no servidor (web) ou sao enviadas pelo handset (iOS)."""
 import hashlib
+import re
 import os
 import json
 from datetime import datetime, timezone
@@ -150,6 +151,36 @@ def public_error(exc: Exception) -> dict:
         return exc.payload
     return {"message": str(exc) or exc.__class__.__name__, "action": "Revise provedor, modelo, chave e conectividade em Configurações → Modelo de IA."}
 
+
+# Debug 2026-10-14 (N3 502 4/4 em produção): as rotas convertiam a falha da IA
+# em 502/fallback SEM registrar nada no servidor — a causa só existia no corpo
+# da resposta ao cliente. `str(exc)` cru pode carregar chave (Google usa
+# `?key=` na URL; exceção do httpx cita a URL) — por isso a redação.
+_SEGREDO_RE = re.compile(r"([?&](?:key|api_key|apikey|token)=)[^&\s'\"]+|sk-[A-Za-z0-9_\-]{8,}|AIza[0-9A-Za-z_\-]{10,}")
+
+
+def _redige(txt: str) -> str:
+    return _SEGREDO_RE.sub(lambda m: (m.group(1) + "***") if m.group(1) else "***", txt or "")
+
+
+def resumo_falha_ia(exc: Exception) -> str:
+    """Uma linha para o log do servidor: tipo, código, provedor/modelo/origem
+    da chave e a mensagem pública — redigida e truncada. Nunca a chave."""
+    pub = public_error(exc)
+    partes = [f"tipo={exc.__class__.__name__}"]
+    for campo in ("code", "provider", "model", "keySource"):
+        if pub.get(campo):
+            partes.append(f"{campo}={pub[campo]}")
+    partes.append("msg=" + _redige(str(pub.get("message") or ""))[:300])
+    return " ".join(partes)
+
+
+def log_falha_ia(rota: str, ticker: str, exc: Exception) -> None:
+    try:
+        print(f"[ia-falha] rota={rota} t={ticker} " + resumo_falha_ia(exc))
+    except Exception:  # noqa: BLE001 — log nunca derruba a rota
+        pass
+
 from .catalog import name_of
 from .kpi import parse_rich
 
@@ -271,7 +302,13 @@ def _build_user_prompt(ticker: str, quote: dict, history: dict, profile: dict = 
             extra = f" (orcamento inicial R$ {budget:.2f})" if isinstance(budget, (int, float)) else ""
             lines.append(f"Capital SIMULADO disponivel: R$ {cash:.2f}{extra}. Dimensione posicao, stop e alvo de forma coerente com este capital e o perfil.")
     if quote and quote.get("price") is not None:
-        lines.append(f"Cotacao atual (referencia para stop/alvo): R$ {quote['price']:.2f} ({quote.get('change', 0):+.2f}% no dia)")
+        # Debug 2026-10-14: `quote.get('change', 0)` não cobre a chave PRESENTE
+        # com None (contrato dos provedores degradados) — o `:+.2f` levantava
+        # TypeError e o N3 virava 502 antes de chamar a IA. Sem variação, a
+        # linha omite o % em vez de inventar 0,00%.
+        chg = quote.get("change")
+        dia = f" ({chg:+.2f}% no dia)" if isinstance(chg, (int, float)) and not isinstance(chg, bool) else ""
+        lines.append(f"Cotacao atual (referencia para stop/alvo): R$ {quote['price']:.2f}{dia}")
     lines.append("")
     n_candles = len(history.get("candles") or [])
     plabel = history.get("periodLabel") or "?"

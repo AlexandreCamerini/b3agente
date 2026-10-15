@@ -2461,6 +2461,7 @@ async def analyze_technical_model(ticker: str, body: dict = Body(default={}), sc
             with llm.collect_usage() as _uso:  # qa/45: captura tokens desta chamada
                 result = await llm.analyze_structured(config, skill, profile, account, t, context, modo=modo)
         except Exception as e:  # noqa: BLE001
+            llm.log_falha_ia("technical/analyze", t, e)  # o fallback FIX-C01 mascarava a causa
             pub = llm.public_error(e)
             # T-04-01: SÓ o payload público sanitizado vira `mensagem` — nunca
             # str(e)/repr(e)/traceback (poderiam carregar chave/URL/host do provedor).
@@ -2641,6 +2642,7 @@ async def analyze(ticker: str, body: dict = Body(default={}), scope: Optional[st
             with llm.collect_usage() as _uso:  # qa/45
                 result = await llm.analyze(config, skill, profile, account, t, quote, history_data)
         except Exception as e:  # noqa: BLE001
+            llm.log_falha_ia("analyze", t, e)  # o fallback FIX-C01 mascarava a causa
             pub = llm.public_error(e)
             ia_indisponivel = {"code": pub.get("code"), "mensagem": pub.get("message") or pub.get("detail")}
 
@@ -2751,6 +2753,7 @@ async def carteira_stopalvo(ticker: str, body: dict = Body(default={}), scope: O
         with llm.collect_usage() as _uso:  # qa/45
             res = await llm.analyze_carteira(config, profile, account, t, quote, history_data, prompt, tech_context=tech_context)
     except Exception as e:  # noqa: BLE001
+        llm.log_falha_ia("carteira-stopalvo", t, e)  # debug 2026-10-14: a causa era invisível no servidor
         raise HTTPException(502, llm.public_error(e))
     try:
         ai_activity.registrar_uso(_conn, scope=scope, ticker=t, tipo="Carteira", usos=_uso)
