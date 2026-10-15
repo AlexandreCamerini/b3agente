@@ -145,6 +145,13 @@ async def run_deep(scan_payload: dict, top_n: int, period: str, deep_call, concu
                 _DEEP_CACHE[key] = {k: v for k, v in payload.items() if k != "cache"}
                 results.append(payload)
             except Exception as e:  # noqa: BLE001 — 1 ativo não derruba o deep
+                # Debug n3-carteira-stopalvo-502: este except engolia a falha da
+                # IA sem rastro (scan/deep voltava 200 em <1s com a IA fora).
+                try:
+                    from .llm import log_falha_ia
+                    log_falha_ia("scan/deep", t, e)
+                except Exception:  # noqa: BLE001 — log nunca derruba o deep
+                    pass
                 errors.append({"ticker": t, "erro": str(e) or type(e).__name__})
 
     await asyncio.gather(*(one(it) for it in sel))
