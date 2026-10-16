@@ -175,6 +175,29 @@ def resumo_falha_ia(exc: Exception) -> str:
     return " ".join(partes)
 
 
+# Quick 261015: a IA ficou ~2 semanas fora (saldo do provedor zerado) sem que
+# ninguém visse, porque N2/deep caem no determinístico em silêncio. O cliente
+# recebe um sinal ESTÁVEL e público: `code` + `motivo` de uma lista fechada.
+# NUNCA o texto do provedor (`public_error().message` carrega " - {msg}" cru).
+_MOTIVOS_IA = {
+    "missing_key": "sem chave de IA configurada",
+    "empty_response": "a IA devolveu resposta vazia",
+    "quota": "limite de uso de IA atingido",
+}
+
+
+def ia_indisponivel_publico(exc: Exception) -> dict:
+    """{code, motivo} seguro para o payload HTTP — sem segredo, sem texto cru."""
+    code = str(public_error(exc).get("code") or "")
+    if code in _MOTIVOS_IA:
+        motivo = _MOTIVOS_IA[code]
+    elif code.startswith("provider_http_"):
+        motivo = "o provedor de IA recusou ou não respondeu"
+    else:
+        motivo = "falha na chamada da IA"
+    return {"code": code or "ia_falha", "motivo": motivo}
+
+
 def log_falha_ia(rota: str, ticker: str, exc: Exception) -> None:
     try:
         print(f"[ia-falha] rota={rota} t={ticker} " + resumo_falha_ia(exc))

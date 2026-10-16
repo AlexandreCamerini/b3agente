@@ -95,12 +95,24 @@ ok("semDados deriva de an.semDados OU corpo vazio no caminho determinístico (fa
    /const semDados = an\.semDados === true \|\| \(source === "deterministico" && !body\);/.test(analysisView));
 
 // ------------------------------------------------- (d) IA indisponível ----
-const FRASE_IA_INDISPONIVEL = "IA indisponível agora — mostrando a explicação automática do app, sem IA.";
-ok("linha \"IA indisponível agora...\" presente verbatim, condicionada a an.iaIndisponivel",
-   analysisView.includes(FRASE_IA_INDISPONIVEL) && /\{an\.iaIndisponivel && <div/.test(analysisView));
-// não é T.negative/caixa de alerta — 11px T.textFaint
-ok("a linha de IA indisponível usa T.textFaint (não T.negative, não caixa de alerta)",
-   /\{an\.iaIndisponivel && <div style=\{\{ fontSize: "11px", color: T\.textFaint/.test(analysisView));
+// Quick 261015 — REVERSÃO DELIBERADA do guardião anterior (linha 11px textFaint
+// com frase fixa no App.jsx): a IA ficou ~2 semanas fora sem ninguém perceber.
+// Agora é um aviso visível (role="status", 12px textMuted, caixa neutra — ainda
+// NÃO T.negative) cuja frase vem do COPY por modo (Estudo = professor,
+// Operador = mesa), nunca hardcoded na tela.
+ok("IA indisponível: aviso <IaIndisponivelAviso> condicionado a an.iaIndisponivel, com o modo",
+   /\{an\.iaIndisponivel && <IaIndisponivelAviso info=\{an\.iaIndisponivel\} operador=\{operador\} \/>\}/.test(analysisView));
+ok("o aviso tem role=\"status\" e não usa T.negative",
+   /function IaIndisponivelAviso[\s\S]*?role="status"/.test(app) && !/function IaIndisponivelAviso[^\n]*\n[^\n]*T\.negative/.test(app));
+ok("a frase antiga hardcoded saiu do App.jsx", !app.includes("mostrando a explicação automática do app, sem IA"));
+const copyJs = readFileSync(new URL("../src/copy.js", import.meta.url), "utf8");
+ok("COPY.estudo e COPY.operador têm iaIndisponivel (frases neutras, sem culpar o usuário)",
+   /iaIndisponivel: "A IA está indisponível agora; você vê só a análise determinística\."/.test(copyJs) &&
+   /iaIndisponivel: "IA fora do ar agora; leitura só determinística\."/.test(copyJs));
+ok("quota continua mostrando a mensagem do servidor (limite do plano não é queda de IA)",
+   /info\.code === "quota" && info\.mensagem\) return info\.mensagem/.test(app));
+ok("Radar: scanDeep sem resultado + iaIndisponivel mostra o aviso em vez de 'sem leitura'",
+   (app.match(/r\.iaIndisponivel \? iaIndisponivelTxt\(r\.iaIndisponivel, operador\)/g) || []).length === 2);
 
 // -------------------------------------------- (e) mesmo caminho de render
 ok("o caminho determinístico (body preenchido) usa <Markdown, não um contêiner de erro/degradado",

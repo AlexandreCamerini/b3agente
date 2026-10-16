@@ -2462,10 +2462,10 @@ async def analyze_technical_model(ticker: str, body: dict = Body(default={}), sc
                 result = await llm.analyze_structured(config, skill, profile, account, t, context, modo=modo)
         except Exception as e:  # noqa: BLE001
             llm.log_falha_ia("technical/analyze", t, e)  # o fallback FIX-C01 mascarava a causa
-            pub = llm.public_error(e)
             # T-04-01: SÓ o payload público sanitizado vira `mensagem` — nunca
             # str(e)/repr(e)/traceback (poderiam carregar chave/URL/host do provedor).
-            ia_indisponivel = {"code": pub.get("code"), "mensagem": pub.get("message") or pub.get("detail")}
+            pub = llm.ia_indisponivel_publico(e)  # quick 261015: sem texto cru do provedor
+            ia_indisponivel = {**pub, "mensagem": pub["motivo"]}
 
     if ia_indisponivel is not None:
         # FIX-C01: sem IA disponível (gate ou chamada) — explicação mínima
@@ -2643,8 +2643,8 @@ async def analyze(ticker: str, body: dict = Body(default={}), scope: Optional[st
                 result = await llm.analyze(config, skill, profile, account, t, quote, history_data)
         except Exception as e:  # noqa: BLE001
             llm.log_falha_ia("analyze", t, e)  # o fallback FIX-C01 mascarava a causa
-            pub = llm.public_error(e)
-            ia_indisponivel = {"code": pub.get("code"), "mensagem": pub.get("message") or pub.get("detail")}
+            pub = llm.ia_indisponivel_publico(e)  # quick 261015: sem texto cru do provedor
+            ia_indisponivel = {**pub, "mensagem": pub["motivo"]}
 
     if ia_indisponivel is not None:
         # FIX-C01: mesmo fallback da rota nova (ver comentário lá) — efêmero,

@@ -121,7 +121,7 @@ async def run_deep(scan_payload: dict, top_n: int, period: str, deep_call, concu
     Erro em um ativo não derruba os demais (cai em `errors`)."""
     sel = select_top(scan_payload, top_n)
     sem = asyncio.Semaphore(max(1, concurrency))
-    results, errors = [], []
+    results, errors, ia_falhas = [], [], []
 
     async def one(item):
         t = item["ticker"]
@@ -152,6 +152,18 @@ async def run_deep(scan_payload: dict, top_n: int, period: str, deep_call, concu
                     log_falha_ia("scan/deep", t, e)
                 except Exception:  # noqa: BLE001 — log nunca derruba o deep
                     pass
+                # Quick 261015: falha da IA ganha sinal público estável (e o
+                # `erro` deixa de carregar o texto cru do provedor). Outras
+                # falhas (ex.: sem histórico) seguem como antes.
+                try:
+                    from .llm import LLMUserError, ia_indisponivel_publico
+                    if isinstance(e, LLMUserError):
+                        pub = ia_indisponivel_publico(e)
+                        ia_falhas.append(pub)
+                        errors.append({"ticker": t, "erro": pub["motivo"], "code": pub["code"]})
+                        return
+                except Exception:  # noqa: BLE001
+                    pass
                 errors.append({"ticker": t, "erro": str(e) or type(e).__name__})
 
     await asyncio.gather(*(one(it) for it in sel))
@@ -163,6 +175,9 @@ async def run_deep(scan_payload: dict, top_n: int, period: str, deep_call, concu
         "analisados": len(results),
         "results": results,
         "errors": errors,
+        # Quick 261015: None = a IA respondeu (ou não foi necessária); dict =
+        # ao menos um ativo falhou por causa da IA, sem texto cru do provedor.
+        "iaIndisponivel": ia_falhas[0] if ia_falhas else None,
         "disclaimer": (
             "Aprofundamento educacional: a IA interpreta dados técnicos pré-"
             "calculados de dados passados, sem garantia de resultado e sem "

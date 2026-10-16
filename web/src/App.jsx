@@ -1672,6 +1672,17 @@ function LabeledList({ title, items, icon, color }) {
 
 
 // Análise formatada da IA, renderizada NO card (progressive disclosure).
+// Quick 261015: aviso VISÍVEL de IA fora do ar (a IA ficou ~2 semanas fora sem
+// ninguém perceber — a linha antiga era 11px textFaint). Neutro, sem culpar o
+// usuário; `quota` NÃO é queda, é limite do plano: aí vale a mensagem do servidor.
+function iaIndisponivelTxt(info, operador) {
+  if (info && info.code === "quota" && info.mensagem) return info.mensagem;
+  return copyFor(operador ? "operador" : "estudo").iaIndisponivel;
+}
+function IaIndisponivelAviso({ info, operador }) {
+  return <div role="status" style={{ fontSize: "12px", color: T.textMuted, lineHeight: 1.4, marginBottom: "8px", padding: "8px 10px", border: `1px solid ${T.borderSubtle}`, borderRadius: "8px" }}>{iaIndisponivelTxt(info, operador)}</div>;
+}
+
 function AnalysisView({ an, operador }) {
   if (!an) return null;
   const leituraIa = copyFor(operador ? "operador" : "estudo").sinal.leituraIa;
@@ -1706,7 +1717,7 @@ function AnalysisView({ an, operador }) {
   // localProposal() e no estado an.proposal, e migra para a Carteira na Fase 3.
   return (
     <div style={{ display: "grid", gap: "2px" }}>
-      {an.iaIndisponivel && <div style={{ fontSize: "11px", color: T.textFaint, lineHeight: 1.4, marginBottom: "6px" }}>IA indisponível agora — mostrando a explicação automática do app, sem IA.</div>}
+      {an.iaIndisponivel && <IaIndisponivelAviso info={an.iaIndisponivel} operador={operador} />}
       {semDados
         ? <div style={{ color: T.textMuted, fontSize: "13px" }}>Não há dados suficientes para concluir.</div>
         : (body ? <Markdown text={body} /> : <div style={{ color: T.textMuted, fontSize: "13px" }}>A análise foi gerada, mas não veio texto legível. Tente reanalisar.</div>)}
@@ -8504,6 +8515,7 @@ function HistoricoPill({ historico, elegivel, aposentado, operador, hojeYmd, com
 }
 
 function RadarScreen({ ctx }) {
+  const operador = ctx.operador; // quick 261015: copy do aviso de IA fora, por modo
   const { data, cp } = ctx;   // FASE 8B (B1): fraseologia por modo
   const period = (data.config && data.config.candlePeriod) || "1y";
   // Onda B (2026-10-08): scan/busca/leituras sobem para a memória de UI da sessão
@@ -8540,12 +8552,12 @@ function RadarScreen({ ctx }) {
       if (cur && cur.res) return;                       // já aprofundado nesta sessão
       const r = await store.scanDeep({ period, tickers: t, topN: 1 });
       const item = (r.results || [])[0];
-      if (!item || !item.deep) throw new Error((r.errors && r.errors[0] && r.errors[0].erro) || ("sem leitura para " + t));
+      if (!item || !item.deep) throw new Error(r.iaIndisponivel ? iaIndisponivelTxt(r.iaIndisponivel, operador) : ((r.errors && r.errors[0] && r.errors[0].erro) || ("sem leitura para " + t)));
       setDeep((d) => ({ ...d, [t]: { loading: false, res: item.deep, cache: !!item.cache, disclaimer: r.disclaimer } }));
     } catch (e) {
       setDeep((d) => ({ ...d, [t]: { loading: false, error: (e && e.message) || String(e) } }));
     }
-  }, [period, deep]);
+  }, [period, deep, operador]);
   // BLOCO B1/B2: enquanto o scan roda, sonda /api/scan/progress p/ o gauge
   const [prog, setProg] = useState(null);
   useEffect(() => {
@@ -8572,9 +8584,9 @@ function RadarScreen({ ctx }) {
       const next = {};
       for (const it of (r.results || [])) if (it.deep) next[it.ticker] = { loading: false, res: it.deep, cache: !!it.cache, disclaimer: r.disclaimer };
       setDeep((d) => ({ ...d, ...next }));
-      setBatch({ stage: "idle", busy: false, est: null, error: "" });
+      setBatch({ stage: "idle", busy: false, est: null, error: r.iaIndisponivel ? iaIndisponivelTxt(r.iaIndisponivel, operador) : "" });
     } catch (e) { setBatch({ stage: "idle", busy: false, est: null, error: (e && e.message) || String(e) }); }
-  }, [batch.stage, period]);
+  }, [batch.stage, period, operador]);
   const ranFor = useRef(null);
   const run = useCallback(async (p, force) => {
     // FASE 4 (1.3): sem force = serve o RESULTADO DO DIA armazenado no servidor

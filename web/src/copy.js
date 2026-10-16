@@ -1554,6 +1554,8 @@ export const COPY = {
     curadoriaLiquidezConsentir: "Entendo que esta opção negociou pouco hoje e o preço pode se mover contra mim ao executar.",
     curadoriaEstudoNaoExecuta: "No Modo Estudo você não executa operações — esta é a leitura de como a estrutura funcionaria.",
     curadoriaVerPosicao: "Ver detalhe da posição",
+    // Quick 261015: IA fora do ar visível (princípios 4 e 7). Uma linha neutra.
+    iaIndisponivel: "A IA está indisponível agora; você vê só a análise determinística.",
   },
 
   operador: {
@@ -2822,6 +2824,7 @@ export const COPY = {
     curadoriaLiquidezConsentir: "Ciente: esta opção negociou pouco hoje, o preço pode se mover contra a execução.",
     curadoriaEstudoNaoExecuta: "Modo Estudo não executa operações — esta é a leitura de como a estrutura funcionaria.",
     curadoriaVerPosicao: "Ver posição",
+    iaIndisponivel: "IA fora do ar agora; leitura só determinística.",
   },
 };
 
