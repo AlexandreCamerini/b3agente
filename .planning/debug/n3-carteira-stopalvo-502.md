@@ -1,6 +1,6 @@
 ---
 slug: n3-carteira-stopalvo-502
-status: root-cause-narrowed
+status: resolved-root-cause-external
 opened: 2026-10-14
 ---
 
@@ -42,3 +42,10 @@ Atenção: a árvore tinha mudanças não commitadas de outra sessão (skill_ref
 - De 01/10 a 14/10 nenhuma chamada de IA em produção durou o bastante para ser uma resposta real: `scan/deep` levou de 16 a 1369 ms, `technical/analyze` de 149 a 432 ms. O `scan/deep` engole o erro em `errors` (scan_deep.py:147) e o N2 cai no fallback FIX-C01. **A IA está fora há pelo menos 2 semanas, mascarada**, e só o N3 mostra (também deu 502 em 13/10: B3SA3, UGPA3, PETR4, BBAS3, BPAC11).
 - Restam duas causas, e o log não as separa: (a) `missing_key`: com keySource env, nem `B3_AGENTE_API_KEY` nem `ANTHROPIC_API_KEY` existem no serviço de produção e a IA gerenciada está desligada; (b) a Anthropic recusa rápido (401 chave inválida/revogada, 403, 400 de saldo).
 - Para separar: confirmar no dashboard do Railway (production → b3agente → Variables) se `ANTHROPIC_API_KEY`/`B3_AGENTE_API_KEY` existe, e no Console da Anthropic se a chave está ativa e com saldo. Ou fazer o deploy do log `[ia-falha]` e refazer um stop/alvo.
+
+## CAUSA RAIZ CONFIRMADA (2026-10-15, F10-20261015-03)
+Log de produção `[ia-falha]` (scan/deep e technical/analyze; provider=anthropic model=claude-haiku-4-5 keySource=env):
+`LLMUserError code=provider_http_400 — "Your credit balance is too low to access the Anthropic API."`
+Causa externa: **saldo de créditos da conta Anthropic da chave de produção zerado**. Não é bug de código: chave presente (B3_AGENTE_API_KEY/B3_MANAGED_LLM_KEY), ID do modelo válido, montagem do prompt ok. H1/H2/H3 e `missing_key` descartadas; H4 confirmada (saldo).
+Ação: recarregar créditos no Console da Anthropic (Plans & Billing) — só o Alex. Sem alteração de código adicional.
+Lateral aberto: o N2 mascara a IA fora com fallback determinístico; considerar aviso visível ao usuário quando a IA estiver indisponível (follow-up, não iniciado).
