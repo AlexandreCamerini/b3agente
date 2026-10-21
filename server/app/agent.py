@@ -958,6 +958,28 @@ def _avisar_fora_pregao(conn, scope, par: dict, app_mode, positions, quotes_data
     return novos
 
 
+def _avisar_lastro_travado(conn, scope, ticker: str, texto: str) -> list:
+    """Aviso de Diário (kind "warn", SEM `tag`: o push só olha "buy") de posição
+    100% travada como lastro com stop/alvo atingido — 1x por (ticker, dia BRT),
+    kv `avisoLastroTravado` no mesmo formato de `avisoForaPregao`. Dedupe é
+    best-effort: falha de kv no máximo repete o aviso (quick 261021-spd)."""
+    hoje = _today()
+    chave = "lastro:" + ticker
+    try:
+        estado = db.kv_get(conn, "avisoLastroTravado", None, user_id=scope)
+    except Exception:  # noqa: BLE001
+        estado = None
+    chaves = list(estado.get("chaves") or []) if isinstance(estado, dict) and estado.get("data") == hoje else []
+    if chave in chaves:
+        return []
+    chaves.append(chave)
+    try:
+        db.kv_set(conn, "avisoLastroTravado", {"data": hoje, "chaves": chaves}, user_id=scope)
+    except Exception:  # noqa: BLE001
+        pass
+    return [{"time": _now_str(), "kind": "warn", "t": ticker, "text": texto}]
+
+
 async def _run_cycle_inner(conn, scope, quotes_getter, origem: str, t0: float, snapshot_getter=None,
                            option_quotes_getter=None) -> dict:
     positions = store.get(conn, "positions", user_id=scope) or []
@@ -1049,6 +1071,21 @@ async def _run_cycle_inner(conn, scope, quotes_getter, origem: str, t0: float, s
             events.append({"time": _now_str(), "kind": "warn",
                            "text": f"Sinal do agente: {pos['t']} com {motivo} (R$ {price:.2f}). Modo 'apenas sinalizar' — nenhuma operação feita."})
             continue
+        # quick 261021-spd: posição 100% travada como lastro de CALL coberta
+        # não tem o que vender. Antes o ciclo chamava `store.sell` a cada tick,
+        # o motor gravava uma rejeição nova no histórico (a poda por
+        # CAP_REJEICOES descartava rejeições legítimas) e o Diário ganhava um
+        # warn novo. Pré-checa pela fonte única `store.qty_livre`, avisa 1x
+        # por posição/dia e segue o laço — sem rejeição, sem consumir teto.
+        livre = store.qty_livre(pos)
+        if livre <= 0:
+            events.extend(_avisar_lastro_travado(
+                conn, scope, pos["t"],
+                f"{pos['t']} com {motivo} (R$ {price:.2f}): nenhuma venda foi feita porque "
+                f"{pos.get('qtyTravada')} ação(ões) estão travadas como lastro de uma CALL "
+                f"coberta aberta — recompre a call para liberar. Nada foi debitado do teto "
+                f"diário de operações. Este aviso aparece uma vez por dia."))
+            continue
         if _ops_today(ag) + executed >= par["maxOpsDia"]:
             events.append({"time": _now_str(), "kind": "warn",
                            "text": f"Teto diário de operações atingido ({par['maxOpsDia']}). {pos['t']} com {motivo} ficou registrado, sem execução."})
@@ -1066,6 +1103,9 @@ async def _run_cycle_inner(conn, scope, quotes_getter, origem: str, t0: float, s
         # mantém o texto de antes — sem inventar resultado.
         pnl = store.sell(conn, pos["t"], price, user_id=scope, motivo="stop" if breach_stop else "alvo",
                          origem="automatico")  # ADR-012 (Fase 3) / ADR15-04
+        # (quick 261021-spd: o caso de lastro agora é barrado ANTES, acima; o
+        # ramo abaixo cobre a corrida "posição sumiu" e segue defensivo para o
+        # lastro.)
         # A-08 (auditoria 2026-09-10): `pnl is None` significa que o motor NÃO
         # vendeu nada (`store.py:709` posição já sumiu — outro caminho vendeu
         # entre a leitura e esta chamada; ou `:712` lastro travado de CALL
@@ -1102,8 +1142,14 @@ async def _run_cycle_inner(conn, scope, quotes_getter, origem: str, t0: float, s
             continue
         executed += 1
         _bump_ops(conn, scope, store.get(conn, "agent", user_id=scope) or ag)
-        _txt = (f"Proteção simulada: {pos['t']} vendido ({motivo}) a R$ {price:.2f}."
-                f" Resultado realizado: R$ {pnl:+.2f}.")
+        if livre < (pos.get("qty") or 0):
+            # parcial: o motor vendeu só o livre (`livre` lido dele antes da venda)
+            _txt = (f"Proteção simulada: {pos['t']} — {livre} de {pos.get('qty')} ação(ões) vendidas "
+                    f"({motivo}) a R$ {price:.2f}; {pos.get('qtyTravada')} seguem travadas como "
+                    f"lastro. Resultado realizado: R$ {pnl:+.2f}.")
+        else:
+            _txt = (f"Proteção simulada: {pos['t']} vendido ({motivo}) a R$ {price:.2f}."
+                    f" Resultado realizado: R$ {pnl:+.2f}.")
         # `t`/`tag` (item 2): o marco já existia como `breach_stop`/`motivo` e
         # morria aqui — só `text` viajava até o push, que caía no genérico.
         events.append({"time": _now_str(), "kind": "buy", "t": pos["t"],
