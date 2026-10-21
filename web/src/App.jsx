@@ -10544,7 +10544,7 @@ export default function App() {
       const beforeN = (data.agent && data.agent.events ? data.agent.events.length : 0);
       try {
         const s = await store.cycle();
-        setData(s); if (s.quotes) setQuotes((q) => ({ ...q, ...s.quotes })); flash(s.mercadoFechado && s.mensagem ? s.mensagem : "Ciclo executado.");
+        setData(s); if (s.quotes) setQuotes((q) => ({ ...q, ...s.quotes })); flash((s.mercadoFechado || s.cicloEmAndamento) && s.mensagem ? s.mensagem : "Ciclo executado.");
         const n = s.config && s.config.notif;
         const evs = (s.agent && s.agent.events) || [];
         if (n && n.enabled && n.agente !== false && evs.length > beforeN) {

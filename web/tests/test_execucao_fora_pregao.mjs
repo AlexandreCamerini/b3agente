@@ -217,7 +217,9 @@ ok("S1 mercadoRef.current = mercado", app.includes("mercadoRef.current = mercado
 {
   const i = app.indexOf("    cycle: async () => {");
   const corte = app.slice(i, i + 700);
-  ok("S3 A.cycle usa s.mercadoFechado para escolher mensagem", /s\.mercadoFechado && s\.mensagem \? s\.mensagem : "Ciclo executado\."/.test(corte));
+  // Nota (quick 261021-spd, W2): a condição ganhou `|| s.cicloEmAndamento` — o ciclo pulado
+  // por outro em andamento também mostra a frase do servidor. Mercado fechado segue escolhendo a mensagem.
+  ok("S3 A.cycle usa s.mercadoFechado para escolher mensagem", /\(s\.mercadoFechado \|\| s\.cicloEmAndamento\) && s\.mensagem \? s\.mensagem : "Ciclo executado\."/.test(corte));
 }
 for (const nome of ["buyOption: async", "sellOption: async", "abrirLastreada: async", "abrirCollar: async", "executarCandidatoCurado: async", "fecharLastreada: async"]) {
   const i = app.indexOf("    " + nome);

@@ -5355,6 +5355,14 @@ async def cycle(scope: Optional[str] = Depends(current_scope)):
     if res.get("mercadoFechado"):  # quick 261013-vai (D2): o portão do motor já avisou no Diário
         out["mercadoFechado"] = True
         out["mensagem"] = _frase_ciclo_fechado(scope)
+    elif res.get("skipped"):
+        # quick 261021-spd (W2 da revisão): `run_cycle_for` não rodou porque outro
+        # ciclo da mesma conta (scheduler, outro aparelho) estava em andamento.
+        # Antes o `skipped` morria aqui e a UI dizia "Ciclo executado." sem ciclo
+        # nenhum (princípio 9: estado correto, nunca inventado).
+        out["cicloEmAndamento"] = True
+        out["mensagem"] = ("Já havia um ciclo do Operador em andamento nesta conta — "
+                           "nada novo foi executado agora. O resultado aparece no Diário.")
     return out
 
 

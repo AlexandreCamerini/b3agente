@@ -2012,6 +2012,7 @@ function deviceStore() {
         const out = pub();
         out.quotes = (r && r.quotes) || {};
         if (r && r.mercadoFechado) out.mercadoFechado = true;
+        if (r && r.cicloEmAndamento) out.cicloEmAndamento = true;  // W2: outro ciclo da conta já rodava
         if (r && r.mensagem) out.mensagem = r.mensagem;
         return out;
       }

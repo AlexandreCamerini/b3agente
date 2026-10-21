@@ -68,6 +68,17 @@ ok("logado: eventos do servidor", out.agent.events.length === 1 && /PETR4 vendid
 ok("logado: quotes/mercadoFechado/mensagem repassados", out.quotes.VALE3.price === 61 && out.mercadoFechado === true && out.mensagem === "Pregão fechado.");
 ok("logado: doc local reflete o servidor", lerDoc().positions.length === 1 && lerDoc().cash === 9999);
 
+// W2 da revisão (quick 261021-spd): outro ciclo da conta já rodava — a flag e a frase chegam à UI.
+const _ef = { mercadoFechado: estadoServidor.mercadoFechado, mensagem: estadoServidor.mensagem };
+delete estadoServidor.mercadoFechado;
+estadoServidor.cicloEmAndamento = true;
+estadoServidor.mensagem = "Já havia um ciclo do Operador em andamento nesta conta — nada novo foi executado agora.";
+st = await novoStore(base([A, B]), true);
+out = await st.cycle();
+ok("logado: cicloEmAndamento + mensagem repassados", out.cicloEmAndamento === true && /em andamento/.test(out.mensagem) && !out.mercadoFechado);
+delete estadoServidor.cicloEmAndamento;
+Object.assign(estadoServidor, _ef);
+
 for (const modo of ["erro500", "lanca"]) {
   cycleResp = modo;
   st = await novoStore(base([A, B]), true);
