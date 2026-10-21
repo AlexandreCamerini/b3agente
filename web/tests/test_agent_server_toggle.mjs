@@ -37,10 +37,12 @@ ok("deviceStore.putAgent localizado", !!dev);
 // que nada do contrato tivesse mudado. F2 acrescentou trailingMode/AtrMult/
 // Lookback — sem elas na lista, o usuário não consegue escolher o critério.
 ok("deviceStore encaminha os parâmetros do servidor via api.putAgent",
+  // quick 261021-spd: SERVER_KEYS foi içada para o módulo (deviceStore.cycle logado adota as
+  // mesmas chaves). O guardião checa a lista no const do módulo e que putAgent a usa.
   !!dev && ["serverEnabled", "mode", "rules", "trailingPct", "trailingMode",
             "trailingAtrMult", "trailingLookback", "maxOpsDia", "maxValorOp",
-            "intervalMin", "lastSeenAt"].every((k) => dev.includes(`"${k}"`))
-        && dev.includes("api.putAgent(sb)"));
+            "intervalMin", "lastSeenAt"].every((k) => (pers.match(/\nconst SERVER_KEYS = \[[^\]]*\]/) || [""])[0].includes(`"${k}"`))
+        && dev.includes("of SERVER_KEYS") && dev.includes("api.putAgent(sb)"));
 ok("deviceStore exige sessão para ligar o servidor",
   !!dev && dev.includes("sync.hasSession()") && dev.includes("Entre na sua conta"));
 ok("deviceStore espelha a resposta confirmada no doc local",

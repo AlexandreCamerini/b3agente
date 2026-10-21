@@ -442,6 +442,12 @@ function serverStore() {
 // Persistencia 100% no aparelho usando o armazenamento do proprio WebView
 // (localStorage do WKWebView, que sobrevive a fechar/reabrir o app). Sincrono,
 // sem plugin nativo e sem import dinamico - nada que possa "travar" no boot.
+// Chaves do agente que o SERVIDOR é dono (putAgent as envia; cycle logado as adota de volta).
+// Hoisted de putAgent na quick 261021-spd para os dois usos não divergirem.
+const SERVER_KEYS = ["serverEnabled", "mode", "rules", "trailingPct", "trailingMode",
+                     "trailingAtrMult", "trailingLookback", "alvoDinamico", "maxOpsDia",
+                     "maxValorOp", "intervalMin", "lastSeenAt", "entradaAuto"];
+
 function deviceStore() {
   // FASE 3 (item 1): escopo por usuário NO APARELHO. Anônimo usa a chave BASE
   // (INALTERADA — usuário existente/sem login não migra nada e não corre risco
@@ -1973,9 +1979,6 @@ function deviceStore() {
       // usuário nunca consegue escolher o critério — o backend aceita, mas o
       // patch nem sai do app (mesma armadilha que já engoliu o serverEnabled).
       // F3: alvoDinamico entra pela mesma razão.
-      const SERVER_KEYS = ["serverEnabled", "mode", "rules", "trailingPct", "trailingMode",
-                           "trailingAtrMult", "trailingLookback", "alvoDinamico", "maxOpsDia",
-                           "maxValorOp", "intervalMin", "lastSeenAt", "entradaAuto"];
       const sb = {};
       for (const k of SERVER_KEYS) if (k in (b || {})) sb[k] = b[k];
       if (Object.keys(sb).length) {
@@ -1991,6 +1994,27 @@ function deviceStore() {
     },
     async cycle() {
       ensure();
+      // Quick 261021-spd (2026-10-21): COM CONTA o ciclo é do servidor. O laço local abaixo é um
+      // Operador legado paralelo ao do servidor: sem trailing, alvo dinâmico nem tetos, gate pela
+      // flag antiga `autonomous`, vendia no alvo antes de o servidor estender e abortava o ciclo
+      // inteiro com o 400 de lastro de CALL coberta. Rodar os dois é o defeito: sem fallback local
+      // (erro sobe para a UI — "Ciclo: ..."); o servidor é a autoridade de execução e o aparelho só
+      // adota o estado confirmado por ele. Sem conta, o laço legado segue (mais tolerante a lastro).
+      if (sync.hasSession()) {
+        const r = await api.cycle();
+        _adotarCarteiraDoServidor(r);
+        const ag = r && typeof r.agent === "object" && r.agent ? r.agent : null;
+        if (ag) {
+          if (Array.isArray(ag.events)) doc.agent.events = ag.events.slice(0, 50);
+          for (const k of SERVER_KEYS) if (k in ag) doc.agent[k] = ag[k];
+        }
+        write();
+        const out = pub();
+        out.quotes = (r && r.quotes) || {};
+        if (r && r.mercadoFechado) out.mercadoFechado = true;
+        if (r && r.mensagem) out.mensagem = r.mensagem;
+        return out;
+      }
       // Quick 261013-vai (2026-10-14), D3: espelho do portão de agent._run_cycle_inner. Só
       // `aberto === true` explícito libera stop/alvo/trailing (ação e opção). `aberto === false`
       // = fechado; qualquer outra coisa (erro, rede, resposta sem o campo) = indeterminado, que
@@ -2027,8 +2051,30 @@ function deviceStore() {
         if (breachStop || hitAlvo) {
           const motivo = breachStop ? "stop atingido" : "alvo atingido";
           if (doc.agent.autonomous) {
-            await this.sell(pos.t);
-            events.push({ time: "Agora", kind: "buy", text: `Protecao automatica: ${pos.t} vendido (${motivo}) a R$ ${price.toFixed(2)}.` });
+            // quick 261021-spd: lastro de CALL coberta não derruba o ciclo. Posição 100% travada vira
+            // 1 aviso por dia (BRT); venda que lança por outro motivo vira aviso com a mensagem —
+            // "vendido" só existe se a venda local aconteceu. `qtyLivre` é o gêmeo de store.qty_livre.
+            const livre = qtyLivre(pos);
+            if (livre <= 0) {
+              const hojeL = hojeBRT();
+              let avL = doc.agent.avisoLastroTravado;
+              if (!avL || avL.data !== hojeL || !Array.isArray(avL.chaves)) avL = { data: hojeL, chaves: [] };
+              if (!avL.chaves.includes("lastro:" + pos.t)) {
+                avL.chaves.push("lastro:" + pos.t);
+                events.push({ time: "Agora", kind: "warn", t: pos.t, text: `${pos.t} com ${motivo} (R$ ${price.toFixed(2)}): nenhuma venda foi feita porque ${pos.qtyTravada} ação(ões) estão travadas como lastro de uma CALL coberta aberta — recompre a call para liberar. Este aviso aparece uma vez por dia.` });
+              }
+              doc.agent.avisoLastroTravado = avL;
+              continue;
+            }
+            try {
+              await this.sell(pos.t);
+              const parcial = livre < pos.qty;
+              events.push({ time: "Agora", kind: "buy", text: parcial
+                ? `Proteção simulada: ${pos.t} — ${livre} de ${pos.qty} ação(ões) vendidas (${motivo}) a R$ ${price.toFixed(2)}; ${pos.qtyTravada} seguem travadas como lastro.`
+                : `Protecao automatica: ${pos.t} vendido (${motivo}) a R$ ${price.toFixed(2)}.` });
+            } catch (e) {
+              events.push({ time: "Agora", kind: "warn", t: pos.t, text: `${pos.t} com ${motivo} (R$ ${price.toFixed(2)}): a venda não foi feita — ${(e && e.message) || "erro desconhecido"}.` });
+            }
           } else {
             events.push({ time: "Agora", kind: "warn", text: `Atencao: ${pos.t} com ${motivo} (R$ ${price.toFixed(2)}). Modo autonomo desligado.` });
           }
