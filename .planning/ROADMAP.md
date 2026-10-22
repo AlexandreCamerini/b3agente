@@ -527,10 +527,53 @@ Plans:
 ### Phase 50: Marcos do plano — stop, alvo e entrada pelo motor
 
 **Goal:** stop, alvo e ponto de entrada de toda posição (manual ou automática) — e as variáveis que as opções reutilizam — saem de UMA função determinística do motor, com geometria validada; a IA explica os marcos, não escolhe o número gravado; entrada automática já nasce com stop e alvo.
-**Requirements**: TBD
+**Requirements**: MARC-01, MARC-02, MARC-03, MARC-04, MARC-05, MARC-06, MARC-07, MARC-08, MARC-09, MARC-10, MARC-11, MARC-12, MARC-13, MARC-14, MARC-15, MARC-16, MARC-17, MARC-18, MARC-19
 **Depends on:** Phase 49
-**Plans:** 0 plans
+**Plans:** 10 plans
+
+Requisitos (IDs da fase, derivados de D-01..D-16 do 50-CONTEXT.md):
+
+- MARC-01 Stop = invalidação − 0,1×ATR; < 0,5×ATR vira entrada − 1×ATR; > 3×ATR recusa (D-01)
+- MARC-02 Alvo = primeira resistência relevante com R:R ≥ 1,5; antes de 1,5R não opera; sem resistência, 2R (D-02)
+- MARC-03 Regra de entrada/perseguição vale em todo caminho que grava marcos (D-03)
+- MARC-04 Uma função só (`setups.marcos_*`); riskPlanReference/localProposal/número da IA deixam de ser fonte (D-04)
+- MARC-05 R:R canônico da entrada + R:R do preço atual com rótulo distinto (D-05)
+- MARC-06 R:R recalculado do preço executado; < 1,5 não compra na entrada automática (D-06)
+- MARC-07 Sizing por risco, lote de 100 para baixo, limitado por allocPct (D-07)
+- MARC-08 Entrada automática nasce com stop e alvo (D-08)
+- MARC-09 Compra manual de plano e ordem pendente nascem com marcos do motor (D-09)
+- MARC-10 IA (N2/N3) só explica; não devolve número gravável (D-10)
+- MARC-11 Geometria impossível recusada no motor, PUT e deviceStore (D-11)
+- MARC-12 Invariante do CLAUDE.md anotada; guardiões atualizados com nota (D-12)
+- MARC-13 Marco inválido não dispara venda; card/Diário "plano inválido" (D-13)
+- MARC-14 Breakeven em 1R + trailing 2×ATR por padrão, desligável (D-14)
+- MARC-15 Alvo dinâmico opt-in medido com o stop gerido (D-15)
+- MARC-16 Opções lastreadas ancoradas em alvo/stop, fallback declarado (D-16)
+- MARC-17 Nota de quebra de série no ADR-015 (signal_ledger/analysis_outcomes; N2 deixa de gravar outcomes)
+- MARC-18 Aplicar sempre habilitado; recusa do motor exibida no modal (D-17)
+- MARC-19 Exibição e contexto da IA só com os marcos do motor; sai "ALVO 2:1"/alvoSugerido e riskPlanReference (D-18)
+- Diferido (D-19): ancorar put_bridge e a curadoria top-4 de opções nos marcos
+
+**Success Criteria** (what must be TRUE):
+
+1. `PUT /api/position/{ticker}` com PM 23,01 / cotação 23,51 / stop 23,36 / alvo 21,58 devolve 400 com motivo em PT-BR, e o `deviceStore` sem conta recusa com a mesma frase
+2. Posição legada com marcos inválidos não é vendida pelo ciclo (servidor e laço local do iPhone); card e Diário mostram "plano inválido — redefina"
+3. Toda posição aberta por entrada automática, compra manual a partir de setup ou ordem pendente nasce com stop/alvo calculados por `setups.marcos_do_plano` (ou sem marcos, com motivo, quando inválidos ao preço executado)
+4. Entrada automática dimensiona por risco (pctPorTrade ÷ (entrada − stop)), em lotes de 100 para baixo, limitada por allocPct, e não compra com R:R < 1,5 ao preço executado
+5. Nenhuma rota de IA devolve número de stop/alvo da LLM como proposta; o modal mostra os marcos do motor e a IA só explica
+6. Posição com gestão automática sobe o stop para a entrada ao andar 1R e depois acompanha 2×ATR, só para cima
+7. Call coberta/put de proteção lastreadas usam strike ancorado em alvo/stop válidos e declaram quando caíram no spot
+8. Paridade backend↔front travada pela fixture `server/tests/fixtures/marcos_casos.json`; `defaults.py` ↔ `catalog.js` byte a byte; suíte canônica verde
 
 Plans:
 
-- [ ] TBD (run /gsd:plan-phase 50 to break down)
+- [ ] 50-01-PLAN.md — Wave 1 · motor puro de marcos (geometria/R:R; revalidação na execução com perseguição; sizing) e plano do Radar sobre ele (TDD)
+- [ ] 50-02-PLAN.md — Wave 1 · vocabulário da fase (skill_ref ↔ copy.js), nota D-12 no CLAUDE.md, adendo de quebra de série no ADR-015 (inclui N2)
+- [ ] 50-03-PLAN.md — Wave 2 · store: set_position validado, buy com marcos (lote somado), ordem pendente com marcos revalidados
+- [ ] 50-06-PLAN.md — Wave 2 · card (plano inválido, rrPlano) e opções ancoradas nos marcos (put_bridge/curadoria diferidos, D-19)
+- [ ] 50-04-PLAN.md — Wave 3 · rotas: PUT 400 com preço obrigatório + gestaoAuto, /api/buy com marcos no preço executado, POST /api/marcos/{ticker}
+- [ ] 50-05-PLAN.md — Wave 3 · Operador: gate de plano inválido + gestão padrão (T1); entrada automática com marcos, perseguição e sizing (T2)
+- [ ] 50-07-PLAN.md — Wave 4 · IA só explica: FORMAT/parsers (T1), contexto sem riskPlanReference/alvoSugerido (T2), prompts N3 + paridade (T3), rotas N2/N3 (T4)
+- [ ] 50-08-PLAN.md — Wave 4 · front dados: validarMarcos/sizing espelhados, stores com marcos(), putPosition local com preço obrigatório, gate do laço local
+- [ ] 50-09-PLAN.md — Wave 5 · UI: modal sobre marcos (Aplicar habilitado, recusa no modal), toggle, card "plano inválido", R:R, bloco do plano/régua (D-18), guardiões D-12
+- [ ] 50-10-PLAN.md — Wave 6 · checkpoint do Alex no web e iPhone (regressão 23,01/23,51/23,36/21,58)

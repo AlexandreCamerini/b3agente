@@ -26,6 +26,7 @@ Fora do escopo: lado vendido (short) de ação; realização parcial (o motor é
 
 ### Entrada automática e compra manual
 - **D-06 Preço executado ≠ gatilho:** stop e alvo ficam nos **níveis técnicos** do plano (não deslocam com o preço). O R:R é recalculado a partir do preço executado; se cair **< 1,5**, a compra **não acontece** e o Diário diz por quê.
+  - **Esclarecimento (Alex, 2026-10-21, após o plan-checker):** a recusa vale **só para a entrada automática**. Compra manual (imediata ou pendente) com R:R < 1,5 ou entrada além de 0,5R do gatilho no preço executado **executa sem marcos**; a resposta e o card dizem por que o motor não traçou plano e pedem para definir (parecer não é veto).
 - **D-07 Tamanho da posição:** `qty = (risco por operação, ex. 1% do patrimônio) ÷ (entrada − stop)`, em lotes de 100 (arredonda para baixo), **limitado pelo `allocPct` do caixa**. Mesma conta de `sizingPlano` (`web/src/finance.js:415`) — uma fonte só. Se não couber 1 lote, não compra e avisa.
 - **D-08 Entrada automática nasce com stop e alvo** do motor gravados no ato da compra (hoje `store.buy` cria `stop: None, alvo: None`).
 - **D-09 Compra manual a partir de plano/setup** também nasce com os marcos do motor (o `buyMeta` já leva gatilho/invalidação); o usuário pode editar depois, sujeito a D-11. Compra sem plano nasce sem marcos e o card pede para definir. Ordem pendente (`pending_orders.py:196`) segue a mesma regra quando executar.
@@ -40,6 +41,11 @@ Fora do escopo: lado vendido (short) de ação; realização parcial (o motor é
 - **D-14 Gestão padrão:** ao andar **1R a favor**, o stop sobe para o preço de entrada (breakeven); a partir daí, **trailing de 2×ATR**, sempre monotônico (só sobe — regra que já existe em `agent.py`). Ligado por padrão nas posições com plano; o usuário pode desligar.
 - **D-15 Alvo dinâmico:** continua **opt-in** (fechar no alvo é a disciplina do Estudo). Regra atual mantida (+1,5×ATR, máx. 2 extensões, R:R ≥ 1,5), medida com o stop já em breakeven/trailing.
 - **D-16 Opções ancoradas nos marcos:** call coberta com o strike disponível mais próximo **≥ alvo**; put de proteção com o strike mais próximo do **stop**. Sem marcos válidos, cai na regra atual (spot, ex. `put_bridge.COLCHAO_PCT`) e **diz que caiu**.
+
+### Decisões após o plan-checker (Alex, 2026-10-21)
+- **D-17 Botão Aplicar:** continua **habilitado** mesmo com marco inválido; se o motor recusar (D-11), a mensagem do 400 aparece no modal. A guardrail "a UI sempre permite Aplicar proteção" fica literal.
+- **D-18 Fonte única também na exibição:** o "ALVO 2:1" do setup (`alvoSugerido`, bloco do plano) e o `riskPlanReference` deixam de ser número exibido ou enviado à IA; a tela e a IA mostram/recebem só os marcos da função do motor. `riskPlanReference` só segue como insumo interno se algo ainda o consumir.
+- **D-19 Fora da D-16:** `put_bridge` (sugestão diária compartilhada) e a curadoria top-4 de opções **não** são ancoradas nos marcos nesta fase (diferido).
 
 ### Claude's Discretion
 - Nome/assinatura da função pura de marcos e onde mora (provável `setups.py` ao lado de `plano_operacional`, ou módulo novo).
@@ -125,6 +131,7 @@ Fora do escopo: lado vendido (short) de ação; realização parcial (o motor é
 - Lado vendido (short) de ação no motor de marcos.
 - Texto do toggle "Modo local (com o app aberto)" que ainda promete proteção local (quick 261021-spd) — pode entrar aqui se o planner tocar a tela do Operador; senão, quick própria.
 - Item 3 da quick 261021-spd: PUT de proteção órfã quando o stop vende as ações.
+- Ancorar `put_bridge` e a curadoria top-4 de opções nos marcos (D-19).
 </deferred>
 
 ---
