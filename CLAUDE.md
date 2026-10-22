@@ -123,6 +123,15 @@ educacional → 8. registrar o aprendizado e comparar com o benchmark.
   explica, nunca substitui.
 - **Stop/alvo nunca são vetados**: `operar: false` é parecer, não veto; a UI
   sempre permite Aplicar proteção.
+  Vale para PARECER (`operar: false`, R:R baixo). Geometria impossível de
+  posição comprada (stop ≥ alvo, stop ≥ cotação, alvo ≤ cotação, alvo abaixo
+  do preço médio, valor ≤ 0) é RECUSADA no motor com motivo em PT-BR —
+  `setups.validar_marcos`, em `store.set_position`/`PUT /api/position/{ticker}`
+  e no `deviceStore` (decisão do Alex, 2026-10-21, Fase 50 D-11/D-12). Marco
+  legado inválido não dispara venda (D-13).
+- **Marcos do motor**: stop/alvo/entrada gravados saem só de
+  `setups.marcos_do_plano`/`marcos_da_posicao` (Fase 50); a IA explica, não
+  escolhe o número.
 - **Guardiões de teste não se apagam** — reversão deliberada atualiza o
   guardião com nota.
 - **Histórico não se reescreve**: `qa/`, `ESTADO-*`, `CHECKOUT-*`, RELEASES

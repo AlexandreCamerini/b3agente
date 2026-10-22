@@ -337,3 +337,28 @@ determinístico medindo código determinístico. Aprovação necessária é sobr
 - CLAUDE.md do repo — Princípio 5 (cálculo por regra, nunca pela IA) e
   guardrail CVM (manchete só do motor determinístico), ambos intactos em
   todas as alternativas deste documento.
+
+## Adendo — Fase 50 (2026-10-21): quebra de série de stop/alvo
+
+O que mudou. A partir da Fase 50, stop e alvo de toda posição saem de uma
+função única do motor (`setups.marcos_do_plano`): stop = invalidação do setup
+− 0,1×ATR, com piso de 1×ATR de distância da entrada e teto de 3×ATR (acima
+disso o plano é recusado); alvo único na primeira resistência relevante acima
+da entrada, com R:R ≥ 1,5, ou em 2R quando não há resistência no caminho. O
+alvo1 continua sendo 1R e agora também é o gatilho do breakeven da gestão
+automática.
+
+Efeito na medição. Linhas de `analysis_outcomes` gravadas antes do deploy da
+Fase 50 mantêm os marcos da época — o histórico não se reescreve e não se
+recalcula `analysis_outcomes`. O replay do `signal_ledger` recalcula sobre
+candles e passa a medir a regra nova no próximo job; a janela que atravessa a
+data de deploy, portanto, mistura dois regimes.
+
+Regra de leitura. Compare a taxa stop/alvo apenas dentro do mesmo regime,
+usando como data de corte o dia do deploy registrado pelo BUILD_ID da Fase 50.
+A elegibilidade do ADR-017 (Adendo 2) pode mudar de setup para setup no
+primeiro recálculo — observe antes de concluir qualquer coisa.
+
+N2. A partir da Fase 50 o N2 deixa de gravar outcomes próprios em
+`analysis_outcomes` (a IA não produz mais número de stop/alvo — D-10); o N1
+(motor) segue sendo a série medida.
