@@ -608,7 +608,7 @@ export const COPY = {
     },
     // Fase 50 (2026-10-21): espelho byte a byte de skill_ref.MARCOS_PLANO.
     marcosPlano: {
-      plano_invalido_diario: "{ticker}: o plano está inválido — {motivo} Por isso o simulador não vendeu nada com base nesses marcos. Stop e alvo precisam ser definidos de novo; os marcos que o motor calculou aparecem no card como sugestão. Este aviso aparece uma vez por dia.",
+      plano_invalido_diario: "{ticker}: o plano está inválido — {motivo} Por isso o simulador ignora o marco inválido (o outro, se válido, segue valendo). Stop e alvo precisam ser definidos de novo; os marcos que o motor calculou aparecem no card como sugestão. Este aviso aparece uma vez por dia.",
       entrada_rr_baixo: "A entrada automática em {ticker} não foi executada: ao preço de R$ {preco}, a relação entre ganho possível até o alvo de R$ {alvo} e o risco cai para {rr}:1, abaixo do mínimo de {rr_min}:1 que o simulador exige.",
       entrada_recusada: "A entrada automática em {ticker} não foi executada: {motivo}",
       entrada_marcos_gravados: "O motor gravou os marcos de {ticker}: stop em R$ {stop} e alvo em R$ {alvo}, com relação risco:retorno de {rr}:1 a partir de R$ {preco}.",
@@ -2056,7 +2056,7 @@ export const COPY = {
     },
     // Fase 50 (2026-10-21): espelho byte a byte de skill_ref.MARCOS_PLANO.
     marcosPlano: {
-      plano_invalido_diario: "{ticker}: plano inválido — {motivo} Nenhuma venda foi feita por esses marcos. Redefina stop e alvo; os marcos do motor aparecem como sugestão no card. Este aviso aparece uma vez por dia.",
+      plano_invalido_diario: "{ticker}: plano inválido — {motivo} O marco inválido não dispara venda (o outro, se válido, segue valendo). Redefina stop e alvo; os marcos do motor aparecem como sugestão no card. Este aviso aparece uma vez por dia.",
       entrada_rr_baixo: "Entrada automática em {ticker} não executada: a R$ {preco}, o R:R até o alvo de R$ {alvo} cai para {rr}:1, abaixo do mínimo de {rr_min}:1.",
       entrada_recusada: "Entrada automática em {ticker} não executada: {motivo}",
       entrada_marcos_gravados: "Marcos do motor gravados em {ticker}: stop R$ {stop}, alvo R$ {alvo} (R:R {rr}:1 a partir de R$ {preco}).",

@@ -102,6 +102,8 @@ def _invalidos(events):
 
 
 def test_plano_invalido_nao_vende_e_avisa_uma_vez_por_dia():
+    # Nota review WR-02: com a cotação ACIMA do stop o plano inválido continua sem
+    # vender (nada rompido); o stop válido por si, porém, protege (teste abaixo).
     c = _conn()
     _seed(c, [dict(INVALIDA)])
     hist0 = list(store.get(c, "history", user_id="u1") or [])
@@ -113,6 +115,31 @@ def test_plano_invalido_nao_vende_e_avisa_uma_vez_por_dia():
     assert _pos(c)["qty"] == 100
     assert list(store.get(c, "history", user_id="u1") or []) == hist0
     assert _pos(c)["stop"] == 23.36            # nem a gestão mexe em plano inválido
+
+
+def test_wr02_alvo_invalido_nao_desliga_o_stop_valido():
+    c = _conn()
+    _seed(c, [dict(INVALIDA)])
+    r = _run(c, {"PETR4": 23.30})                 # rompe o stop 23,36; alvo 21,58 é o inválido
+    assert r["executed"] == 1 and _pos(c) is None
+    assert any("stop atingido" in (e.get("text") or "") or e.get("kind") == "buy" for e in r["events"])
+
+
+def test_wr02_alvo_invalido_nunca_vira_alvo_atingido():
+    c = _conn()
+    pos = {"t": "PETR4", "qty": 100, "avg": 25.0, "stop": 22.0, "alvo": 24.0}   # alvo ≤ PM
+    _seed(c, [pos], {"rules": {"alvo": True}})
+    r = _run(c, {"PETR4": 24.5})                  # >= alvo, mas o alvo é inválido
+    assert r["executed"] == 0 and _pos(c) is not None
+    assert len(_invalidos(r["events"])) == 1
+    r2 = _run(c, {"PETR4": 21.9})                 # stop válido rompe
+    assert r2["executed"] == 1
+
+
+def test_wr02_marcos_efetivos_puro():
+    assert agent.marcos_efetivos(dict(INVALIDA))[:2] == (True, False)
+    assert agent.marcos_efetivos({"avg": 20, "stop": 19, "alvo": 25}) == (True, True, None)
+    assert agent.marcos_efetivos({"avg": 20, "stop": 0, "alvo": 25})[:2] == (False, True)
 
 
 def test_plano_invalido_fora_do_pregao_nao_diz_alvo_atingido(monkeypatch):

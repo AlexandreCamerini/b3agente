@@ -4,7 +4,7 @@
 import { readFileSync } from "fs";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
-import { validarMarcos, rrDaEntrada, sizingPlano, MOTIVO_SEM_PRECO_VALIDAR } from "../src/finance.js";
+import { validarMarcos, marcosEfetivos, rrDaEntrada, sizingPlano, MOTIVO_SEM_PRECO_VALIDAR } from "../src/finance.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const fx = JSON.parse(readFileSync(join(here, "..", "..", "server", "tests", "fixtures", "marcos_casos.json"), "utf8"));
@@ -42,6 +42,16 @@ for (const c of fx.sizing) {
   if ("aviso" in x) good = good && got.aviso === x.aviso;
   if (x.avisoContem) good = good && x.avisoContem.every((t) => (got.aviso || "").includes(t));
   ok("sizing: " + c.nome, good, JSON.stringify(got));
+}
+
+// Review WR-02 — marco por marco (espelho de agent.marcos_efetivos)
+{
+  const origem = marcosEfetivos({ avg: 23.01, stop: 23.36, alvo: 21.58 });
+  ok("marcos_efetivos: caso-origem mantém o stop e anula só o alvo", origem.stopVale && !origem.alvoVale && !!origem.motivo, JSON.stringify(origem));
+  const valido = marcosEfetivos({ avg: 20, stop: 19, alvo: 25 });
+  ok("marcos_efetivos: plano íntegro", valido.stopVale && valido.alvoVale && valido.motivo === null, JSON.stringify(valido));
+  const stopRuim = marcosEfetivos({ avg: 20, stop: 0, alvo: 25 });
+  ok("marcos_efetivos: stop não positivo é suprimido, alvo segue", !stopRuim.stopVale && stopRuim.alvoVale && !!stopRuim.motivo, JSON.stringify(stopRuim));
 }
 
 if (fails) { console.log("\n" + fails + " falha(s)"); process.exit(1); }

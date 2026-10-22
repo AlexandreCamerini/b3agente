@@ -21,7 +21,7 @@ import { backfillStructural, limparCarteiraDemo } from "./migrate.js";
 // Fase 14 (opções lastreadas, Plano 05): fonte ÚNICA da quantidade vendável
 // do front (gêmeo de store.qty_livre, server/app/store.py) — importada, nunca
 // reimplementada aqui (guardrail de fonte única, mesmo padrão de RR_MIN).
-import { qtyLivre, faixaDeLiquidez, validarMarcos, MOTIVO_SEM_PRECO_VALIDAR } from "./finance.js";
+import { qtyLivre, faixaDeLiquidez, validarMarcos, marcosEfetivos, MOTIVO_SEM_PRECO_VALIDAR } from "./finance.js";
 // FASE 13 (13-02, CR-01): gate fail-closed de watchlist no deviceStore —
 // mesmos hooks puros que o web/PWA já usa via App.jsx, importados aqui
 // direto no store porque no iOS não existe gate autoritativo no servidor
@@ -2098,7 +2098,9 @@ function deviceStore() {
         if (price == null) continue;
         // Fase 50 D-13/T-50-31: marco legado inválido (geometria impossível contra o preço
         // médio) NUNCA dispara venda nem aviso de stop/alvo — 1 aviso "plano inválido" por dia.
-        const invalLocal = validarMarcos(pos.stop, pos.alvo, undefined, pos.avg);
+        // Review WR-02: cada marco é avaliado separadamente — o inválido nunca vende, o válido segue.
+        const ef = marcosEfetivos(pos);
+        const invalLocal = ef.motivo;
         if (invalLocal) {
           const hojeP = hojeBRT();
           let avP = doc.agent.avisoPlanoInvalido;
@@ -2108,10 +2110,9 @@ function deviceStore() {
             events.push({ time: "Agora", kind: "warn", t: pos.t, text: marcosPlanoTxt(modo, "plano_invalido_diario", { ticker: pos.t, motivo: invalLocal }) });
           }
           doc.agent.avisoPlanoInvalido = avP;
-          continue;
         }
-        const breachStop = pos.stop != null && price <= pos.stop;
-        const hitAlvo = pos.alvo != null && price >= pos.alvo;
+        const breachStop = ef.stopVale && price <= pos.stop;
+        const hitAlvo = ef.alvoVale && price >= pos.alvo;
         if (breachStop || hitAlvo) {
           const motivo = breachStop ? "stop atingido" : "alvo atingido";
           if (doc.agent.autonomous) {

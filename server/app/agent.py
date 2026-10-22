@@ -979,6 +979,33 @@ async def run_cycle_for(conn, scope, quotes_getter, origem: str = "agendado", sn
         _CYCLE_BUSY.discard(key)
 
 
+def marcos_efetivos(pos: dict):
+    """Fase 50 review WR-02 (D-13 por marco): avalia stop e alvo SEPARADAMENTE.
+    Devolve (stop_vale, alvo_vale, motivo|None). PURA.
+
+    Só o marco inválido é neutralizado: um stop válido por si (positivo) segue
+    protegendo mesmo com alvo ≤ PM ou alvo ≤ stop; o alvo inválido (≤ PM,
+    ≤ stop, não positivo) nunca vira "alvo atingido". Stop não positivo é
+    suprimido (e então o alvo é checado sozinho)."""
+    stop, alvo, avg = pos.get("stop"), pos.get("alvo"), pos.get("avg")
+    motivo_stop = setups.validar_marcos(stop, None) if stop is not None else None
+    stop_vale = stop is not None and motivo_stop is None
+    motivo_alvo = None
+    if alvo is not None:
+        motivo_alvo = setups.validar_marcos(stop if stop_vale else None, alvo, avg=avg)
+    alvo_vale = alvo is not None and motivo_alvo is None
+    return stop_vale, alvo_vale, (motivo_stop or motivo_alvo)
+
+
+def _pos_efetiva(pos: dict):
+    """`pos` com o marco inválido zerado (só para decidir gatilho de saída)."""
+    stop_vale, alvo_vale, motivo = marcos_efetivos(pos)
+    if motivo is None:
+        return pos, None, True
+    return ({**pos, "stop": pos.get("stop") if stop_vale else None,
+             "alvo": pos.get("alvo") if alvo_vale else None}, motivo, stop_vale and alvo_vale)
+
+
 def _gatilho_saida(par: dict, pos: dict, price) -> tuple:
     """(breach_stop, hit_alvo) de uma posição de AÇÃO para o preço dado.
     Pura e reusada pelo laço de execução e pelo aviso fora do pregão (quick
@@ -1021,10 +1048,10 @@ def _avisar_fora_pregao(conn, scope, par: dict, app_mode, positions, quotes_data
         price = (quotes_data.get(pos["t"]) or {}).get("price")
         if price is None:
             continue
-        # Fase 50 D-13/T-50-17: marco inválido não vira "alvo atingido".
-        if setups.validar_marcos(pos.get("stop"), pos.get("alvo"), avg=pos.get("avg")) is not None:
-            continue
-        breach_stop, hit_alvo = _gatilho_saida(par, pos, price)
+        # Fase 50 D-13/T-50-17 + review WR-02: marco inválido não vira "alvo
+        # atingido"; o outro marco (válido) continua valendo.
+        pos_ef, _motivo, _ok = _pos_efetiva(pos)
+        breach_stop, hit_alvo = _gatilho_saida(par, pos_ef, price)
         if not (breach_stop or hit_alvo):
             continue
         motivo = "stop" if breach_stop else "alvo"
@@ -1156,21 +1183,23 @@ async def _run_cycle_inner(conn, scope, quotes_getter, origem: str, t0: float, s
         price = q.get("price")
         if price is None:
             continue
-        # Fase 50 D-13 (T-50-17): marcos de geometria inválida (stop ≥ alvo,
-        # alvo ≤ PM…) nunca vendem nem sobem stop — aviso 1x/dia e segue.
-        motivo_inv = setups.validar_marcos(pos.get("stop"), pos.get("alvo"), avg=pos.get("avg"))
+        # Fase 50 D-13 (T-50-17) + review WR-02: avalia cada marco SEPARADAMENTE.
+        # O marco inválido (alvo ≤ PM, alvo ≤ stop…) nunca dispara venda; o
+        # válido segue protegendo (um stop positivo vende no rompimento mesmo
+        # com alvo inválido). Aviso 1x/dia. Gestão/trailing só ajustam stop
+        # quando o par está íntegro (set_position recusaria o par inválido).
+        pos_ef, motivo_inv, plano_ok = _pos_efetiva(pos)
         if motivo_inv:
             events.extend(_avisar_plano_invalido(
                 conn, scope, pos["t"],
                 skill_ref.marcos_plano_txt(_modo_txt, "plano_invalido_diario", ticker=pos["t"], motivo=motivo_inv)))
-            continue
         # Stop sobe conforme o preço avança; nunca desce. Duas fontes, mesma
         # monotonicidade (a comparação ÚNICA abaixo): a regra global opcional
         # `trailing` (F2: percentual | atr | estrutura) e a gestão padrão da
         # Fase 50 D-14 (breakeven a 1R + 2×ATR). Vale o MAIOR nível — ligar a
         # regra global nunca enfraquece a gestão, nem o contrário.
-        gestao_on = _gestao_ligada(pos)
-        trail_on = par["rules"]["trailing"] and pos.get("stop") is not None
+        gestao_on = plano_ok and _gestao_ligada(pos)
+        trail_on = plano_ok and par["rules"]["trailing"] and pos.get("stop") is not None
         if gestao_on or trail_on:
             ctx_p = ctxs.get(pos["t"])
             cands = []
@@ -1203,7 +1232,8 @@ async def _run_cycle_inner(conn, scope, quotes_getter, origem: str, t0: float, s
                         texto_g = f"Trailing: stop de {pos['t']} ajustado para R$ {novo:.2f} ({info_n})."
                     events.append({"time": _now_str(), "kind": "info", "text": texto_g})
                     pos = {**pos, "stop": novo}
-        breach_stop, hit_alvo = _gatilho_saida(par, pos, price)
+                    pos_ef = {**pos_ef, "stop": novo}
+        breach_stop, hit_alvo = _gatilho_saida(par, pos_ef, price)
         # F3: alvo batido, sem stop rompido — antes de fechar, tenta ESTENDER.
         # Só quando o Alex ligou (`alvoDinamico`); senão o comportamento de
         # sempre (fecha no alvo) continua intacto.

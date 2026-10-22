@@ -473,6 +473,18 @@ export function validarMarcos(stop, alvo, preco, avg) {
   return null;
 }
 
+// espelho de agent.marcos_efetivos — Fase 50 review WR-02 (D-13 por marco): stop e
+// alvo são avaliados SEPARADAMENTE; só o marco inválido é neutralizado. Devolve
+// { stopVale, alvoVale, motivo|null }.
+export function marcosEfetivos(pos) {
+  const stop = pos.stop, alvo = pos.alvo, avg = pos.avg;
+  const motivoStop = stop != null ? validarMarcos(stop, null, undefined, undefined) : null;
+  const stopVale = stop != null && motivoStop === null;
+  const motivoAlvo = alvo != null ? validarMarcos(stopVale ? stop : null, alvo, undefined, avg) : null;
+  const alvoVale = alvo != null && motivoAlvo === null;
+  return { stopVale, alvoVale, motivo: motivoStop || motivoAlvo };
+}
+
 // espelho de setups.rr_da_entrada — R:R canônico a partir da ENTRADA; null se
 // a geometria não fecha (nunca 0).
 export function rrDaEntrada(entrada, stop, alvo) {

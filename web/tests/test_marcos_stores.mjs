@@ -124,11 +124,19 @@ ok("laço aberto: 1 aviso plano inválido", avisos.length === 1, JSON.stringify(
 out = await st.cycle();
 ok("laço aberto: aviso dedup no mesmo dia", lerDoc().agent.events.filter((x) => /inválido/i.test(x.text)).length === 1);
 
-// preço no stop de uma posição inválida: ainda não vende
+// Nota review WR-02 (2026-10-22, reversão deliberada do guardião da Fase 50): o plano é
+// avaliado marco a marco. Alvo inválido (21,58 ≤ PM) nunca vende; o stop 23,36 é válido
+// por si e VENDE ao romper — a posição não fica sem proteção por causa do alvo.
 quotePrice = 21;
 st = await novoStore(base([inval]));
 await st.cycle();
-ok("laço aberto: preço abaixo do 'stop' inválido não vende", lerDoc().positions.length === 1);
+ok("laço aberto: stop válido protege mesmo com alvo inválido (WR-02)", lerDoc().positions.length === 0);
+
+// alvo inválido sozinho nunca vira 'alvo atingido'
+quotePrice = 24.5;
+st = await novoStore(base([{ t: "PETR4", qty: 100, avg: 25, stop: 22, alvo: 24 }]));
+await st.cycle();
+ok("laço aberto: alvo inválido (≤ PM) não dispara venda", lerDoc().positions.length === 1);
 
 // posição válida segue vendendo no stop
 st = await novoStore(base([{ t: "PETR4", qty: 100, avg: 23.01, stop: 22, alvo: 26 }]));
