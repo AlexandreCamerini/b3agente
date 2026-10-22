@@ -599,6 +599,23 @@ def set_agent(conn, patch: dict, user_id=None) -> dict:
     return ag
 
 
+def _marco_num(v):
+    """Review IN-03: stop/alvo vindos do cliente. None/"" -> None (limpar);
+    número ou string numérica -> float; qualquer outra coisa (texto, bool,
+    NaN/inf) -> ValueError em PT-BR (nunca a mensagem crua do Python)."""
+    if v is None or v == "":
+        return None
+    if isinstance(v, bool):
+        raise ValueError("Stop e alvo precisam ser valores positivos.")
+    try:
+        f = float(v)
+    except (TypeError, ValueError):
+        raise ValueError("Stop e alvo precisam ser valores positivos.") from None
+    if f != f or f in (float("inf"), float("-inf")):
+        raise ValueError("Stop e alvo precisam ser valores positivos.")
+    return f
+
+
 def set_position(conn, t: str, stop=None, alvo=None, has_stop=False, has_alvo=False,
                   alvo_extensoes=None, user_id=None, preco_ref=None, gestao_auto=None) -> None:
     positions = get(conn, "positions", user_id=user_id)
@@ -607,9 +624,9 @@ def set_position(conn, t: str, stop=None, alvo=None, has_stop=False, has_alvo=Fa
             novo_stop = p.get("stop")
             novo_alvo = p.get("alvo")
             if has_stop:
-                novo_stop = None if stop in (None, "") else float(stop)
+                novo_stop = _marco_num(stop)
             if has_alvo:
-                novo_alvo = None if alvo in (None, "") else float(alvo)
+                novo_alvo = _marco_num(alvo)
             # Fase 50 D-11/D-12: geometria impossível é recusada ANTES de
             # mutar (kv inalterado); parecer (operar:false) continua aviso.
             # preco_ref=None valida só a estrutura (stop<alvo, alvo>PM); a

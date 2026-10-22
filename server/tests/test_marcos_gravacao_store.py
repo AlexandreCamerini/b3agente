@@ -102,3 +102,22 @@ def test_normalizacao_de_qty_manual_preservada():
     store.buy(conn, "VALE3", 150, 10.0)
     assert _pos(conn, "PETR4")["qty"] == 200
     assert _pos(conn, "VALE3")["qty"] == 200
+
+
+@pytest.mark.parametrize("ruim", ["abc", True, float("nan"), [1], {"a": 1}])
+def test_in03_stop_alvo_nao_numerico_vira_erro_em_ptbr(ruim):
+    conn = _fresh()
+    store.buy(conn, "PETR4", 100, 23.01)
+    antes = store.get(conn, "positions")
+    for campo in ("stop", "alvo"):
+        with pytest.raises(ValueError, match="Stop e alvo precisam ser valores positivos."):
+            store.set_position(conn, "PETR4", has_stop=(campo == "stop"), has_alvo=(campo == "alvo"),
+                               **{campo: ruim})
+    assert store.get(conn, "positions") == antes
+
+
+def test_in03_string_numerica_ainda_grava():
+    conn = _fresh()
+    store.buy(conn, "PETR4", 100, 23.01)
+    store.set_position(conn, "PETR4", stop="22.5", has_stop=True)
+    assert _pos(conn)["stop"] == 22.5
