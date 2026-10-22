@@ -2004,7 +2004,11 @@ function deviceStore() {
             } catch { /* sem preço: tratado abaixo */ }
             if (ref === undefined) throw new Error(MOTIVO_SEM_PRECO_VALIDAR);
           }
-          const motivo = validarMarcos(nStop, nAlvo, ref, pos.avg);
+          // Review WR-06 (espelho da rota): contra o preço só o(s) marco(s) editado(s); a estrutura
+          // (stop<alvo, alvo>PM) vale para o par resultante.
+          const motivoPreco = validarMarcos(temStop ? nStop : null, temAlvo ? nAlvo : null, ref);
+          if (motivoPreco) throw new Error(motivoPreco);
+          const motivo = validarMarcos(nStop, nAlvo, undefined, pos.avg);
           if (motivo) throw new Error(motivo);
           if (temStop) {
             pos.stop = nStop;

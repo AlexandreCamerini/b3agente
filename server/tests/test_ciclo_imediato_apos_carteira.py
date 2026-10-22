@@ -79,6 +79,8 @@ def test_putposition_logado_dispara_ciclo_imediato(monkeypatch):
     client, main, chamadas = _cliente(monkeypatch)
     token, uid = _registrar(client, "imediato1@teste.com")
     headers = {"authorization": f"Bearer {token}"}
+    # Nota review WR-05 (2026-10-22): o PUT agora exige posição aberta (404 antes de qualquer I/O).
+    main.store.buy(main._conn, "PETR4", 100, 40.0, user_id=uid)
 
     r = client.put("/api/position/PETR4", json={"stop": 39.5}, headers=headers)
     assert r.status_code == 200, r.text
@@ -91,6 +93,8 @@ def test_putposition_logado_dispara_ciclo_imediato(monkeypatch):
 
 def test_putposition_anonimo_nao_dispara_ciclo_imediato(monkeypatch):
     client, main, chamadas = _cliente(monkeypatch)
+    # Nota review WR-05 (2026-10-22): o PUT agora exige posição aberta (404 antes de qualquer I/O).
+    main.store.buy(main._conn, "PETR4", 100, 40.0, user_id=None)
 
     r = client.put("/api/position/PETR4", json={"stop": 39.5})
     assert r.status_code == 200, r.text
@@ -104,6 +108,8 @@ def test_putposition_com_killswitch_nao_dispara(monkeypatch):
     client, main, chamadas = _cliente(monkeypatch)
     token, uid = _registrar(client, "imediato2@teste.com")
     monkeypatch.setenv("B3_AGENT_KILL", "1")
+    # Nota review WR-05 (2026-10-22): o PUT agora exige posição aberta (404 antes de qualquer I/O).
+    main.store.buy(main._conn, "PETR4", 100, 40.0, user_id=uid)
 
     r = client.put("/api/position/PETR4", json={"stop": 39.5}, headers={"authorization": f"Bearer {token}"})
     assert r.status_code == 200, r.text

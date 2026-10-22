@@ -92,7 +92,10 @@ def test_put_sem_cotacao_valida_contra_close_do_snapshot(monkeypatch):
     store.buy(m._conn, "PETR4", 100, 23.01, user_id=uid)
     r = c.put("/api/position/PETR4", json={"stop": 23.8}, headers=h)  # stop acima de 23,51
     assert r.status_code == 400, r.text
-    assert "cotação atual (R$ 23,51)" in r.json()["detail"]
+    # Nota review WR-06 (2026-10-22): fechamento do snapshot NÃO é "cotação atual" —
+    # a mensagem diz que é o último fechamento e de quando.
+    assert "cotação atual" not in r.json()["detail"]
+    assert "último fechamento (em 21/10/2026, R$ 23,51)" in r.json()["detail"]
     assert _pos(m, uid)["stop"] is None
 
 
@@ -211,3 +214,41 @@ def test_wr01_rota_marcos_usa_o_pm_da_posicao_do_servidor(monkeypatch):
     j = c.post("/api/marcos/PETR4", json={"preco": 22.8, "avg": 1.0}, headers=h).json()
     assert j["valido"] is True and j["alvo"] > 25.0
     assert setups.validar_marcos(j["stop"], j["alvo"], preco=22.8, avg=25.0) is None
+
+
+def test_wr05_put_ticker_sem_posicao_nao_busca_cotacao(monkeypatch):
+    c, m, h, uid = _cliente(monkeypatch)
+    chamadas = []
+
+    async def _q(t):
+        chamadas.append(t)
+        return {"price": 10.0}
+    monkeypatch.setattr(m.candle_provider, "get_quote", _q)
+    r = c.put("/api/position/XXXX3", json={"stop": 9.0}, headers=h)
+    assert r.status_code == 404 and "posição" in r.json()["detail"]
+    assert c.put("/api/position/AB", json={"stop": 9.0}, headers=h).status_code == 400
+    assert chamadas == []
+
+
+def test_wr06_editar_so_o_alvo_nao_recusa_por_stop_antigo_vs_preco(monkeypatch):
+    c, m, h, uid = _cliente(monkeypatch, quote=23.51)
+    store.buy(m._conn, "PETR4", 100, 23.01, user_id=uid)
+    r = c.put("/api/position/PETR4", json={"stop": 22.0, "alvo": 25.0}, headers=h)
+    assert r.status_code == 200
+    # cotação cai abaixo do stop gravado: editar só o alvo continua possível
+    async def _q(t):
+        return {"price": 21.0}
+    monkeypatch.setattr(m.candle_provider, "get_quote", _q)
+    r = c.put("/api/position/PETR4", json={"alvo": 26.0}, headers=h)
+    assert r.status_code == 200, r.text
+    assert _pos(m, uid)["alvo"] == 26.0
+    # estrutura segue valendo: alvo abaixo do stop gravado é recusado
+    r = c.put("/api/position/PETR4", json={"alvo": 21.5}, headers=h)
+    assert r.status_code == 400 and "abaixo do alvo" in r.json()["detail"]
+
+
+def test_in03_put_stop_nao_numerico_400_ptbr(monkeypatch):
+    c, m, h, uid = _cliente(monkeypatch)
+    store.buy(m._conn, "PETR4", 100, 23.01, user_id=uid)
+    r = c.put("/api/position/PETR4", json={"stop": "abc"}, headers=h)
+    assert r.status_code == 400 and r.json()["detail"] == "Stop e alvo precisam ser valores positivos."

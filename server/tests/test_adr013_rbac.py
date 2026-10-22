@@ -368,6 +368,9 @@ def test_stop_alvo_nunca_ganha_gate_de_papel_ou_plano(monkeypatch):
     async def _q(t):
         return {"price": 35.0}
     monkeypatch.setattr(_m.candle_provider, "get_quote", _q)
+    # Nota review WR-05 (2026-10-22): o PUT exige posição aberta; a invariante
+    # (papel/plano não veta stop/alvo) segue valendo para quem tem a posição.
+    _m.store.buy(_m._conn, "PETR4", 100, 35.0, user_id=comum["user"]["id"])
     r = c.put("/api/position/PETR4", json={"stop": 30.0, "alvo": 40.0}, headers=h)
     assert r.status_code == 200
     r2 = c.put("/api/options/position/FAKE123", json={"stop": 1.0, "alvo": 2.0}, headers=h)

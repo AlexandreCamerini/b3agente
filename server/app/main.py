@@ -3106,13 +3106,26 @@ async def cancel_pending_order(order_id: str, scope: Optional[str] = Depends(cur
 
 @app.put("/api/position/{ticker}")
 async def position(ticker: str, body: dict = Body(default={}), scope: Optional[str] = Depends(current_scope)):
-    t = ticker.upper()
+    # Review WR-05: ticker normalizado e posição conferida ANTES de qualquer I/O
+    # externo — o PUT não pode queimar cota de cotação/histórico (brapi 15k/mês)
+    # para ticker arbitrário.
+    t = _normalize_ticker(ticker)
+    if len(t) < 4:
+        raise HTTPException(400, "Ticker invalido.")
+    if not any(p.get("t") == t for p in store.get(_conn, "positions", user_id=scope) or []):
+        raise HTTPException(404, f"Você não tem posição aberta em {t}.")
     # Fase 50 D-11: preço de referência = cotação, senão último close do
     # snapshot, senão recusa — marco nunca gravado sem checagem contra preço.
     # Limpar marcos (None/"") e PUT só de gestaoAuto não precisam de preço.
-    preco_ref = None
-    grava_marco = (body.get("stop") not in (None, "")) or (body.get("alvo") not in (None, ""))
+    # Review IN-03: valor não numérico -> 400 PT-BR antes de qualquer I/O.
+    try:
+        stop_in = store._marco_num(body.get("stop")) if "stop" in body else None
+        alvo_in = store._marco_num(body.get("alvo")) if "alvo" in body else None
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    grava_marco = stop_in is not None or alvo_in is not None
     if grava_marco:
+        preco_ref, fechamento_em = None, None
         try:
             q = await candle_provider.get_quote(t)
         except Exception:
@@ -3125,11 +3138,22 @@ async def position(ticker: str, body: dict = Body(default={}), scope: Optional[s
             c = (snap or {}).get("close")
             if isinstance(c, (int, float)) and not isinstance(c, bool) and c > 0:
                 preco_ref = float(c)
+                dia = str((snap or {}).get("asOf") or (snap or {}).get("generatedAt") or "")[:10]
+                fechamento_em = "/".join(reversed(dia.split("-"))) if len(dia) == 10 else "data desconhecida"
         if preco_ref is None:
             raise HTTPException(400, setups.MOTIVO_SEM_PRECO_VALIDAR)
+        # Review WR-06: só o(s) marco(s) EDITADO(S) é(são) conferido(s) contra o
+        # preço — o stop intocado não pode recusar a edição do alvo por causa de
+        # uma cotação defasada. A estrutura (stop<alvo, alvo>PM) segue no store.
+        motivo_preco = setups.validar_marcos(stop_in, alvo_in, preco=preco_ref)
+        if motivo_preco:
+            if fechamento_em:  # princípio 4: fechamento não é "cotação atual"
+                motivo_preco = motivo_preco.replace(
+                    "da cotação atual (R$", f"do último fechamento (em {fechamento_em}, R$")
+            raise HTTPException(400, motivo_preco)
     gestao_auto = body["gestaoAuto"] if isinstance(body.get("gestaoAuto"), bool) else None
     try:
-        store.set_position(_conn, t, stop=body.get("stop"), alvo=body.get("alvo"), has_stop=("stop" in body), has_alvo=("alvo" in body), user_id=scope, preco_ref=preco_ref, gestao_auto=gestao_auto, manual=True)
+        store.set_position(_conn, t, stop=body.get("stop"), alvo=body.get("alvo"), has_stop=("stop" in body), has_alvo=("alvo" in body), user_id=scope, preco_ref=None, gestao_auto=gestao_auto, manual=True)
     except ValueError as e:
         raise HTTPException(400, str(e))
     # 2026-08-07: stop/alvo recém-armado é avaliado na hora. quick 261013-vai:

@@ -80,6 +80,14 @@ ok("WR-03: edição manual reancora stopInicial", !e && lerDoc().positions[0].st
 e = await erro(() => st.putPosition("PETR4", { stop: 23.2 }));
 ok("WR-03: stop >= PM remove stopInicial", !e && lerDoc().positions[0].stopInicial === undefined, e && e.message);
 
+// Review WR-06: editar só o alvo não recusa por causa do stop antigo vs cotação defasada
+quotePrice = 21;
+st = await novoStore(base([{ ...PM(), stop: 22, alvo: 26 }]));
+e = await erro(() => st.putPosition("PETR4", { alvo: 27 }));
+ok("WR-06: só o alvo editado, stop gravado acima da cotação não recusa", !e && lerDoc().positions[0].alvo === 27, e && e.message);
+e = await erro(() => st.putPosition("PETR4", { alvo: 21.5 }));
+ok("WR-06: estrutura segue valendo (alvo < stop)", e && /abaixo do alvo/.test(e.message), e && e.message);
+
 // limpar e gestaoAuto não exigem preço
 st = await novoStore(base([{ ...PM(), stop: 22, alvo: 26 }]));
 e = await erro(() => st.putPosition("PETR4", { stop: null, alvo: null }));
