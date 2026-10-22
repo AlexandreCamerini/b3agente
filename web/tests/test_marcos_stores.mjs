@@ -123,6 +123,26 @@ p = lerDoc().positions[0];
 ok("buy com /api/marcos fora do ar: compra segue sem marcos", p && p.qty === 100 && p.stop === null && p.alvo === null);
 marcosFalha = false;
 
+// Review WR-04: paridade com POST /api/buy (marcos, marcosMotivo, marcosTexto; revalida no preço executado)
+quotePrice = 20;
+marcosResp = { valido: true, stop: 18.95, alvo: 23.5, gatilho: 20, invalidacao: 19 };
+st = await novoStore(base([]));
+out = await st.buy("PETR4", 100, { setup: "Rompimento" });
+ok("WR-04: compra com marcos devolve marcos + marcosTexto", out.marcos && out.marcos.stop === 18.95 && out.marcos.alvo === 23.5 && /18,95/.test(out.marcosTexto || "") && out.marcosMotivo === null, JSON.stringify([out.marcos, out.marcosTexto]));
+// perseguição no preço executado: gatilho 20, invalidação 19, preço 20,6 (> 0,5R)
+quotePrice = 20.6;
+st = await novoStore(base([]));
+out = await st.buy("PETR4", 100, { setup: "Rompimento" });
+ok("WR-04: perseguição recusa os marcos (compra segue sem eles) com texto", lerDoc().positions[0].stop === null && /não persiga/.test(out.marcosMotivo || "") && !!out.marcosTexto, JSON.stringify([out.marcosMotivo, out.marcosTexto]));
+// rede fora do ar: motivo explícito + texto
+quotePrice = 20;
+marcosFalha = true;
+st = await novoStore(base([]));
+out = await st.buy("PETR4", 100, { setup: "Rompimento" });
+ok("WR-04: /api/marcos fora do ar devolve motivo e texto", /Sem dados técnicos/.test(out.marcosMotivo || "") && !!out.marcosTexto, JSON.stringify([out.marcosMotivo, out.marcosTexto]));
+marcosFalha = false;
+marcosResp = { valido: true, stop: 18.95, alvo: 23.5 };
+
 st = await novoStore(base([]));
 chamadas.length = 0;
 await st.buy("PETR4", 100);

@@ -21,7 +21,7 @@ import { backfillStructural, limparCarteiraDemo } from "./migrate.js";
 // Fase 14 (opções lastreadas, Plano 05): fonte ÚNICA da quantidade vendável
 // do front (gêmeo de store.qty_livre, server/app/store.py) — importada, nunca
 // reimplementada aqui (guardrail de fonte única, mesmo padrão de RR_MIN).
-import { qtyLivre, faixaDeLiquidez, validarMarcos, marcosEfetivos, MOTIVO_SEM_PRECO_VALIDAR } from "./finance.js";
+import { qtyLivre, faixaDeLiquidez, validarMarcos, marcosEfetivos, revalidarNaExecucao, numBR, MOTIVO_SEM_PRECO_VALIDAR } from "./finance.js";
 // FASE 13 (13-02, CR-01): gate fail-closed de watchlist no deviceStore —
 // mesmos hooks puros que o web/PWA já usa via App.jsx, importados aqui
 // direto no store porque no iOS não existe gate autoritativo no servidor
@@ -1857,17 +1857,26 @@ function deviceStore() {
       // espelho de store.buy (Fase 50 D-08/D-09): compra a partir de setup nasce com os
       // marcos DO MOTOR (POST /api/marcos), nunca calculados aqui. Falha de rede ou marcos
       // inválidos ao preço => a posição nasce sem marcos e a resposta traz marcosMotivo.
-      let mStop = null, mAlvo = null, marcosMotivo = null;
-      if (meta && meta.setup) {
+      // Review WR-04: paridade com POST /api/buy — revalida no preço EXECUTADO (perseguição, R:R
+      // mínimo, geometria), devolve `marcos`/`marcosMotivo`/`marcosTexto` e, na falha de rede,
+      // um motivo explícito (princípio 9: nunca "compra sem marcos" calada).
+      let mStop = null, mAlvo = null, marcosMotivo = null, marcosTexto = null, marcosOut = null;
+      if (meta && meta.setup && meta.lado !== "baixa") {
+        const modoM = doc.config && doc.config.appMode === "operador" ? "operador" : "estudo";
+        let rvOk = null;
         try {
           const r = await api.marcos(t, { setup: meta.setup, preco: price });
-          if (r && r.valido) {
-            const mot = validarMarcos(r.stop, r.alvo, price, price);
-            if (mot === null && typeof r.stop === "number" && typeof r.alvo === "number") {
-              mStop = +r.stop.toFixed(2); mAlvo = +r.alvo.toFixed(2);
-            } else marcosMotivo = mot || (r && r.motivo) || null;
-          } else marcosMotivo = (r && r.motivo) || null;
-        } catch { marcosMotivo = null; }
+          if (r && r.valido && typeof r.stop === "number" && typeof r.alvo === "number") {
+            const rv = revalidarNaExecucao(r.stop, r.alvo, price, r.gatilho, r.invalidacao);
+            if (rv.ok) {
+              mStop = +r.stop.toFixed(2); mAlvo = +r.alvo.toFixed(2); rvOk = rv;
+              marcosOut = { stop: mStop, alvo: mAlvo };
+            } else marcosMotivo = rv.motivo;
+          } else marcosMotivo = (r && r.motivo) || "Sem marcos do motor para este setup agora.";
+        } catch { marcosMotivo = "Sem dados técnicos para calcular os marcos agora."; }
+        marcosTexto = rvOk
+          ? marcosPlanoTxt(modoM, "compra_com_marcos", { ticker: t, stop: numBR(mStop), alvo: numBR(mAlvo), rr: numBR(rvOk.rr) })
+          : marcosPlanoTxt(modoM, "compra_sem_marcos", { ticker: t, motivo: marcosMotivo });
       }
       const ex = doc.positions.find((p) => p.t === t);
       if (ex) {
@@ -1894,7 +1903,9 @@ function deviceStore() {
       _agendarSyncPrefs();   // posição nova entra no universo do push
       const out = pub();
       out.priceUsed = +price.toFixed(2);
-      if (marcosMotivo) out.marcosMotivo = marcosMotivo;
+      out.marcos = marcosOut;
+      out.marcosMotivo = marcosMotivo;
+      out.marcosTexto = marcosTexto;
       return out;
     },
     async sell(t, qty) {

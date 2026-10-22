@@ -4,7 +4,7 @@
 import { readFileSync } from "fs";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
-import { validarMarcos, marcosEfetivos, rrDaEntrada, sizingPlano, MOTIVO_SEM_PRECO_VALIDAR } from "../src/finance.js";
+import { validarMarcos, marcosEfetivos, revalidarNaExecucao, rrDaEntrada, sizingPlano, MOTIVO_SEM_PRECO_VALIDAR } from "../src/finance.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const fx = JSON.parse(readFileSync(join(here, "..", "..", "server", "tests", "fixtures", "marcos_casos.json"), "utf8"));
@@ -42,6 +42,19 @@ for (const c of fx.sizing) {
   if ("aviso" in x) good = good && got.aviso === x.aviso;
   if (x.avisoContem) good = good && x.avisoContem.every((t) => (got.aviso || "").includes(t));
   ok("sizing: " + c.nome, good, JSON.stringify(got));
+}
+
+// Review WR-04 — revalidarNaExecucao espelha setups.revalidar_na_execucao (mesma fixture)
+for (const c of fx.revalidacao) {
+  const a = c.entrada;
+  const r = revalidarNaExecucao(a.stop, a.alvo, a.preco, a.gatilho, a.invalidacao);
+  let good = true;
+  for (const [k, v] of Object.entries(c.esperado)) {
+    if (k === "motivoContem") good = good && v.every((t) => (r.motivo || "").toLowerCase().includes(t.toLowerCase()));
+    else if (typeof v === "number") good = good && r[k] !== null && Math.abs(r[k] - v) <= 0.006;
+    else good = good && r[k] === v;
+  }
+  ok("revalidacao: " + c.nome, good, JSON.stringify(r));
 }
 
 // Review WR-02 — marco por marco (espelho de agent.marcos_efetivos)

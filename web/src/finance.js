@@ -442,7 +442,7 @@ export function sizingPlano(plano, capital, pctPorTrade, opts) {
 
 // Fase 50 — formatação pt-BR sem Intl/locale (espelho de skill_ref.num_br: 2 casas,
 // milhar ".", decimal ","). WKWebView/Node sem ICU completo não podem divergir.
-function numBR(valor) {
+export function numBR(valor) {
   const v0 = Number(valor);
   if (!Number.isFinite(v0)) return "0,00";
   const neg = v0 < 0;
@@ -491,6 +491,25 @@ export function rrDaEntrada(entrada, stop, alvo) {
   if (!(_numOk(entrada) && _numOk(stop) && _numOk(alvo))) return null;
   if (entrada <= stop || alvo <= entrada) return null;
   return Math.round(((alvo - entrada) / (entrada - stop)) * 100) / 100;
+}
+
+// espelho de setups.revalidar_na_execucao — Review WR-04 (D-03/D-06): no preço EXECUTADO só se
+// reconfere geometria, perseguição e R:R mínimo (stop/alvo NÃO são recalculados). Paridade
+// travada pela fixture `revalidacao` em test_marcos_espelho.mjs.
+const ZONA_PERSEGUICAO = 0.5;
+export const MOTIVO_PERSEGUICAO = "Gatilho já rompido e preço esticado (>0,5R além) — não persiga; espere novo setup ou reteste.";
+export function revalidarNaExecucao(stop, alvo, preco, gatilho, invalidacao) {
+  const rr = rrDaEntrada(preco, stop, alvo);
+  const motivo = validarMarcos(stop, alvo, preco, undefined);
+  if (motivo) return { ok: false, motivo, rr };
+  if (_numOk(gatilho) && _numOk(invalidacao) && invalidacao < gatilho && _numOk(preco)
+      && preco > gatilho && (preco - gatilho) > ZONA_PERSEGUICAO * (gatilho - invalidacao)) {
+    return { ok: false, motivo: MOTIVO_PERSEGUICAO, rr };
+  }
+  if (rr === null || rr < RR_MIN) {
+    return { ok: false, rr, motivo: "Ao preço de R$ " + numBR(preco) + " o R:R até o alvo cai para " + numBR(rr || 0) + ":1, abaixo do mínimo de " + RR_MIN_TXT + ":1." };
+  }
+  return { ok: true, motivo: null, rr };
 }
 
 // ---------------------------------------------------------------------------
