@@ -5,7 +5,7 @@ import math
 import threading
 from datetime import datetime, timedelta, timezone
 
-from . import db, defaults
+from . import db, defaults, setups
 from .catalog import CATALOG, CATALOG_TICKERS, is_catalog_ticker
 
 SECTIONS = ["config", "skill", "skillOperador", "llmPrompts", "watchlist", "cash", "positions", "history", "agent", "analyses", "profile", "custom", "optionPositions", "pendingOrders"]
@@ -600,14 +600,30 @@ def set_agent(conn, patch: dict, user_id=None) -> dict:
 
 
 def set_position(conn, t: str, stop=None, alvo=None, has_stop=False, has_alvo=False,
-                  alvo_extensoes=None, user_id=None) -> None:
+                  alvo_extensoes=None, user_id=None, preco_ref=None, gestao_auto=None) -> None:
     positions = get(conn, "positions", user_id=user_id)
     for p in positions:
         if p["t"] == t:
+            novo_stop = p.get("stop")
+            novo_alvo = p.get("alvo")
             if has_stop:
-                p["stop"] = None if stop in (None, "") else float(stop)
+                novo_stop = None if stop in (None, "") else float(stop)
             if has_alvo:
-                p["alvo"] = None if alvo in (None, "") else float(alvo)
+                novo_alvo = None if alvo in (None, "") else float(alvo)
+            # Fase 50 D-11/D-12: geometria impossível é recusada ANTES de
+            # mutar (kv inalterado); parecer (operar:false) continua aviso.
+            # preco_ref=None valida só a estrutura (stop<alvo, alvo>PM); a
+            # exigência de cotação é da rota/agente/deviceStore.
+            if has_stop or has_alvo:
+                motivo = setups.validar_marcos(novo_stop, novo_alvo, preco=preco_ref, avg=p.get("avg"))
+                if motivo:
+                    raise ValueError(motivo)
+            if has_stop:
+                p["stop"] = novo_stop
+            if has_alvo:
+                p["alvo"] = novo_alvo
+            if gestao_auto is not None:
+                p["gestaoAuto"] = bool(gestao_auto)
             # F3 — alvo dinâmico: contador de quantas vezes JÁ estendeu (o
             # freio de MAX_ALVO_EXTENSOES em agent.py lê daqui). None = não
             # mexe (chamadas antigas, ex. o trailing ajustando só o stop).
@@ -837,8 +853,24 @@ def _sanitize_trade_meta(meta) -> dict:
     return out
 
 
-def buy(conn, t: str, qty: int, price: float, user_id=None, meta=None, origem: str = "manual") -> None:
+def buy(conn, t: str, qty: int, price: float, user_id=None, meta=None, origem: str = "manual",
+        marcos=None) -> None:
+    # Normalização manual preservada (guardião F10-20260819): quem dimensiona
+    # por risco (agente, sizing_por_risco) já entrega múltiplo de 100, então
+    # a Fase 50 não muda esta linha (divergência 3 do 50-PATTERNS).
     qty = max(100, round(qty / 100) * 100)
+    # Fase 50 D-08/D-09: marcos vêm SÓ do motor (parâmetro de servidor, nunca
+    # de `meta`). Inválidos → ValueError antes de tocar caixa/posições.
+    m_stop = m_alvo = None
+    if isinstance(marcos, dict):
+        m_stop, m_alvo = marcos.get("stop"), marcos.get("alvo")
+        motivo = setups.validar_marcos(m_stop, m_alvo, preco=price, avg=price)
+        if motivo:
+            raise ValueError(motivo)
+        if m_stop is None or m_alvo is None:
+            m_stop = m_alvo = None
+        else:
+            m_stop, m_alvo = round(float(m_stop), 2), round(float(m_alvo), 2)
     positions = get(conn, "positions", user_id=user_id)
     cash = get(conn, "cash", user_id=user_id)
     history = get(conn, "history", user_id=user_id)
@@ -850,9 +882,22 @@ def buy(conn, t: str, qty: int, price: float, user_id=None, meta=None, origem: s
         existing["qty"] = total
         if m:
             existing["setupEntrada"] = m  # última entrada define o contexto
+        # Claude's discretion (Fase 50): nunca sobrescrever marco válido do
+        # usuário ao somar lote; sem marcos próprios, aplica os do motor.
+        if m_stop is not None and not ((existing.get("stop") or existing.get("alvo"))
+                                       and not setups.validar_marcos(existing.get("stop"), existing.get("alvo"),
+                                                                     preco=price, avg=existing["avg"])):
+            existing["stop"], existing["alvo"] = m_stop, m_alvo
+            existing["stopInicial"] = m_stop
+            existing["gestaoAuto"] = True
+            existing["marcosOrigem"] = "motor"
     else:
-        pos = {"t": t, "qty": qty, "avg": round(price, 2), "stop": None, "alvo": None,
+        pos = {"t": t, "qty": qty, "avg": round(price, 2), "stop": m_stop, "alvo": m_alvo,
                "abertaEm": now_str()}
+        if m_stop is not None:
+            pos["stopInicial"] = m_stop
+            pos["gestaoAuto"] = True
+            pos["marcosOrigem"] = "motor"
         if m:
             pos["setupEntrada"] = m
         positions.append(pos)
