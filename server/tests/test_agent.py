@@ -310,8 +310,12 @@ def test_avaliar_alvo_dinamico_sem_atr_nao_estende():
 
 
 def test_alvo_dinamico_estende_duas_vezes_e_fecha_na_terceira():
+    # Fase 50 D-14/D-15: este guardião isola o MECANISMO da extensão, então a
+    # posição desliga a gestão padrão (`gestaoAuto: False`). Com a gestão
+    # ligada o stop vai a 1R/2×ATR antes do alvo e o R:R medido a partir do
+    # stop gerido (D-15) fica abaixo de 1,5 — ver test_marcos_agente.py.
     c = _conn()
-    _seed(c, [{"t": "PETR4", "qty": 100, "avg": 38.0, "stop": 36.0, "alvo": 45.0}],
+    _seed(c, [{"t": "PETR4", "qty": 100, "avg": 38.0, "stop": 36.0, "alvo": 45.0, "gestaoAuto": False}],
           {"serverEnabled": True, "mode": "executar", "rules": {"alvo": True}, "alvoDinamico": True})
     snap = _snap(PETR4_REAL, PETR4_ATR)
 

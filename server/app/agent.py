@@ -28,7 +28,7 @@ import time
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
-from . import db, skill_ref, store
+from . import db, setups, skill_ref, store
 
 INTERVAL_S_DEFAULT = 300
 BRT = timezone(timedelta(hours=-3))
@@ -456,6 +456,48 @@ def nivel_trailing(mode: str, price: float, par: dict, ctx: dict = None):
         return round(minima, 2), f"na mínima das últimas {n} velas (R$ {minima:.2f})"
 
     return _percentual()
+
+
+GESTAO_BREAKEVEN_R = 1.0   # Fase 50 D-14: ao andar 1R a favor o stop sobe para o preço médio
+
+
+def _gestao_ligada(pos: dict) -> bool:
+    """Gestão padrão (Fase 50 D-14): ausente/None conta como LIGADO quando a
+    posição tem stop e avg numéricos; só `gestaoAuto is False` desliga.
+    Posições legadas sem a chave entram na gestão padrão — decisão D-14,
+    revisão do plan-checker."""
+    num = lambda v: isinstance(v, (int, float)) and not isinstance(v, bool)  # noqa: E731
+    return pos.get("gestaoAuto") is not False and num(pos.get("stop")) and num(pos.get("avg"))
+
+
+def nivel_gestao(pos: dict, price: float, ctx: dict = None):
+    """Nível BRUTO da gestão padrão (breakeven a 1R + trailing 2×ATR), ANTES da
+    monotonicidade. PURO. Devolve (nivel|None, chave) com chave em
+    {"gestao_breakeven", "gestao_trailing"} (a frase vem de
+    `skill_ref.marcos_plano_txt` no chamador, por modo).
+
+    R = avg − (stopInicial ou stop). R > 0: antes de avg + 1R não age; depois,
+    max(avg, price − 2×ATR) (sem ATR, só o breakeven). R ≤ 0 (legado com
+    stop ≥ PM): breakeven já satisfeito, só o trailing age (sem ATR, None)."""
+    if not _gestao_ligada(pos):
+        return None, None
+    avg = float(pos["avg"])
+    base = pos.get("stopInicial")
+    if not (isinstance(base, (int, float)) and not isinstance(base, bool)):
+        base = pos["stop"]
+    r = avg - float(base)
+    atr = (ctx or {}).get("atr")
+    atr = atr if isinstance(atr, (int, float)) and atr > 0 else None
+    trailing = round(price - ATR_MULT_DEFAULT * atr, 2) if atr else None
+    if r > 0:
+        if price < avg + GESTAO_BREAKEVEN_R * r:
+            return None, None
+        if trailing is not None and trailing > avg:
+            return trailing, "gestao_trailing"
+        return round(avg, 2), "gestao_breakeven"
+    if trailing is None:
+        return None, None
+    return trailing, "gestao_trailing"
 
 
 # ---------------------------------------------------------------------------
@@ -935,6 +977,9 @@ def _avisar_fora_pregao(conn, scope, par: dict, app_mode, positions, quotes_data
         price = (quotes_data.get(pos["t"]) or {}).get("price")
         if price is None:
             continue
+        # Fase 50 D-13/T-50-17: marco inválido não vira "alvo atingido".
+        if setups.validar_marcos(pos.get("stop"), pos.get("alvo"), avg=pos.get("avg")) is not None:
+            continue
         breach_stop, hit_alvo = _gatilho_saida(par, pos, price)
         if not (breach_stop or hit_alvo):
             continue
@@ -980,6 +1025,32 @@ def _avisar_lastro_travado(conn, scope, ticker: str, texto: str) -> list:
     return [{"time": _now_str(), "kind": "warn", "t": ticker, "text": texto}]
 
 
+def _aviso_diario(conn, scope, kv_key: str, chave: str, ticker: str, texto: str) -> list:
+    """Aviso de Diário (kind "warn", SEM `tag`: o push só olha "buy"),
+    deduplicado 1x por (chave, dia BRT) em kv `kv_key` — molde de
+    `_avisar_lastro_travado` (Fase 50 D-13/D-06; dedupe best-effort)."""
+    hoje = _today()
+    try:
+        estado = db.kv_get(conn, kv_key, None, user_id=scope)
+    except Exception:  # noqa: BLE001
+        estado = None
+    chaves = list(estado.get("chaves") or []) if isinstance(estado, dict) and estado.get("data") == hoje else []
+    if chave in chaves:
+        return []
+    chaves.append(chave)
+    try:
+        db.kv_set(conn, kv_key, {"data": hoje, "chaves": chaves}, user_id=scope)
+    except Exception:  # noqa: BLE001
+        pass
+    return [{"time": _now_str(), "kind": "warn", "t": ticker, "text": texto}]
+
+
+def _avisar_plano_invalido(conn, scope, ticker: str, texto: str) -> list:
+    """Fase 50 D-13: posição com marcos de geometria inválida — 1x por
+    (ticker, dia BRT), kv `avisoPlanoInvalido`."""
+    return _aviso_diario(conn, scope, "avisoPlanoInvalido", "invalido:" + ticker, ticker, texto)
+
+
 async def _run_cycle_inner(conn, scope, quotes_getter, origem: str, t0: float, snapshot_getter=None,
                            option_quotes_getter=None) -> dict:
     positions = store.get(conn, "positions", user_id=scope) or []
@@ -991,6 +1062,7 @@ async def _run_cycle_inner(conn, scope, quotes_getter, origem: str, t0: float, s
     cfg = store.get(conn, "config", user_id=scope) or {}
     app_mode = cfg.get("appMode") if isinstance(cfg, dict) else None
     par = agent_params(ag, app_mode=app_mode)
+    _modo_txt = "operador" if app_mode == "operador" else "educacional"
     quotes_data = await quotes_getter([p["t"] for p in positions]) if positions else {}
     sem_cotacao = [p["t"] for p in positions if (quotes_data.get(p["t"]) or {}).get("price") is None]
     events, executed = [], 0
@@ -1021,7 +1093,10 @@ async def _run_cycle_inner(conn, scope, quotes_getter, origem: str, t0: float, s
     # Falha de um ticker não derruba o ciclo: cada critério cai para o default
     # dele e a descrição no Diário denuncia a troca.
     ctxs = {}
-    if ((par["rules"]["trailing"] and par["trailingMode"] != "percentual") or par["alvoDinamico"]) \
+    # Fase 50 D-14: a gestão padrão (trailing 2×ATR) também precisa do ATR —
+    # custo: 1 snapshot por posição com stop (cache L2 do provedor).
+    if ((par["rules"]["trailing"] and par["trailingMode"] != "percentual") or par["alvoDinamico"]
+            or any(_gestao_ligada(p) for p in positions or [])) \
             and snapshot_getter is not None and positions:
         for p in positions:
             try:
@@ -1037,18 +1112,53 @@ async def _run_cycle_inner(conn, scope, quotes_getter, origem: str, t0: float, s
         price = q.get("price")
         if price is None:
             continue
-        # Trailing stop (regra opcional): SOBE o stop conforme o preço avança;
-        # nunca desce. Registro descritivo — o app ensina o mecanismo.
-        # F2: o critério vem de `trailingMode` (percentual | atr | estrutura).
-        # A monotonicidade é aplicada AQUI, uma vez, para os três modos — nenhum
-        # critério novo pode afrouxar o stop sem passar por esta comparação.
-        if par["rules"]["trailing"] and pos.get("stop") is not None:
-            novo, criterio = nivel_trailing(par["trailingMode"], price, par, ctxs.get(pos["t"]))
-            if novo is not None and novo > pos["stop"]:
-                store.set_position(conn, pos["t"], stop=novo, alvo=None, has_stop=True, has_alvo=False, user_id=scope)
-                events.append({"time": _now_str(), "kind": "info",
-                               "text": f"Trailing: stop de {pos['t']} ajustado para R$ {novo:.2f} ({criterio})."})
-                pos = {**pos, "stop": novo}
+        # Fase 50 D-13 (T-50-17): marcos de geometria inválida (stop ≥ alvo,
+        # alvo ≤ PM…) nunca vendem nem sobem stop — aviso 1x/dia e segue.
+        motivo_inv = setups.validar_marcos(pos.get("stop"), pos.get("alvo"), avg=pos.get("avg"))
+        if motivo_inv:
+            events.extend(_avisar_plano_invalido(
+                conn, scope, pos["t"],
+                skill_ref.marcos_plano_txt(_modo_txt, "plano_invalido_diario", ticker=pos["t"], motivo=motivo_inv)))
+            continue
+        # Stop sobe conforme o preço avança; nunca desce. Duas fontes, mesma
+        # monotonicidade (a comparação ÚNICA abaixo): a regra global opcional
+        # `trailing` (F2: percentual | atr | estrutura) e a gestão padrão da
+        # Fase 50 D-14 (breakeven a 1R + 2×ATR). Vale o MAIOR nível — ligar a
+        # regra global nunca enfraquece a gestão, nem o contrário.
+        gestao_on = _gestao_ligada(pos)
+        trail_on = par["rules"]["trailing"] and pos.get("stop") is not None
+        if gestao_on or trail_on:
+            ctx_p = ctxs.get(pos["t"])
+            cands = []
+            if gestao_on:
+                n_g, chave_g = nivel_gestao(pos, price, ctx_p)
+                if n_g is not None:
+                    cands.append((n_g, "gestao", chave_g))
+            if trail_on:
+                n_t, crit_t = nivel_trailing(par["trailingMode"], price, par, ctx_p)
+                if n_t is not None:
+                    cands.append((n_t, "trail", crit_t))
+            novo, origem_n, info_n = max(cands, key=lambda c: c[0]) if cands else (None, None, None)
+            if novo is not None and novo > pos["stop"] and novo < price:
+                try:
+                    # preco_ref=None: só estrutura (stop<alvo, alvo>PM). O alvo
+                    # pode já estar ≤ preço neste mesmo tick (alvo batido) e a
+                    # checagem contra a cotação recusaria subir o stop; stop<preço
+                    # é garantido acima (`novo < price`).
+                    store.set_position(conn, pos["t"], stop=novo, alvo=None, has_stop=True, has_alvo=False,
+                                       user_id=scope)
+                except ValueError as e:
+                    events.append({"time": _now_str(), "kind": "warn",
+                                   "text": f"Stop de {pos['t']} não ajustado: {e}"})
+                else:
+                    if origem_n == "gestao":
+                        texto_g = skill_ref.marcos_plano_txt(
+                            _modo_txt, info_n, ticker=pos["t"], stop=skill_ref.num_br(novo),
+                            atr=skill_ref.num_br((ctx_p or {}).get("atr") or 0))
+                    else:
+                        texto_g = f"Trailing: stop de {pos['t']} ajustado para R$ {novo:.2f} ({info_n})."
+                    events.append({"time": _now_str(), "kind": "info", "text": texto_g})
+                    pos = {**pos, "stop": novo}
         breach_stop, hit_alvo = _gatilho_saida(par, pos, price)
         # F3: alvo batido, sem stop rompido — antes de fechar, tenta ESTENDER.
         # Só quando o Alex ligou (`alvoDinamico`); senão o comportamento de
@@ -1057,12 +1167,17 @@ async def _run_cycle_inner(conn, scope, quotes_getter, origem: str, t0: float, s
             novo_alvo, criterio = avaliar_alvo_dinamico(price, pos, ctxs.get(pos["t"]))
             if novo_alvo is not None:
                 usadas = int(pos.get("alvoExtensoes") or 0) + 1
-                store.set_position(conn, pos["t"], alvo=novo_alvo, has_alvo=True,
-                                    alvo_extensoes=usadas, user_id=scope)
-                events.append({"time": _now_str(), "kind": "info",
-                               "text": f"Alvo dinâmico: {pos['t']} {criterio}."})
-                pos = {**pos, "alvo": novo_alvo, "alvoExtensoes": usadas}
-                hit_alvo = False
+                try:
+                    store.set_position(conn, pos["t"], alvo=novo_alvo, has_alvo=True,
+                                        alvo_extensoes=usadas, user_id=scope, preco_ref=price)
+                except ValueError as e:
+                    events.append({"time": _now_str(), "kind": "warn",
+                                   "text": f"Alvo de {pos['t']} não estendido: {e}"})
+                else:
+                    events.append({"time": _now_str(), "kind": "info",
+                                   "text": f"Alvo dinâmico: {pos['t']} {criterio}."})
+                    pos = {**pos, "alvo": novo_alvo, "alvoExtensoes": usadas}
+                    hit_alvo = False
         if not (breach_stop or hit_alvo):
             continue
         motivo = "stop atingido" if breach_stop else "alvo atingido"
