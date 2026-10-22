@@ -72,3 +72,31 @@ def test_sizing_por_risco(caso):
         assert t in r["aviso"], (t, r)
     for k, v in esp.items():
         assert r[k] == (pytest.approx(v, abs=0.006) if isinstance(v, float) else v), (k, r)
+
+
+# ---- Fase 50: plano do Radar (alta) sobre a função única -------------------
+
+def test_plano_operacional_alta_sem_niveis_nao_opera_por_atr():
+    p = setups.plano_operacional({"nome": "X", "lado": "alta", "gatilho": 20.0, "invalidacao": 19.0}, close=None)
+    assert p["decisao"] == setups.DECISAO_NAO_OPERAR
+    assert "ATR" in p["motivo"] and p["stop"] is None and p["alvo2"] is None
+    assert p["setup"] == "X" and p["lado"] == "alta"
+
+
+def test_plano_operacional_baixa_inalterado():
+    # caso fixo da regra antiga (short fora do escopo da Fase 50): números idênticos
+    s = {"nome": "X", "lado": "baixa", "gatilho": 37.60, "invalidacao": 38.55, "alvoSugerido": None}
+    p = setups.plano_operacional(s, close=37.90)
+    assert p["decisao"] == setups.DECISAO_VENDER
+    assert (p["entrada"], p["stop"], p["alvo1"], p["alvo2"]) == (37.6, 38.55, 36.65, 35.7)
+    assert (p["rr1"], p["rr2"], p["riscoPorAcao"]) == (1.0, 2.0, 0.95)
+
+
+def test_detect_setups_devolve_niveis():
+    from app import indicators
+    candles = [{"date": "2024-%02d-%02d" % (1 + i // 28, 1 + i % 28), "open": 10 + i * 0.01, "high": 10.3 + i * 0.01,
+                "low": 9.8 + i * 0.01, "close": 10 + i * 0.01, "volume": 1000} for i in range(120)]
+    cs = indicators.sanitize_candles(candles)
+    res = setups.detect_setups(cs, indicators.compute(cs)["indicators"])
+    assert set(res["niveis"]) == {"atr", "suportes", "resistencias"}
+    assert res["niveis"]["atr"] is not None and res["niveis"]["atr"] > 0

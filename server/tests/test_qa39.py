@@ -11,14 +11,21 @@ from app import indicators, kpi, llm, setups
 
 # ===== setups.py — geometria do plano =====
 
+# Fase 50: ATR(14) = 3,0 sem resistências — o lado de alta exige `niveis` (D-01).
+_NIVEIS_F50 = {"atr": 3.0, "suportes": [], "resistencias": []}
+
 def test_plano_rejeita_alvo_do_lado_errado():
     """P1: abs() no R:R mascarava COMPRA com alvo2 ABAIXO do stop (rr2 1,6
     'positivo' para plano absurdo)."""
     s = {"nome": "X", "lado": "alta", "gatilho": 100.0, "invalidacao": 95.0,
          "alvoSugerido": 92.0}
-    p = setups.plano_operacional(s)
-    assert p["decisao"] == setups.DECISAO_NAO_OPERAR
-    assert "incoerente" in p["motivo"]
+    p = setups.plano_operacional(s, niveis=_NIVEIS_F50)
+    # Fase 50 (D-04): o `alvoSugerido` (92) deixou de ser usado na alta — o alvo
+    # nasce de marcos_do_plano e fica SEMPRE acima da entrada. A garantia do
+    # guardião (nunca um plano com alvo do lado errado) vale por construção;
+    # antes: NÃO OPERAR ("incoerente"). Atualizado, não apagado.
+    assert p["decisao"] == setups.DECISAO_COMPRAR
+    assert p["alvo2"] > p["entrada"] > p["stop"]
 
 
 def test_plano_rejeita_alvo_negativo_na_venda():
@@ -34,14 +41,16 @@ def test_plano_alvo1_e_1r_da_entrada_real():
     entrada real) enquanto o motivo prometia 'parcial em 1R'."""
     s = {"nome": "X", "lado": "alta", "gatilho": 100.0, "invalidacao": 95.0,
          "alvoSugerido": 115.0}
-    p = setups.plano_operacional(s, close=102.0)  # rompido, dentro da zona
+    p = setups.plano_operacional(s, close=102.0, niveis=_NIVEIS_F50)  # rompido, dentro da zona
     assert p["decisao"] == setups.DECISAO_COMPRAR
     assert p["entrada"] == 102.0
-    assert p["alvo1"] == 109.0            # entrada + risco_real (102−95=7)
+    # Fase 50 (D-01): stop 95 → 94,70 (folga 0,1×ATR); alvo1 = entrada + risco
+    # real (102−94,70=7,30): 109,0 → 109,30. Atualizado, não apagado.
+    assert abs(p["alvo1"] - 109.3) < 1e-9
     assert abs(p["rr1"] - 1.0) < 1e-9      # a promessa "1R" agora é verdadeira
     # e sem close (entrada no gatilho) o comportamento clássico se mantém:
-    p2 = setups.plano_operacional(s)
-    assert p2["alvo1"] == 105.0 and abs(p2["rr1"] - 1.0) < 1e-9
+    p2 = setups.plano_operacional(s, niveis=_NIVEIS_F50)
+    assert abs(p2["alvo1"] - 105.3) < 1e-9 and abs(p2["rr1"] - 1.0) < 1e-9
 
 
 def test_plano_do_resultado_prefere_direcional_com_niveis():
@@ -52,6 +61,7 @@ def test_plano_do_resultado_prefere_direcional_com_niveis():
         {"nome": "Setup 9.1", "lado": "alta", "confluencia": 86,
          "gatilho": 100.0, "invalidacao": 95.0, "alvoSugerido": 112.0},
     ]}
+    sres["niveis"] = _NIVEIS_F50  # Fase 50: detect_setups anexa os níveis ao resultado
     p = setups.plano_do_resultado(sres)
     assert p["decisao"] == setups.DECISAO_COMPRAR and p["setup"] == "Setup 9.1"
 

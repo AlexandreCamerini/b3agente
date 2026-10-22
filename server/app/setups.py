@@ -584,6 +584,9 @@ def detect_setups(candles: list, ind: dict) -> dict:
         "melhor": melhor["nome"] if melhor else None,
         "veredito": veredito,
         "confluencia": melhor["confluencia"] if melhor else 0,
+        # Fase 50: os marcos do Radar, do replay (signal_ledger) e da rota
+        # /api/marcos leem os MESMOS níveis — uma fonte só.
+        "niveis": niveis_tecnicos(candles, ind),
     }
 
 
@@ -852,7 +855,7 @@ def _plano_vazio(motivo):
             "riscoPorAcao": None}
 
 
-def plano_operacional(setup, close=None):
+def plano_operacional(setup, close=None, niveis=None):
     """Plano operacional puro de UM setup detectado (dict do _mk) + preço atual.
 
     Retorna sempre um dict com `decisao` ∈ {COMPRAR, VENDER, AGUARDAR
@@ -874,6 +877,36 @@ def plano_operacional(setup, close=None):
     if gatilho is None or stop is None or gatilho == stop:
         return _plano_vazio("Setup sem gatilho/invalidação numéricos — sem plano executável, não operar.")
     alta = lado == "alta"
+    if alta:
+        # Fase 50 (D-04): o lado de ALTA sai da função única de marcos — stop com
+        # folga de ATR, alvo na resistência (ou 2R) e R:R canônico da entrada.
+        # `setup["alvoSugerido"]` deixa de ser usado aqui (era a 3ª fonte de alvo).
+        m = marcos_do_plano("alta", gatilho, stop, close, niveis)
+        if not m["valido"]:
+            return {**_plano_vazio(m["motivo"]), "setup": setup.get("nome"), "lado": lado}
+        return {
+            "decisao": DECISAO_COMPRAR,
+            "tipo": m["tipoEntrada"],
+            "setup": setup.get("nome"),
+            "lado": lado,
+            "entrada": m["entrada"],
+            "stop": m["stop"],
+            "alvo": m["alvo"],
+            "alvo1": m["alvo1R"],
+            "alvo2": m["alvo"],
+            "rr1": 1.0,
+            "rr2": m["rr"],
+            "riscoPorAcao": m["riscoPorAcao"],
+            "origemStop": m["origemStop"],
+            "origemAlvo": m["origemAlvo"],
+            "atr": m["atr"],
+            # crus do setup: a revalidação na execução refaz a regra de perseguição
+            "gatilho": _rr2(gatilho),
+            "invalidacao": _rr2(stop),
+            "motivo": ("%s %s: entrada %s, stop na invalidação do setup com folga de 0,1× ATR (ou 1× ATR quando colada), "
+                       "alvo único com R:R %.1f:1; ao andar 1R o stop sobe para a entrada."
+                       % (DECISAO_COMPRAR.capitalize(), m["tipoEntrada"], m["entrada"], m["rr"])),
+        }
     risco = abs(gatilho - stop)
     # coerência geométrica: em compra o stop fica ABAIXO do gatilho (e vice-versa)
     if (alta and stop >= gatilho) or ((not alta) and stop <= gatilho):
@@ -938,6 +971,7 @@ def plano_do_resultado(sres, close=None):
     """Plano do RESULTADO do detect_setups (o que o scanner anexa por ativo).
     Melhor setup direcional => plano; só neutro => AGUARDAR; nada => NÃO OPERAR."""
     setups_list = (sres or {}).get("setups") or []
+    niveis = (sres or {}).get("niveis")  # Fase 50: ATR/resistências do detect_setups
     # ADR-017: o plano operacional (COMPRAR/VENDER) segue a mesma regra do
     # veredito em detect_setups — setup aposentado aparece na lista pro
     # usuário estudar, mas não vira base de plano.
@@ -945,7 +979,7 @@ def plano_do_resultado(sres, close=None):
     direcionais = [s for s in operaveis if s.get("lado") in ("alta", "baixa")]
     if not direcionais:
         if operaveis:
-            return plano_operacional(operaveis[0], close=close)
+            return plano_operacional(operaveis[0], close=close, niveis=niveis)
         return _plano_vazio("Nenhum setup com confluência mínima — não há operação com vantagem estatística clara neste momento.")
     # Princípios 9 (confluência) e 4 (sinais conflitantes) da skill: o plano segue
     # o LADO DOMINANTE — o do melhor direcional, o MESMO do veredito. O qa/39
@@ -957,4 +991,4 @@ def plano_do_resultado(sres, close=None):
     lado = direcionais[0]["lado"]
     mesmo_lado = [s for s in direcionais if s.get("lado") == lado]
     com_niveis = [s for s in mesmo_lado if s.get("gatilho") is not None and s.get("invalidacao") is not None]
-    return plano_operacional((com_niveis or mesmo_lado)[0], close=close)
+    return plano_operacional((com_niveis or mesmo_lado)[0], close=close, niveis=niveis)
