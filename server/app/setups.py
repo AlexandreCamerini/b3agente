@@ -623,6 +623,175 @@ MODEL_EXPLANATION = [
 RR_MINIMO = skill_ref.RR_MIN  # relação risco-retorno mínima aceitável (alvo final); ADR15-05: fonte única em skill_ref
 ZONA_PERSEGUICAO = 0.5   # até 0,5× o risco além do gatilho ainda dá entrada a mercado
 
+# =============================================================================
+# Fase 50 (D-01..D-04): função ÚNICA de marcos — riskPlanReference
+# (technical_models), localProposal (App.jsx) e o número da IA no N3 deixam de
+# ser fonte de número gravado. Stop, alvo, entrada, R:R e geometria nascem
+# aqui, determinísticos; toda gravação posterior (compra, pendente, entrada
+# automática, PUT, opções) consome estas funções.
+# =============================================================================
+
+MARCO_FOLGA_ATR = 0.1          # stop = invalidação − 0,1×ATR (respiro abaixo do nível)
+MARCO_STOP_MIN_ATR = 0.5       # stop mais perto que 0,5×ATR da entrada é ruído...
+MARCO_STOP_PISO_ATR = 1.0      # ...e vira entrada − 1×ATR
+MARCO_STOP_MAX_ATR = 3.0       # stop mais longe que 3×ATR: recusa ("stop largo demais")
+MARCO_ALVO_PROJECAO_R = 2.0    # sem resistência relevante: alvo = entrada + 2R
+# Resistência dentro de 0,25×ATR da entrada é o próprio nível rompido, não teto
+# (critério de discricionariedade do planejamento, D-02).
+MARCO_RESIST_DIST_MIN_ATR = 0.25
+RISCO_PCT_DEFAULT = 1.0
+RISCO_PCT_MAX = 5.0
+
+MOTIVO_SEM_PRECO_VALIDAR = "Sem cotação nem fechamento recente para validar stop e alvo — tente de novo em instantes."
+MOTIVO_SEM_ATR = "Sem ATR(14) disponível — o motor não calcula stop com folga sem ele; não operar."
+MOTIVO_SO_COMPRA = "Marcos do motor cobrem só posição comprada."
+MOTIVO_PERSEGUICAO = "Gatilho já rompido e preço esticado (>0,5R além) — não persiga; espere novo setup ou reteste."
+
+
+def _num_ok(x):
+    return isinstance(x, (int, float)) and not isinstance(x, bool)
+
+
+def niveis_tecnicos(candles, ind):
+    """ATR(14) e níveis (suportes/resistências) que alimentam os marcos. Uma
+    fonte só: Radar, replay do signal_ledger e rota de marcos leem o mesmo."""
+    from . import technical_models  # local: evita ciclo de import
+    atr = _last((ind or {}).get("atr14"))
+    piv = technical_models._pivots(candles) if candles else {"supports": [], "resistances": []}
+    return {
+        "atr": float(atr) if _num_ok(atr) else None,
+        "suportes": [float(x) for x in piv.get("supports") or []],
+        "resistencias": [float(x) for x in piv.get("resistances") or []],
+    }
+
+
+def _marcos_vazio(motivo, lado=None):
+    return {"valido": False, "motivo": motivo, "lado": lado, "entrada": None,
+            "tipoEntrada": None, "stop": None, "alvo": None, "rr": None,
+            "riscoPorAcao": None, "alvo1R": None, "origemStop": None,
+            "origemAlvo": None, "atr": None}
+
+
+def rr_da_entrada(entrada, stop, alvo):
+    """R:R CANÔNICO de decisão (D-05): (alvo − entrada)/(entrada − stop), a
+    partir da ENTRADA. None se a geometria não fecha (nunca 0.0)."""
+    if not (_num_ok(entrada) and _num_ok(stop) and _num_ok(alvo)):
+        return None
+    if entrada <= stop or alvo <= entrada:
+        return None
+    return round((alvo - entrada) / (entrada - stop), 2)
+
+
+def _stop_motor(entrada, invalidacao, atr):
+    """D-01. -> (stop, origem, motivo_recusa)."""
+    stop = invalidacao - MARCO_FOLGA_ATR * atr
+    origem = "invalidacao"
+    dist = entrada - stop
+    if dist > MARCO_STOP_MAX_ATR * atr:
+        return None, None, ("Stop largo demais: a invalidação fica a %s× o ATR da entrada (máximo %s×) — não operar."
+                            % (skill_ref.num_br(dist / atr), skill_ref.num_br(MARCO_STOP_MAX_ATR).split(",")[0]))
+    if dist < MARCO_STOP_MIN_ATR * atr:
+        stop = entrada - MARCO_STOP_PISO_ATR * atr
+        origem = "piso_1atr"
+    if stop <= 0:
+        return None, None, "Stop calculado não é positivo — não operar."
+    return round(stop, 2), origem, None
+
+
+def _alvo_motor(entrada, stop, atr, resistencias):
+    """D-02. -> (alvo, origem, motivo_recusa). Alvo = primeira resistência
+    relevante acima da entrada se o R:R fecha; senão recusa; sem resistência,
+    projeção de 2R."""
+    risco = entrada - stop
+    relevantes = sorted(r for r in (resistencias or []) if _num_ok(r) and r > entrada + MARCO_RESIST_DIST_MIN_ATR * atr)
+    if relevantes:
+        alvo = round(relevantes[0], 2)
+        rr = rr_da_entrada(entrada, stop, alvo)
+        if rr is None or rr < RR_MINIMO:
+            return None, None, ("Teto próximo demais: a resistência em R$ %s dá R:R de %s:1, abaixo do mínimo de %s:1 — não operar."
+                                % (skill_ref.num_br(alvo), skill_ref.num_br((alvo - entrada) / risco), skill_ref.RR_MIN_TXT))
+        return alvo, "resistencia", None
+    return round(entrada + MARCO_ALVO_PROJECAO_R * risco, 2), "projecao_2r", None
+
+
+def _marcos_de(lado, entrada, tipo, stop_ref, atr, resistencias):
+    stop, origem_stop, recusa = _stop_motor(entrada, stop_ref, atr)
+    if recusa:
+        return {**_marcos_vazio(recusa, lado), "atr": _rr2(atr)}
+    alvo, origem_alvo, recusa = _alvo_motor(entrada, stop, atr, resistencias)
+    if recusa:
+        return {**_marcos_vazio(recusa, lado), "atr": _rr2(atr)}
+    risco = entrada - stop
+    return {"valido": True, "motivo": "", "lado": lado, "entrada": _rr2(entrada), "tipoEntrada": tipo,
+            "stop": stop, "alvo": alvo, "rr": rr_da_entrada(entrada, stop, alvo),
+            "riscoPorAcao": _rr2(risco), "alvo1R": _rr2(entrada + risco),
+            "origemStop": origem_stop, "origemAlvo": origem_alvo, "atr": _rr2(atr)}
+
+
+def marcos_do_plano(lado, gatilho, invalidacao, close=None, niveis=None):
+    """Marcos de um setup de ALTA (short fora do escopo): entrada (regra de
+    perseguição D-03), stop (D-01), alvo (D-02), R:R canônico (D-05)."""
+    if lado != "alta":
+        return _marcos_vazio(MOTIVO_SO_COMPRA, lado)
+    if not (_num_ok(gatilho) and _num_ok(invalidacao)) or gatilho <= 0 or invalidacao <= 0 or invalidacao >= gatilho:
+        return _marcos_vazio("Gatilho e invalidação incoerentes para o lado do setup — não operar.", lado)
+    niveis = niveis or {}
+    atr = niveis.get("atr")
+    if not _num_ok(atr) or atr <= 0:
+        return _marcos_vazio(MOTIVO_SEM_ATR, lado)
+    risco_base = gatilho - invalidacao
+    entrada = float(gatilho)
+    tipo = "no rompimento do gatilho"
+    if _num_ok(close) and close >= gatilho:
+        if close - gatilho > ZONA_PERSEGUICAO * risco_base:
+            return {**_marcos_vazio(MOTIVO_PERSEGUICAO, lado), "atr": _rr2(atr)}
+        entrada = float(close)
+        tipo = "a mercado (gatilho já rompido, dentro da zona)"
+    return _marcos_de(lado, entrada, tipo, invalidacao, atr, niveis.get("resistencias"))
+
+
+def marcos_da_posicao(preco, niveis=None):
+    """Sugestão de proteção para posição JÁ aberta: mede a partir do preço
+    atual; invalidação = maior suporte abaixo dele (sem suporte, 1×ATR)."""
+    if not _num_ok(preco) or preco <= 0:
+        return _marcos_vazio(MOTIVO_SEM_PRECO_VALIDAR, "alta")
+    niveis = niveis or {}
+    atr = niveis.get("atr")
+    if not _num_ok(atr) or atr <= 0:
+        return _marcos_vazio(MOTIVO_SEM_ATR, "alta")
+    abaixo = [s for s in niveis.get("suportes") or [] if _num_ok(s) and 0 < s < preco]
+    if abaixo:
+        m = _marcos_de("alta", float(preco), "a partir do preço atual", max(abaixo), atr, niveis.get("resistencias"))
+    else:
+        # sem suporte: o piso de 1×ATR (invalidação fictícia 1×ATR + folga abaixo)
+        stop = round(preco - MARCO_STOP_PISO_ATR * atr, 2)
+        alvo, origem_alvo, recusa = _alvo_motor(float(preco), stop, atr, niveis.get("resistencias")) if stop > 0 else (None, None, "Stop calculado não é positivo — não operar.")
+        if recusa:
+            return {**_marcos_vazio(recusa, "alta"), "atr": _rr2(atr)}
+        risco = preco - stop
+        m = {"valido": True, "motivo": "", "lado": "alta", "entrada": _rr2(preco), "tipoEntrada": "a partir do preço atual",
+             "stop": stop, "alvo": alvo, "rr": rr_da_entrada(preco, stop, alvo), "riscoPorAcao": _rr2(risco),
+             "alvo1R": _rr2(preco + risco), "origemStop": "piso_1atr", "origemAlvo": origem_alvo, "atr": _rr2(atr)}
+    return m
+
+
+def validar_marcos(stop, alvo, preco=None, avg=None):
+    """Geometria de posição comprada. None = válido; str = motivo PT-BR.
+    Ordem fixa: positivos → stop<alvo → stop<preço → alvo>preço → alvo>PM."""
+    brl = lambda v: "R$ " + skill_ref.num_br(v)  # noqa: E731
+    tem_s, tem_a = stop is not None, alvo is not None
+    if (tem_s and not (_num_ok(stop) and stop > 0)) or (tem_a and not (_num_ok(alvo) and alvo > 0)):
+        return "Stop e alvo precisam ser valores positivos."
+    if tem_s and tem_a and stop >= alvo:
+        return "Stop (%s) precisa ficar abaixo do alvo (%s)." % (brl(stop), brl(alvo))
+    if tem_s and _num_ok(preco) and stop >= preco:
+        return "Stop (%s) precisa ficar abaixo da cotação atual (%s)." % (brl(stop), brl(preco))
+    if tem_a and _num_ok(preco) and alvo <= preco:
+        return "Alvo (%s) precisa ficar acima da cotação atual (%s)." % (brl(alvo), brl(preco))
+    if tem_a and _num_ok(avg) and alvo <= avg:
+        return "Alvo (%s) abaixo do preço médio (%s) — numa posição comprada o alvo fica acima da entrada." % (brl(alvo), brl(avg))
+    return None
+
 DECISAO_COMPRAR = "COMPRAR"
 DECISAO_VENDER = "VENDER"
 DECISAO_AGUARDAR = "AGUARDAR CONFIRMAÇÃO"

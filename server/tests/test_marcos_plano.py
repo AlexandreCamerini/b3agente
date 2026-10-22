@@ -19,7 +19,7 @@ def _confere(obtido, esperado):
     for chave, valor in esperado.items():
         if chave == "motivoContem":
             for trecho in valor:
-                assert trecho in obtido["motivo"], (trecho, obtido["motivo"])
+                assert trecho.lower() in obtido["motivo"].lower(), (trecho, obtido["motivo"])
         elif isinstance(valor, float):
             assert obtido[chave] == pytest.approx(valor, abs=0.006), (chave, obtido)
         else:
