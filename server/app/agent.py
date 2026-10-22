@@ -1231,8 +1231,9 @@ async def _run_cycle_inner(conn, scope, quotes_getter, origem: str, t0: float, s
                     store.set_position(conn, pos["t"], stop=novo, alvo=None, has_stop=True, has_alvo=False,
                                        user_id=scope)
                 except ValueError as e:
-                    events.append({"time": _now_str(), "kind": "warn",
-                                   "text": f"Stop de {pos['t']} não ajustado: {e}"})
+                    # Review IN-04: 1x por posição/dia (o ciclo roda a cada poucos minutos).
+                    events.extend(_aviso_diario(conn, scope, "avisoStopNaoAjustado", "stop:" + pos["t"], pos["t"],
+                                                f"Stop de {pos['t']} não ajustado: {e}"))
                 else:
                     if origem_n == "gestao":
                         texto_g = skill_ref.marcos_plano_txt(

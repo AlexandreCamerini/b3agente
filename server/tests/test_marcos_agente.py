@@ -373,3 +373,16 @@ def test_wr03_legado_sem_ancora_ganha_stopinicial_na_primeira_avaliacao():
     assert _pos(c)["stopInicial"] == 19.0
     _run(c, {"PETR4": 21.0}, snapshot_getter=_snap(0.3))
     assert _pos(c)["stop"] == 20.4 and _pos(c)["stopInicial"] == 19.0
+
+
+def test_in04_stop_nao_ajustado_avisa_uma_vez_por_dia(monkeypatch):
+    c = _conn()
+    _seed(c, [dict(GERIDA)])
+
+    def _boom(*a, **k):
+        raise ValueError("recusado de propósito")
+    monkeypatch.setattr(store, "set_position", _boom)
+    r1 = _run(c, {"PETR4": 21.0}, snapshot_getter=_snap(0.3))
+    r2 = _run(c, {"PETR4": 21.0}, snapshot_getter=_snap(0.3))
+    avisos = lambda r: [e for e in r["events"] if "não ajustado" in e["text"]]  # noqa: E731
+    assert len(avisos(r1)) == 1 and avisos(r2) == []
