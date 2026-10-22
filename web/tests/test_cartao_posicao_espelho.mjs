@@ -62,7 +62,8 @@ const NEUTRAS = [
   "piso", "equilibrio_rotulo", "teto", "sem_piso",
   "sem_teto", "agora", "hoje", "faixa_titulo",
   "chip_hoje", "chip_equilibrio", "chip_teto", "chip_alta_forte",
-  "rr_atual", "em_operacao", "do_capital", "cotacao_atual",
+  // Fase 50 (2026-10-21): + rr_plano, estado_plano_invalido, plano_invalido_detalhe (neutras).
+  "rr_atual", "rr_plano", "estado_plano_invalido", "plano_invalido_detalhe", "em_operacao", "do_capital", "cotacao_atual",
   "setup_entrada", "gatilho_valido", "gatilho_invalidado", "nota_pm",
   "nota_pm_vendas", "regua_aria", "faixa_aria",
   // 2026-10-13 (quick 261013-29f): editar_plano saiu (botão de largura total substituído por ✎ Ajustar na régua); + evolucao_titulo, preco_medio, regua_titulo, ajustar_plano, ajustar_plano_aria, chip_qtd.

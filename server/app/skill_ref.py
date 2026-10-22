@@ -520,6 +520,80 @@ def rebaixamento_operador_txt(modo: str, chave: str) -> str:
     return REBAIXAMENTO_OPERADOR[modo if modo in REBAIXAMENTO_OPERADOR else "educacional"][chave]
 
 
+# Fase 50 — marcos do motor (D-06..D-16). Espelho byte a byte em copy.js
+# `COPY[modo].marcosPlano`, travado por test_vocabulario_espelho.mjs. Uma string
+# literal por linha, sem aspas internas. Chaves IDÊNTICAS nos dois modos.
+# Placeholder sem valor levanta ValueError (marcos_plano_txt) — nunca "?".
+MARCOS_PLANO = {
+    "operador": {
+        "plano_invalido_diario": "{ticker}: plano inválido — {motivo} Nenhuma venda foi feita por esses marcos. Redefina stop e alvo; os marcos do motor aparecem como sugestão no card. Este aviso aparece uma vez por dia.",
+        "entrada_rr_baixo": "Entrada automática em {ticker} não executada: a R$ {preco}, o R:R até o alvo de R$ {alvo} cai para {rr}:1, abaixo do mínimo de {rr_min}:1.",
+        "entrada_recusada": "Entrada automática em {ticker} não executada: {motivo}",
+        "entrada_marcos_gravados": "Marcos do motor gravados em {ticker}: stop R$ {stop}, alvo R$ {alvo} (R:R {rr}:1 a partir de R$ {preco}).",
+        "compra_sem_marcos": "{ticker} comprado sem os marcos do motor: {motivo} Defina stop e alvo no card.",
+        "compra_com_marcos": "{ticker} nasce com os marcos do motor: stop R$ {stop}, alvo R$ {alvo} (R:R {rr}:1).",
+        "gestao_breakeven": "Gestão: stop de {ticker} subiu para o preço de entrada (R$ {stop}) — a posição andou 1R a favor.",
+        "gestao_trailing": "Gestão: stop de {ticker} ajustado para R$ {stop} — 2× o ATR(14) de R$ {atr} abaixo do preço (só sobe).",
+        "gestao_toggle": "Gestão automática: ao andar 1R o stop vai para a entrada; depois acompanha 2× o ATR abaixo do preço e só sobe.",
+        "modal_titulo": "MARCOS DO MOTOR",
+        "modal_ia_explica": "A IA explica estes marcos; ela não escolhe os números gravados.",
+        "origem_stop_invalidacao": "Stop na invalidação do setup, com folga de 0,1× o ATR.",
+        "origem_stop_piso_1atr": "Stop a 1× o ATR da entrada — a invalidação estava colada no preço.",
+        "origem_alvo_resistencia": "Alvo na primeira resistência relevante acima da entrada.",
+        "origem_alvo_projecao_2r": "Sem resistência no caminho: alvo projetado em 2R.",
+        "opcao_ancora_alvo": "Strike ancorado no alvo do plano (R$ {alvo}).",
+        "opcao_ancora_stop": "Strike ancorado no stop do plano (R$ {stop}).",
+        "opcao_ancora_spot": "Sem marcos válidos na posição — strike escolhido pela regra do preço atual.",
+        "bloco_stop": "Stop (invalidação com folga de ATR)",
+        "bloco_alvo": "Alvo (único)",
+        "bloco_breakeven": "Nível de 1R (o stop vai para a entrada)",
+        "bloco_rr": "Risco:retorno (da entrada)",
+        "regua_alvo": "ALVO DO PLANO",
+        "modal_recusa_titulo": "O motor recusou estes marcos:",
+    },
+    "educacional": {
+        "plano_invalido_diario": "{ticker}: o plano está inválido — {motivo} Por isso o simulador não vendeu nada com base nesses marcos. Stop e alvo precisam ser definidos de novo; os marcos que o motor calculou aparecem no card como sugestão. Este aviso aparece uma vez por dia.",
+        "entrada_rr_baixo": "A entrada automática em {ticker} não foi executada: ao preço de R$ {preco}, a relação entre ganho possível até o alvo de R$ {alvo} e o risco cai para {rr}:1, abaixo do mínimo de {rr_min}:1 que o simulador exige.",
+        "entrada_recusada": "A entrada automática em {ticker} não foi executada: {motivo}",
+        "entrada_marcos_gravados": "O motor gravou os marcos de {ticker}: stop em R$ {stop} e alvo em R$ {alvo}, com relação risco:retorno de {rr}:1 a partir de R$ {preco}.",
+        "compra_sem_marcos": "{ticker} foi comprado sem os marcos do motor: {motivo} Stop e alvo ficam em aberto até você definir no card.",
+        "compra_com_marcos": "{ticker} já nasce com os marcos calculados pelo motor: stop em R$ {stop} e alvo em R$ {alvo} (risco:retorno {rr}:1).",
+        "gestao_breakeven": "Gestão automática: o stop de {ticker} subiu para o preço de entrada (R$ {stop}), porque a posição andou 1R a favor. Se o preço voltar até esse nível, a posição sai sem perda, descontados custos e eventual gap.",
+        "gestao_trailing": "Gestão automática: o stop de {ticker} foi ajustado para R$ {stop}, que é 2 vezes o ATR(14), de R$ {atr}, abaixo do preço. O stop acompanha a alta e nunca desce.",
+        "gestao_toggle": "Gestão automática: quando a posição anda 1R a favor, o stop sobe para o preço de entrada; depois ele acompanha o preço a uma distância de 2 vezes o ATR e nunca desce.",
+        "modal_titulo": "MARCOS DO MOTOR",
+        "modal_ia_explica": "A IA só explica estes marcos; os números gravados vêm do cálculo do motor, não da IA.",
+        "origem_stop_invalidacao": "O stop fica na invalidação do setup, com uma folga de 0,1 vez o ATR para o ruído normal do preço.",
+        "origem_stop_piso_1atr": "O stop fica a 1 vez o ATR da entrada, porque a invalidação estava colada demais no preço e o ruído normal já a alcançaria.",
+        "origem_alvo_resistencia": "O alvo fica na primeira resistência relevante acima da entrada, onde o preço costuma encontrar vendedores.",
+        "origem_alvo_projecao_2r": "Não há resistência no caminho, então o alvo é projetado em 2R: o dobro da distância entre entrada e stop.",
+        "opcao_ancora_alvo": "O strike foi ancorado no alvo do plano (R$ {alvo}).",
+        "opcao_ancora_stop": "O strike foi ancorado no stop do plano (R$ {stop}).",
+        "opcao_ancora_spot": "A posição não tem marcos válidos, então o strike seguiu a regra do preço atual.",
+        "bloco_stop": "Stop (onde a ideia deixa de valer, com folga de ATR)",
+        "bloco_alvo": "Alvo (único)",
+        "bloco_breakeven": "Nível de 1R (o stop sobe até a entrada)",
+        "bloco_rr": "Risco:retorno (a partir da entrada)",
+        "regua_alvo": "ALVO DO PLANO",
+        "modal_recusa_titulo": "O motor não aceitou estes marcos:",
+    },
+}
+
+
+def marcos_plano_txt(modo: str, chave: str, **dados) -> str:
+    """Frase de MARCOS_PLANO. Modo desconhecido cai em educacional; chave
+    desconhecida levanta KeyError; placeholder sem valor levanta ValueError
+    (falha ALTA, padrão de `execucao_fora_pregao_txt`)."""
+    e = MARCOS_PLANO.get(modo if modo in MARCOS_PLANO else "educacional")
+    frase = e[chave]
+    for nome in re.findall(r"\{(\w+)\}", frase):
+        valor = dados.get(nome)
+        if valor is None or valor == "":
+            raise ValueError(f"marcos_plano_txt: falta '{nome}' para '{chave}'")
+        frase = frase.replace("{" + nome + "}", str(valor))
+    return frase
+
+
 # Retorno acumulado (quick 261006-dvf, 2026-10-06): texto por ORIGEM da base
 # (`store.resolver_base_serie`). Espelho byte a byte em `web/src/copy.js`
 # (`COPY[modo].retornoAcumulado`), travado por test_vocabulario_espelho.mjs.
@@ -1075,7 +1149,11 @@ CARTAO_POSICAO = {
         "chip_equilibrio": "Equilíbrio",
         "chip_teto": "Teto",
         "chip_alta_forte": "Alta forte",
-        "rr_atual": "R:R atual",
+        # Fase 50 (2026-10-21, D-05): rótulo distinto do R:R de decisão (rr_plano, da entrada).
+        "rr_atual": "R:R restante (do preço atual)",
+        "rr_plano": "R:R do plano (da entrada)",
+        "estado_plano_invalido": "Plano inválido — redefina",
+        "plano_invalido_detalhe": "{motivo} O simulador não vende por esses marcos até você redefinir; use os marcos do motor como sugestão.",
         "em_operacao": "Em operação",
         "do_capital": "Do capital",
         "cotacao_atual": "Cotação atual",
@@ -1269,7 +1347,11 @@ CARTAO_POSICAO = {
         "chip_equilibrio": "Equilíbrio",
         "chip_teto": "Teto",
         "chip_alta_forte": "Alta forte",
-        "rr_atual": "R:R atual",
+        # Fase 50 (2026-10-21, D-05): rótulo distinto do R:R de decisão (rr_plano, da entrada).
+        "rr_atual": "R:R restante (do preço atual)",
+        "rr_plano": "R:R do plano (da entrada)",
+        "estado_plano_invalido": "Plano inválido — redefina",
+        "plano_invalido_detalhe": "{motivo} O simulador não vende por esses marcos até você redefinir; use os marcos do motor como sugestão.",
         "em_operacao": "Em operação",
         "do_capital": "Do capital",
         "cotacao_atual": "Cotação atual",

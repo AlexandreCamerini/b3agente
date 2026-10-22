@@ -107,11 +107,11 @@ function blocoDoModo(blocoSrc, modo) {
   const m = blocoSrc.match(new RegExp('"' + modo + '":\\s*\\{([\\s\\S]*?)\\n\\s*\\},'));
   return m ? m[1] : null;
 }
-// Extrai pares "chave": "valor" (sem aspas escapadas internas — as frases
+// Fase 50: chave aceita dígitos (origem_stop_piso_1atr). Extrai pares "chave": "valor" (sem aspas escapadas internas — as frases
 // aprovadas não têm aspas internas).
 function paresDoModo(modoSrc) {
   const pares = {};
-  const re = /"([a-zA-Z_]+)":\s*"([^"]*)"/g;
+  const re = /"([a-zA-Z0-9_]+)":\s*"([^"]*)"/g;
   let m;
   while ((m = re.exec(modoSrc))) pares[m[1]] = m[2];
   return pares;
@@ -122,7 +122,8 @@ function paresDoModo(modoSrc) {
 // 2026-10-06 (quick 261006-qre): CURVA_EVOLUCAO (legenda do trecho pré-janela) idem.
 // 2026-10-13 (quick 261013-vai): EXECUCAO_FORA_PREGAO entra no mesmo guardião.
 // 2026-10-14 (quick 261014-upj): REBAIXAMENTO_OPERADOR idem.
-const DICTS = ["HISTORICO", "HISTORICO_ROTULO", "ENTRADA_AUTO", "RECONCILIACAO_ELEGIBILIDADE", "RETORNO_ACUMULADO", "CURVA_EVOLUCAO", "EXECUCAO_FORA_PREGAO", "REBAIXAMENTO_OPERADOR"];
+// Fase 50 (2026-10-21): MARCOS_PLANO (marcos do motor) idem.
+const DICTS = ["HISTORICO", "HISTORICO_ROTULO", "ENTRADA_AUTO", "RECONCILIACAO_ELEGIBILIDADE", "RETORNO_ACUMULADO", "CURVA_EVOLUCAO", "EXECUCAO_FORA_PREGAO", "REBAIXAMENTO_OPERADOR", "MARCOS_PLANO"];
 // Python "educacional" ↔ JS "estudo"; "operador" ↔ "operador".
 const MODO_JS = { educacional: "estudo", operador: "operador" };
 const CHAVE_JS = {
@@ -132,6 +133,7 @@ const CHAVE_JS = {
   CURVA_EVOLUCAO: "curvaEvolucao",
   EXECUCAO_FORA_PREGAO: "execucaoForaPregao",
   REBAIXAMENTO_OPERADOR: "rebaixamentoOperador",
+  MARCOS_PLANO: "marcosPlano",
 };
 const CHAVES_ESPERADAS = {
   HISTORICO: ["elegivel", "inelegivel", "insuficiente", "nunca_medido", "aposentado", "desatualizado"],
@@ -142,6 +144,7 @@ const CHAVES_ESPERADAS = {
   CURVA_EVOLUCAO: ["antes_da_base"],
   EXECUCAO_FORA_PREGAO: ["aviso_diario", "aviso_opcao", "ciclo_fechado", "ciclo_fechado_sem_hora", "status_indeterminado", "opcao_bloqueada", "opcao_bloqueada_sem_hora", "opcao_bloqueada_acao", "botao_bloqueado", "botao_bloqueado_sem_hora"],
   REBAIXAMENTO_OPERADOR: ["diario_execucao", "diario_entrada", "diario_ambos", "aviso_titulo", "aviso_execucao", "aviso_entrada", "botao_religar", "botao_manter", "botao_ciente"],
+  MARCOS_PLANO: ["plano_invalido_diario", "entrada_rr_baixo", "entrada_recusada", "entrada_marcos_gravados", "compra_sem_marcos", "compra_com_marcos", "gestao_breakeven", "gestao_trailing", "gestao_toggle", "modal_titulo", "modal_ia_explica", "origem_stop_invalidacao", "origem_stop_piso_1atr", "origem_alvo_resistencia", "origem_alvo_projecao_2r", "opcao_ancora_alvo", "opcao_ancora_stop", "opcao_ancora_spot", "bloco_stop", "bloco_alvo", "bloco_breakeven", "bloco_rr", "regua_alvo", "modal_recusa_titulo"],
 };
 
 const paresPorDictModo = {}; // paresPorDictModo[NOME][modoPy] = {chave: valor}
