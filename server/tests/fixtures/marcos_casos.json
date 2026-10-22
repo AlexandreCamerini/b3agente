@@ -1,46 +1,524 @@
 {
-  "_nota": "Fase 50 (plano 50-01): tabela compartilhada backend<->front. Backend: tests/test_marcos_plano.py; front: web/tests (plano 50-08). Campos ausentes em 'esperado' nao sao checados; 'motivoContem' = trechos que o motivo deve conter.",
-  "marcos": [
-    {"nome": "alta basica: resistencia vira alvo", "entrada": {"lado": "alta", "gatilho": 20.0, "invalidacao": 19.0, "close": null, "niveis": {"atr": 0.5, "suportes": [], "resistencias": [23.5]}},
-     "esperado": {"valido": true, "entrada": 20.0, "stop": 18.95, "alvo": 23.5, "rr": 3.33, "riscoPorAcao": 1.05, "alvo1R": 21.05, "origemStop": "invalidacao", "origemAlvo": "resistencia"}},
-    {"nome": "invalidacao colada vira piso de 1 ATR", "entrada": {"lado": "alta", "gatilho": 20.0, "invalidacao": 19.9, "close": null, "niveis": {"atr": 0.5, "suportes": [], "resistencias": []}},
-     "esperado": {"valido": true, "stop": 19.5, "origemStop": "piso_1atr", "alvo": 21.0, "rr": 2.0, "origemAlvo": "projecao_2r"}},
-    {"nome": "stop largo demais recusa", "entrada": {"lado": "alta", "gatilho": 20.0, "invalidacao": 18.0, "close": null, "niveis": {"atr": 0.5, "suportes": [], "resistencias": []}},
-     "esperado": {"valido": false, "motivoContem": ["stop largo demais"], "stop": null, "alvo": null}},
-    {"nome": "teto proximo demais recusa", "entrada": {"lado": "alta", "gatilho": 20.0, "invalidacao": 19.0, "close": null, "niveis": {"atr": 0.5, "suportes": [], "resistencias": [20.8]}},
-     "esperado": {"valido": false, "motivoContem": ["teto próximo demais", "R$ 20,80"]}},
-    {"nome": "resistencia dentro de 0,25 ATR e ignorada", "entrada": {"lado": "alta", "gatilho": 20.0, "invalidacao": 19.0, "close": null, "niveis": {"atr": 0.5, "suportes": [], "resistencias": [20.1, 24.0]}},
-     "esperado": {"valido": true, "alvo": 24.0, "origemAlvo": "resistencia", "rr": 3.81}},
-    {"nome": "sem resistencia projeta 2R", "entrada": {"lado": "alta", "gatilho": 20.0, "invalidacao": 19.0, "close": null, "niveis": {"atr": 0.5, "suportes": [], "resistencias": []}},
-     "esperado": {"valido": true, "alvo": 22.1, "rr": 2.0, "origemAlvo": "projecao_2r"}},
-    {"nome": "entrada a mercado dentro da zona", "entrada": {"lado": "alta", "gatilho": 20.0, "invalidacao": 19.0, "close": 20.4, "niveis": {"atr": 0.5, "suportes": [], "resistencias": []}},
-     "esperado": {"valido": true, "entrada": 20.4, "stop": 18.95, "alvo": 23.3, "rr": 2.0}},
-    {"nome": "perseguicao recusa", "entrada": {"lado": "alta", "gatilho": 20.0, "invalidacao": 19.0, "close": 20.6, "niveis": {"atr": 0.5, "suportes": [], "resistencias": []}},
-     "esperado": {"valido": false, "motivoContem": ["não persiga"]}},
-    {"nome": "sem ATR recusa", "entrada": {"lado": "alta", "gatilho": 20.0, "invalidacao": 19.0, "close": null, "niveis": null},
-     "esperado": {"valido": false, "motivo": "Sem ATR(14) disponível — o motor não calcula stop com folga sem ele; não operar."}},
-    {"nome": "ATR zero recusa", "entrada": {"lado": "alta", "gatilho": 20.0, "invalidacao": 19.0, "close": null, "niveis": {"atr": 0, "suportes": [], "resistencias": []}},
-     "esperado": {"valido": false, "motivo": "Sem ATR(14) disponível — o motor não calcula stop com folga sem ele; não operar."}},
-    {"nome": "lado baixa fora do escopo", "entrada": {"lado": "baixa", "gatilho": 20.0, "invalidacao": 21.0, "close": null, "niveis": {"atr": 0.5, "suportes": [], "resistencias": []}},
-     "esperado": {"valido": false, "motivo": "Marcos do motor cobrem só posição comprada."}}
-  ],
-  "geometria": [
-    {"nome": "regressao PM 23,01 / cotacao 23,51 / stop 23,36 / alvo 21,58", "entrada": {"stop": 23.36, "alvo": 21.58, "preco": 23.51, "avg": 23.01},
-     "esperado": {"motivo": "Stop (R$ 23,36) precisa ficar abaixo do alvo (R$ 21,58)."}},
-    {"nome": "sem stop nem alvo e valido", "entrada": {"stop": null, "alvo": null}, "esperado": {"motivo": null}},
-    {"nome": "valores nao positivos", "entrada": {"stop": 0, "alvo": 25}, "esperado": {"motivo": "Stop e alvo precisam ser valores positivos."}},
-    {"nome": "stop acima da cotacao", "entrada": {"stop": 20, "alvo": 25, "preco": 19.5}, "esperado": {"motivo": "Stop (R$ 20,00) precisa ficar abaixo da cotação atual (R$ 19,50)."}},
-    {"nome": "alvo abaixo da cotacao", "entrada": {"stop": 20, "alvo": 25, "preco": 25.2}, "esperado": {"motivo": "Alvo (R$ 25,00) precisa ficar acima da cotação atual (R$ 25,20)."}},
-    {"nome": "alvo abaixo do preco medio", "entrada": {"stop": 20, "alvo": 22, "avg": 23}, "esperado": {"motivo": "Alvo (R$ 22,00) abaixo do preço médio (R$ 23,00) — numa posição comprada o alvo fica acima da entrada."}},
-    {"nome": "milhar em pt-BR", "entrada": {"stop": 1250.5, "alvo": 1200}, "esperado": {"motivo": "Stop (R$ 1.250,50) precisa ficar abaixo do alvo (R$ 1.200,00)."}},
-    {"nome": "geometria coerente", "entrada": {"stop": 20, "alvo": 25, "preco": 22, "avg": 21}, "esperado": {"motivo": null}},
-    {"nome": "texto sem preco para validar", "entrada": {"constante": "MOTIVO_SEM_PRECO_VALIDAR"}, "esperado": {"motivo": "Sem cotação nem fechamento recente para validar stop e alvo — tente de novo em instantes."}}
-  ],
-  "rr": [
-    {"nome": "rr canonico 3:1", "entrada": {"entrada": 20, "stop": 19, "alvo": 23}, "esperado": {"rr": 3.0}},
-    {"nome": "stop acima da entrada", "entrada": {"entrada": 20, "stop": 21, "alvo": 23}, "esperado": {"rr": null}},
-    {"nome": "alvo abaixo da entrada", "entrada": {"entrada": 20, "stop": 19, "alvo": 19.5}, "esperado": {"rr": null}}
-  ],
-  "sizing": [],
-  "revalidacao": []
+ "_nota": "Fase 50 (plano 50-01): tabela compartilhada backend<->front. Backend: tests/test_marcos_plano.py; front: web/tests (plano 50-08). Campos ausentes em 'esperado' nao sao checados; 'motivoContem' = trechos que o motivo deve conter.",
+ "marcos": [
+  {
+   "nome": "alta basica: resistencia vira alvo",
+   "entrada": {
+    "lado": "alta",
+    "gatilho": 20.0,
+    "invalidacao": 19.0,
+    "close": null,
+    "niveis": {
+     "atr": 0.5,
+     "suportes": [],
+     "resistencias": [
+      23.5
+     ]
+    }
+   },
+   "esperado": {
+    "valido": true,
+    "entrada": 20.0,
+    "stop": 18.95,
+    "alvo": 23.5,
+    "rr": 3.33,
+    "riscoPorAcao": 1.05,
+    "alvo1R": 21.05,
+    "origemStop": "invalidacao",
+    "origemAlvo": "resistencia"
+   }
+  },
+  {
+   "nome": "invalidacao colada vira piso de 1 ATR",
+   "entrada": {
+    "lado": "alta",
+    "gatilho": 20.0,
+    "invalidacao": 19.9,
+    "close": null,
+    "niveis": {
+     "atr": 0.5,
+     "suportes": [],
+     "resistencias": []
+    }
+   },
+   "esperado": {
+    "valido": true,
+    "stop": 19.5,
+    "origemStop": "piso_1atr",
+    "alvo": 21.0,
+    "rr": 2.0,
+    "origemAlvo": "projecao_2r"
+   }
+  },
+  {
+   "nome": "stop largo demais recusa",
+   "entrada": {
+    "lado": "alta",
+    "gatilho": 20.0,
+    "invalidacao": 18.0,
+    "close": null,
+    "niveis": {
+     "atr": 0.5,
+     "suportes": [],
+     "resistencias": []
+    }
+   },
+   "esperado": {
+    "valido": false,
+    "motivoContem": [
+     "stop largo demais"
+    ],
+    "stop": null,
+    "alvo": null
+   }
+  },
+  {
+   "nome": "teto proximo demais recusa",
+   "entrada": {
+    "lado": "alta",
+    "gatilho": 20.0,
+    "invalidacao": 19.0,
+    "close": null,
+    "niveis": {
+     "atr": 0.5,
+     "suportes": [],
+     "resistencias": [
+      20.8
+     ]
+    }
+   },
+   "esperado": {
+    "valido": false,
+    "motivoContem": [
+     "teto próximo demais",
+     "R$ 20,80"
+    ]
+   }
+  },
+  {
+   "nome": "resistencia dentro de 0,25 ATR e ignorada",
+   "entrada": {
+    "lado": "alta",
+    "gatilho": 20.0,
+    "invalidacao": 19.0,
+    "close": null,
+    "niveis": {
+     "atr": 0.5,
+     "suportes": [],
+     "resistencias": [
+      20.1,
+      24.0
+     ]
+    }
+   },
+   "esperado": {
+    "valido": true,
+    "alvo": 24.0,
+    "origemAlvo": "resistencia",
+    "rr": 3.81
+   }
+  },
+  {
+   "nome": "sem resistencia projeta 2R",
+   "entrada": {
+    "lado": "alta",
+    "gatilho": 20.0,
+    "invalidacao": 19.0,
+    "close": null,
+    "niveis": {
+     "atr": 0.5,
+     "suportes": [],
+     "resistencias": []
+    }
+   },
+   "esperado": {
+    "valido": true,
+    "alvo": 22.1,
+    "rr": 2.0,
+    "origemAlvo": "projecao_2r"
+   }
+  },
+  {
+   "nome": "entrada a mercado dentro da zona",
+   "entrada": {
+    "lado": "alta",
+    "gatilho": 20.0,
+    "invalidacao": 19.0,
+    "close": 20.4,
+    "niveis": {
+     "atr": 0.5,
+     "suportes": [],
+     "resistencias": []
+    }
+   },
+   "esperado": {
+    "valido": true,
+    "entrada": 20.4,
+    "stop": 18.95,
+    "alvo": 23.3,
+    "rr": 2.0
+   }
+  },
+  {
+   "nome": "perseguicao recusa",
+   "entrada": {
+    "lado": "alta",
+    "gatilho": 20.0,
+    "invalidacao": 19.0,
+    "close": 20.6,
+    "niveis": {
+     "atr": 0.5,
+     "suportes": [],
+     "resistencias": []
+    }
+   },
+   "esperado": {
+    "valido": false,
+    "motivoContem": [
+     "não persiga"
+    ]
+   }
+  },
+  {
+   "nome": "sem ATR recusa",
+   "entrada": {
+    "lado": "alta",
+    "gatilho": 20.0,
+    "invalidacao": 19.0,
+    "close": null,
+    "niveis": null
+   },
+   "esperado": {
+    "valido": false,
+    "motivo": "Sem ATR(14) disponível — o motor não calcula stop com folga sem ele; não operar."
+   }
+  },
+  {
+   "nome": "ATR zero recusa",
+   "entrada": {
+    "lado": "alta",
+    "gatilho": 20.0,
+    "invalidacao": 19.0,
+    "close": null,
+    "niveis": {
+     "atr": 0,
+     "suportes": [],
+     "resistencias": []
+    }
+   },
+   "esperado": {
+    "valido": false,
+    "motivo": "Sem ATR(14) disponível — o motor não calcula stop com folga sem ele; não operar."
+   }
+  },
+  {
+   "nome": "lado baixa fora do escopo",
+   "entrada": {
+    "lado": "baixa",
+    "gatilho": 20.0,
+    "invalidacao": 21.0,
+    "close": null,
+    "niveis": {
+     "atr": 0.5,
+     "suportes": [],
+     "resistencias": []
+    }
+   },
+   "esperado": {
+    "valido": false,
+    "motivo": "Marcos do motor cobrem só posição comprada."
+   }
+  }
+ ],
+ "geometria": [
+  {
+   "nome": "regressao PM 23,01 / cotacao 23,51 / stop 23,36 / alvo 21,58",
+   "entrada": {
+    "stop": 23.36,
+    "alvo": 21.58,
+    "preco": 23.51,
+    "avg": 23.01
+   },
+   "esperado": {
+    "motivo": "Stop (R$ 23,36) precisa ficar abaixo do alvo (R$ 21,58)."
+   }
+  },
+  {
+   "nome": "sem stop nem alvo e valido",
+   "entrada": {
+    "stop": null,
+    "alvo": null
+   },
+   "esperado": {
+    "motivo": null
+   }
+  },
+  {
+   "nome": "valores nao positivos",
+   "entrada": {
+    "stop": 0,
+    "alvo": 25
+   },
+   "esperado": {
+    "motivo": "Stop e alvo precisam ser valores positivos."
+   }
+  },
+  {
+   "nome": "stop acima da cotacao",
+   "entrada": {
+    "stop": 20,
+    "alvo": 25,
+    "preco": 19.5
+   },
+   "esperado": {
+    "motivo": "Stop (R$ 20,00) precisa ficar abaixo da cotação atual (R$ 19,50)."
+   }
+  },
+  {
+   "nome": "alvo abaixo da cotacao",
+   "entrada": {
+    "stop": 20,
+    "alvo": 25,
+    "preco": 25.2
+   },
+   "esperado": {
+    "motivo": "Alvo (R$ 25,00) precisa ficar acima da cotação atual (R$ 25,20)."
+   }
+  },
+  {
+   "nome": "alvo abaixo do preco medio",
+   "entrada": {
+    "stop": 20,
+    "alvo": 22,
+    "avg": 23
+   },
+   "esperado": {
+    "motivo": "Alvo (R$ 22,00) abaixo do preço médio (R$ 23,00) — numa posição comprada o alvo fica acima da entrada."
+   }
+  },
+  {
+   "nome": "milhar em pt-BR",
+   "entrada": {
+    "stop": 1250.5,
+    "alvo": 1200
+   },
+   "esperado": {
+    "motivo": "Stop (R$ 1.250,50) precisa ficar abaixo do alvo (R$ 1.200,00)."
+   }
+  },
+  {
+   "nome": "geometria coerente",
+   "entrada": {
+    "stop": 20,
+    "alvo": 25,
+    "preco": 22,
+    "avg": 21
+   },
+   "esperado": {
+    "motivo": null
+   }
+  },
+  {
+   "nome": "texto sem preco para validar",
+   "entrada": {
+    "constante": "MOTIVO_SEM_PRECO_VALIDAR"
+   },
+   "esperado": {
+    "motivo": "Sem cotação nem fechamento recente para validar stop e alvo — tente de novo em instantes."
+   }
+  }
+ ],
+ "rr": [
+  {
+   "nome": "rr canonico 3:1",
+   "entrada": {
+    "entrada": 20,
+    "stop": 19,
+    "alvo": 23
+   },
+   "esperado": {
+    "rr": 3.0
+   }
+  },
+  {
+   "nome": "stop acima da entrada",
+   "entrada": {
+    "entrada": 20,
+    "stop": 21,
+    "alvo": 23
+   },
+   "esperado": {
+    "rr": null
+   }
+  },
+  {
+   "nome": "alvo abaixo da entrada",
+   "entrada": {
+    "entrada": 20,
+    "stop": 19,
+    "alvo": 19.5
+   },
+   "esperado": {
+    "rr": null
+   }
+  }
+ ],
+ "sizing": [
+  {
+   "nome": "limitado por risco",
+   "entrada": {
+    "capital": 10000,
+    "pct": 1,
+    "entrada": 20,
+    "stop": 19
+   },
+   "esperado": {
+    "qtd": 100,
+    "valorAprox": 2000.0,
+    "riscoFinanceiro": 100.0,
+    "pct": 1.0,
+    "limitadoPor": "risco",
+    "aviso": null
+   }
+  },
+  {
+   "nome": "limitado por alocacao",
+   "entrada": {
+    "capital": 100000,
+    "pct": 1,
+    "entrada": 20.1,
+    "stop": 19,
+    "caixa": 100000,
+    "alloc_pct": 10
+   },
+   "esperado": {
+    "qtd": 400,
+    "limitadoPor": "alocacao",
+    "aviso": null
+   }
+  },
+  {
+   "nome": "alocacao nao cobre 1 lote",
+   "entrada": {
+    "capital": 100000,
+    "pct": 1,
+    "entrada": 20.1,
+    "stop": 19,
+    "caixa": 10000,
+    "alloc_pct": 10
+   },
+   "esperado": {
+    "qtd": 0,
+    "avisoContem": [
+     "Orçamento de 10% do caixa",
+     "R$ 1.000,00",
+     "R$ 20,10",
+     "sem compra"
+    ]
+   }
+  },
+  {
+   "nome": "pct acima do teto vira 5",
+   "entrada": {
+    "capital": 10000,
+    "pct": 9,
+    "entrada": 20,
+    "stop": 19
+   },
+   "esperado": {
+    "qtd": 500,
+    "pct": 5.0
+   }
+  },
+  {
+   "nome": "pct invalido vira 1",
+   "entrada": {
+    "capital": 10000,
+    "pct": "x",
+    "entrada": 20,
+    "stop": 19
+   },
+   "esperado": {
+    "qtd": 100,
+    "pct": 1.0
+   }
+  },
+  {
+   "nome": "capital nao cobre 1 lote por risco",
+   "entrada": {
+    "capital": 1000,
+    "pct": 1,
+    "entrada": 20,
+    "stop": 19
+   },
+   "esperado": {
+    "qtd": 0,
+    "valorAprox": 0.0,
+    "aviso": "Capital insuficiente para 1 lote de 100 com risco de 1% — aumente o capital operacional ou o % de risco."
+   }
+  }
+ ],
+ "revalidacao": [
+  {
+   "nome": "rr cai abaixo do minimo ao preco executado",
+   "entrada": {
+    "stop": 19,
+    "alvo": 22,
+    "preco": 20.5
+   },
+   "esperado": {
+    "ok": false,
+    "motivoContem": [
+     "abaixo do mínimo de 1,5:1"
+    ],
+    "rr": 1.0
+   }
+  },
+  {
+   "nome": "dentro da zona de perseguicao",
+   "entrada": {
+    "stop": 18.95,
+    "alvo": 23.5,
+    "preco": 20.4,
+    "gatilho": 20.0,
+    "invalidacao": 19.0
+   },
+   "esperado": {
+    "ok": true,
+    "motivo": null,
+    "rr": 2.14
+   }
+  },
+  {
+   "nome": "perseguicao recusa na execucao",
+   "entrada": {
+    "stop": 18.95,
+    "alvo": 23.5,
+    "preco": 20.6,
+    "gatilho": 20.0,
+    "invalidacao": 19.0
+   },
+   "esperado": {
+    "ok": false,
+    "motivoContem": [
+     "não persiga"
+    ]
+   }
+  },
+  {
+   "nome": "geometria: stop acima do preco",
+   "entrada": {
+    "stop": 20,
+    "alvo": 25,
+    "preco": 19.5
+   },
+   "esperado": {
+    "ok": false,
+    "motivoContem": [
+     "precisa ficar abaixo da cotação atual"
+    ],
+    "rr": null
+   }
+  }
+ ]
 }

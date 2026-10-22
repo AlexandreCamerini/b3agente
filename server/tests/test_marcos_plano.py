@@ -49,3 +49,26 @@ def test_validar_marcos(caso):
 def test_rr_da_entrada(caso):
     a = caso["entrada"]
     assert setups.rr_da_entrada(a["entrada"], a["stop"], a["alvo"]) == caso["esperado"]["rr"]
+
+
+@pytest.mark.parametrize("caso", _CASOS["revalidacao"], ids=_ids(_CASOS["revalidacao"]))
+def test_revalidar_na_execucao(caso):
+    a = caso["entrada"]
+    r = setups.revalidar_na_execucao(a["stop"], a["alvo"], a["preco"], gatilho=a.get("gatilho"), invalidacao=a.get("invalidacao"))
+    esp = dict(caso["esperado"])
+    trechos = esp.pop("motivoContem", [])
+    for t in trechos:
+        assert t.lower() in (r["motivo"] or "").lower(), (t, r)
+    for k, v in esp.items():
+        assert r[k] == (pytest.approx(v, abs=0.006) if isinstance(v, float) else v), (k, r)
+
+
+@pytest.mark.parametrize("caso", _CASOS["sizing"], ids=_ids(_CASOS["sizing"]))
+def test_sizing_por_risco(caso):
+    a = caso["entrada"]
+    r = setups.sizing_por_risco(a["capital"], a["pct"], a["entrada"], a["stop"], caixa=a.get("caixa"), alloc_pct=a.get("alloc_pct"))
+    esp = dict(caso["esperado"])
+    for t in esp.pop("avisoContem", []):
+        assert t in r["aviso"], (t, r)
+    for k, v in esp.items():
+        assert r[k] == (pytest.approx(v, abs=0.006) if isinstance(v, float) else v), (k, r)
