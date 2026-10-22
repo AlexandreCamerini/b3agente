@@ -84,7 +84,15 @@ def test_ui_do_stop_alvo_nunca_bloqueia_o_aplicar_pelo_parecer():
     """Guardião da camada de UI (mesmo padrão dos demais guardiões de fonte)."""
     import pathlib
     src = (pathlib.Path(__file__).resolve().parents[2] / "web" / "src" / "App.jsx").read_text(encoding="utf-8")
-    assert "const canApply = !loading && (stop != null || alvo != null);" in src, \
+    # Nota (Fase 50, D-17, plano 50-09): `canApply` deixou de existir — o
+    # Aplicar do StopAlvoModal ficou SEM `disabled` nenhum (sempre habilitado;
+    # recusa de geometria vem do motor e aparece no modal). A garantia que este
+    # guardião protege — o parecer da IA nunca bloqueia o Aplicar — fica mais
+    # forte: o botão `onClick={apply}` não pode ganhar `disabled=`.
+    import re as _re
+    botoes = _re.findall(r"<button onClick=\{apply\}[^>]*>", src)
+    assert botoes, "botão Aplicar do StopAlvoModal não encontrado"
+    assert all("disabled=" not in b for b in botoes), \
         "o Aplicar voltou a ser desabilitado pelo parecer da IA"
     assert "aguardar ? null :" not in src, \
         "os números voltaram a ser suprimidos quando a IA desaconselha"
