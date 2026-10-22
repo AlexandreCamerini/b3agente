@@ -1,6 +1,6 @@
 // Objetivo 3 — trava as fórmulas financeiras sobre entradas conhecidas.
 import { readFileSync } from "fs";
-import { portfolioMetrics, dayReturnPct, equityCurve, markPrice, historicoEstado, historicoDesatualizado, benchmarkSerie, concentracaoMaxima, qtyLivre } from "../src/finance.js";
+import { portfolioMetrics, dayReturnPct, equityCurve, markPrice, historicoEstado, historicoDesatualizado, benchmarkSerie, concentracaoMaxima, qtyLivre, sizingPlano } from "../src/finance.js";
 
 let fails = 0;
 const ok = (name, cond) => { console.log((cond ? "ok " : "FALHOU ") + name); if (!cond) fails++; };
@@ -415,6 +415,17 @@ ok("tudo nulo → null", concentracaoMaxima(null, null, null) === null);
   const src = readFileSync(new URL("../src/finance.js", import.meta.url), "utf8");
   const codigo = src.split("\n").filter((l) => !l.trim().startsWith("//")).join("\n");
   ok("finance.js segue puro (sem chamada real a fetch/Date.now/localStorage)", !/\bfetch\(|\bDate\.now\(|\blocalStorage\b/.test(codigo));
+}
+
+// ---- sizingPlano com teto de alocação (Fase 50 D-07) ----
+{
+  const pl = { decisao: "COMPRAR", entrada: 20.1, riscoPorAcao: 1.1 };
+  const base = sizingPlano(pl, 100000, 1);
+  ok("sizing sem 4º arg: qtd por risco (900) e limitadoPor risco", base.qtd === 900 && base.limitadoPor === "risco" && base.aviso === null);
+  const lim = sizingPlano(pl, 100000, 1, { caixa: 100000, allocPct: 10 });
+  ok("sizing teto de alocação limita a 400", lim.qtd === 400 && lim.limitadoPor === "alocacao");
+  const nao = sizingPlano(pl, 100000, 1, { caixa: 10000, allocPct: 10 });
+  ok("sizing alocação que não cobre 1 lote => qtd 0 com aviso", nao.qtd === 0 && /sem compra/.test(nao.aviso));
 }
 
 console.log("\n" + (fails === 0 ? "TODOS OS TESTES DE FINANCE PASSARAM" : fails + " TESTE(S) FALHARAM"));

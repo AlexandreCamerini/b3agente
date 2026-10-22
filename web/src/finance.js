@@ -412,7 +412,7 @@ export function benchmarkSerie(candles, datas) {
 // servidor (setups.plano_operacional); aqui só entra a aritmética do usuário —
 // capital e % de risco ficam no aparelho/conta, nunca no cache compartilhado.
 // Lote padrão B3 = 100 ações; risco financeiro = capital × pct/100.
-export function sizingPlano(plano, capital, pctPorTrade) {
+export function sizingPlano(plano, capital, pctPorTrade, opts) {
   const p = plano || {};
   if (p.decisao !== "COMPRAR" && p.decisao !== "VENDER") return null;
   const risco = typeof p.riscoPorAcao === "number" ? p.riscoPorAcao : null;
@@ -421,11 +421,64 @@ export function sizingPlano(plano, capital, pctPorTrade) {
   const pct = typeof pctPorTrade === "number" && pctPorTrade > 0 ? Math.min(5, pctPorTrade) : 1.0;
   if (!risco || risco <= 0 || !entrada || !cap) return null;
   const riscoFinanceiro = +(cap * (pct / 100)).toFixed(2);
-  const qtd = Math.floor(riscoFinanceiro / risco / 100) * 100;
+  let qtd = Math.floor(riscoFinanceiro / risco / 100) * 100;
   if (qtd < 100) {
-    return { qtd: 0, valorAprox: 0, riscoFinanceiro, pct, aviso: "Capital insuficiente para 1 lote de 100 com risco de " + pct + "% — aumente o capital operacional ou o % de risco." };
+    return { qtd: 0, valorAprox: 0, riscoFinanceiro, pct, limitadoPor: null, aviso: "Capital insuficiente para 1 lote de 100 com risco de " + pct + "% — aumente o capital operacional ou o % de risco." };
   }
-  return { qtd, valorAprox: +(qtd * entrada).toFixed(2), riscoFinanceiro, pct, aviso: null };
+  // Fase 50 D-07 — espelho de setups.sizing_por_risco: o menor entre o risco por
+  // operação e o teto de alocação do caixa (lote de 100, sempre para baixo).
+  let limitadoPor = "risco";
+  const o = opts || {};
+  if (typeof o.caixa === "number" && typeof o.allocPct === "number" && o.allocPct > 0) {
+    const orcamento = (o.caixa * o.allocPct) / 100;
+    const qtdAloc = Math.floor(orcamento / entrada / 100) * 100;
+    if (qtdAloc < 100) {
+      return { qtd: 0, valorAprox: 0, riscoFinanceiro, pct, limitadoPor: null, aviso: "Orçamento de " + o.allocPct + "% do caixa (R$ " + numBR(orcamento) + ") não cobre 1 lote de 100 a R$ " + numBR(entrada) + " — sem compra." };
+    }
+    if (qtdAloc < qtd) { qtd = qtdAloc; limitadoPor = "alocacao"; }
+  }
+  return { qtd, valorAprox: +(qtd * entrada).toFixed(2), riscoFinanceiro, pct, limitadoPor, aviso: null };
+}
+
+// Fase 50 — formatação pt-BR sem Intl/locale (espelho de skill_ref.num_br: 2 casas,
+// milhar ".", decimal ","). WKWebView/Node sem ICU completo não podem divergir.
+function numBR(valor) {
+  const v0 = Number(valor);
+  if (!Number.isFinite(v0)) return "0,00";
+  const neg = v0 < 0;
+  const [inteiro, frac] = Math.abs(v0).toFixed(2).split(".");
+  const milhar = inteiro.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+  return (neg ? "-" : "") + milhar + "," + frac;
+}
+
+// espelho de setups.MOTIVO_SEM_PRECO_VALIDAR — Fase 50 D-11; paridade travada
+// por test_marcos_espelho.mjs (fixture marcos_casos.json).
+export const MOTIVO_SEM_PRECO_VALIDAR = "Sem cotação nem fechamento recente para validar stop e alvo — tente de novo em instantes.";
+
+const _numOk = (x) => typeof x === "number" && Number.isFinite(x);
+
+// espelho de setups.validar_marcos — Fase 50 D-11; paridade travada por
+// test_marcos_espelho.mjs. null = válido; string = motivo PT-BR.
+// Ordem fixa: positivos → stop<alvo → stop<preço → alvo>preço → alvo>PM.
+export function validarMarcos(stop, alvo, preco, avg) {
+  const brl = (v) => "R$ " + numBR(v);
+  const temS = stop != null, temA = alvo != null;
+  if ((temS && !(_numOk(stop) && stop > 0)) || (temA && !(_numOk(alvo) && alvo > 0))) {
+    return "Stop e alvo precisam ser valores positivos.";
+  }
+  if (temS && temA && stop >= alvo) return "Stop (" + brl(stop) + ") precisa ficar abaixo do alvo (" + brl(alvo) + ").";
+  if (temS && _numOk(preco) && stop >= preco) return "Stop (" + brl(stop) + ") precisa ficar abaixo da cotação atual (" + brl(preco) + ").";
+  if (temA && _numOk(preco) && alvo <= preco) return "Alvo (" + brl(alvo) + ") precisa ficar acima da cotação atual (" + brl(preco) + ").";
+  if (temA && _numOk(avg) && alvo <= avg) return "Alvo (" + brl(alvo) + ") abaixo do preço médio (" + brl(avg) + ") — numa posição comprada o alvo fica acima da entrada.";
+  return null;
+}
+
+// espelho de setups.rr_da_entrada — R:R canônico a partir da ENTRADA; null se
+// a geometria não fecha (nunca 0).
+export function rrDaEntrada(entrada, stop, alvo) {
+  if (!(_numOk(entrada) && _numOk(stop) && _numOk(alvo))) return null;
+  if (entrada <= stop || alvo <= entrada) return null;
+  return Math.round(((alvo - entrada) / (entrada - stop)) * 100) / 100;
 }
 
 // ---------------------------------------------------------------------------
