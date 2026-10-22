@@ -61,7 +61,9 @@ for (const [onde, padrao] of [
   ["carimbo da barra", /fontFamily: MONO, \.\.\.SUBLINHADO \}\}>\s*\n\s*\{\/\* barra de outro dia/],
   ["chips explicáveis (rótulo)", /<span style=\{explicavel \? SUBLINHADO : undefined\}>\{label\}<\/span>/],
   ["caption da régua", /caption=\{<span style=\{SUBLINHADO\}>POSIÇÃO NO RISCO<\/span>\}/],
-  ["R:R", /<span style=\{SUBLINHADO\}>R:R<\/span>/],
+  // Nota (Fase 50, D-05, plano 50-09): o rótulo fixo "R:R" virou o texto do vocabulário
+  // `rr_atual` ("R:R restante (do preço atual)"); o sublinhado do termo-âncora continua.
+  ["R:R", /<span style=\{SUBLINHADO\}>\{cartaoPosicaoTxt\(operador \? "operador" : "estudo", "rr_atual"\)\}<\/span>/],
 ]) ok(`sublinhado no termo-âncora: ${onde}`, padrao.test(app));
 // REVERSÃO DELIBERADA (2026-09-26, Fase 42, D-08): o setor analise passou a
 // envolver o anel/rótulo na manchete; o sublinhado continua um por setor, no
