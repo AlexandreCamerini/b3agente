@@ -24,6 +24,11 @@ CHAVES_TIMING = {
     "riscoPorAcao", "setup", "fechamento15m", "asOf", "barraEmFormacao",
     "lacuna", "cobertura", "distancia", "distanciaEmR", "excedente",
     "excedenteEmR", "motivo", "foraDoPregao", "barraDeOutroDia",
+    # Nota (Fase 50, D-08, plano 50-05): o timing passou a expor os níveis do
+    # plano do MOTOR para a entrada automática gravar os marcos e revalidar a
+    # perseguição no preço executado. São campos de plano determinístico, não
+    # de didática — o isolamento que este guardião protege continua valendo.
+    "alvo", "alvo1", "gatilho", "invalidacao",
 }
 
 
