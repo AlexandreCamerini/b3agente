@@ -224,11 +224,17 @@ def test_entrada_automatica_carrega_ticker_e_tag(_setup_elegivel):
     c = _conn("operador")
     db.kv_set(c, "cash", 100000.0, user_id="u1")
     db.kv_set(c, "watchlist", ["PETR4"], user_id="u1")
+    # Fase 50 D-07/D-08: sizing por risco parte do capital da config e o plano
+    # do Radar traz o alvo do motor.
+    cfg0 = db.kv_get(c, "config", user_id="u1") or {}
+    cfg0["initialBudget"] = 100000.0
+    db.kv_set(c, "config", cfg0, user_id="u1")
     period = candles.normalize_period(None)
     radar_daily.store_result(c, period, {"results": [
         {"ticker": "PETR4", "veredito": "Estudar",
          "plano": {"decisao": "COMPRAR", "lado": "alta", "entrada": 38.5,
-                   "stop": 36.2, "riscoPorAcao": 2.3, "setup": SETUP}}]}, "manual")
+                   "stop": 36.2, "riscoPorAcao": 2.3, "setup": SETUP,
+                   "alvo": 45.4, "alvo2": 45.4, "alvo1": 40.8}}]}, "manual")
     as_of = f"{HOJE} 14:15"
     db.kv_set(c, intraday.CHAVE, {
         "at": AGORA.isoformat(), "asOf": as_of, "atLabel": "14:15",

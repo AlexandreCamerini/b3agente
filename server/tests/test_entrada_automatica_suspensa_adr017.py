@@ -39,13 +39,20 @@ def _conn(tickers=("PETR4",)):
     store.set_config(c, {"operadorTermo": {"aceitoEm": "2026-01-01", "versao": "1"},
                           "appMode": "operador"}, user_id="u1")
     db.kv_set(c, "cash", 100000.0, user_id="u1")
+    # Fase 50 D-07: sizing por risco parte de config.initialBudget (nota: o gate
+    # ADR-017 continua sendo o que este arquivo guarda).
+    cfg0 = db.kv_get(c, "config", user_id="u1") or {}
+    cfg0["initialBudget"] = 100000.0
+    db.kv_set(c, "config", cfg0, user_id="u1")
     db.kv_set(c, "watchlist", list(tickers), user_id="u1")
 
     period = candles.normalize_period(None)
     radar_daily.store_result(c, period, {"results": [{
         "ticker": t, "veredito": "Estudar",
         "plano": {"decisao": "COMPRAR", "lado": "alta", "entrada": 38.5,
-                  "stop": 36.2, "riscoPorAcao": 2.3, "setup": SETUP},
+                  "stop": 36.2, "riscoPorAcao": 2.3, "setup": SETUP,
+                  # Fase 50 D-08: plano do Radar com o alvo do motor
+                  "alvo": 45.1, "alvo2": 45.1, "alvo1": 40.8},
     } for t in tickers]}, "manual")
     db.kv_set(c, intraday.CHAVE, {
         "at": AGORA.isoformat(), "asOf": f"{HOJE} 14:15", "atLabel": "14:15",

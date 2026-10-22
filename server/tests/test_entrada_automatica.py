@@ -54,6 +54,13 @@ def _conn(app_mode="operador"):
     # limpa as posições de exemplo do default_state — os testes controlam
     # `positions` explicitamente (passado como parâmetro para a função).
     db.kv_set(c, "positions", [], user_id="u1")
+    # Fase 50 D-07: o sizing da entrada automática parte do capital da config
+    # (risco.capital, senão initialBudget) e não mais só do caixa. Estes testes
+    # seedam caixa de 100000 / 10000 diretamente; a base de risco acompanha o
+    # caixa de 100000 para a mecânica de lote/teto seguir sendo o que se testa.
+    cfg0 = db.kv_get(c, "config", user_id="u1") or {}
+    cfg0["initialBudget"] = 100000.0
+    db.kv_set(c, "config", cfg0, user_id="u1")
     if app_mode == "operador":
         store.set_config(c, {"operadorTermo": {"aceitoEm": "2026-01-01", "versao": "1"},
                               "appMode": "operador"}, user_id="u1")
@@ -75,8 +82,13 @@ def _seed_radar(c, planos):
             t, decisao, entrada, stop, risco = item
         lado = "alta" if decisao == "COMPRAR" else "baixa"
         results.append({"ticker": t, "veredito": "Estudar",
+                        # Fase 50 D-08: o plano do Radar traz o alvo do motor (alvo2) e os
+                        # níveis crus do setup; alvo = entrada + 3R mantém R:R folgado.
                         "plano": {"decisao": decisao, "lado": lado, "entrada": entrada,
-                                  "stop": stop, "riscoPorAcao": risco, "setup": SETUP}})
+                                  "stop": stop, "riscoPorAcao": risco, "setup": SETUP,
+                                  "alvo": round(entrada + 3 * risco, 2),
+                                  "alvo2": round(entrada + 3 * risco, 2),
+                                  "alvo1": round(entrada + risco, 2)}})
     return radar_daily.store_result(c, period, {"results": results}, "manual")
 
 

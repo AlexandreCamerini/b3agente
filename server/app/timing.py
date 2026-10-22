@@ -79,7 +79,11 @@ def avaliar(plano: Optional[dict], resumo15m: Optional[dict],
 
     base = {"lado": plano.get("lado"), "decisaoDiaria": decisao,
             "entrada": entrada, "stop": plano.get("stop"), "riscoPorAcao": risco,
-            "setup": plano.get("setup")}
+            "setup": plano.get("setup"),
+            # Fase 50 D-08: a entrada automática grava o alvo do plano e
+            # revalida perseguição com os níveis crus do setup.
+            "alvo": plano.get("alvo2"), "alvo1": plano.get("alvo1"),
+            "gatilho": plano.get("gatilho"), "invalidacao": plano.get("invalidacao")}
     close = (resumo15m or {}).get("close")
     if not passada_ok or close is None:
         # Fora do pregão a passada VELHA é o esperado, não uma avaria: não há

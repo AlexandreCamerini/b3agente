@@ -179,3 +179,111 @@ def test_alvo_dinamico_mede_do_stop_ja_gerido(monkeypatch):
     monkeypatch.setattr(agent, "avaliar_alvo_dinamico", _spy)
     _run(c, {"PETR4": 21.0}, snapshot_getter=_snap(0.8))       # trailing 19.4 < PM -> breakeven 20.0
     assert vistos == [20.0]
+
+
+# ---------------------------------------------------------------------------
+# Entrada automática — D-06/D-07/D-08
+# ---------------------------------------------------------------------------
+from datetime import datetime
+
+from app import candles, intraday, radar_daily, signal_ledger
+
+HOJE = "2026-08-07"
+AGORA = datetime(2026, 8, 7, 14, 30, tzinfo=intraday.BRT)
+SETUP = "IFR2 (alta)"
+
+
+@pytest.fixture
+def _elegivel(monkeypatch):
+    signal_ledger.reset_cache()
+    monkeypatch.setattr(signal_ledger, "historico_snapshot",
+                        lambda conn, **kw: {SETUP: {"expR": 0.07, "n": 2934, "elegivel": True,
+                                                    "insuficiente": False}})
+
+
+def _entrada(close, plano, caixa=100000.0, capital=100000.0, pct=1.0, alloc=10, risco_capital=None):
+    c = _conn()
+    db.kv_set(c, "positions", [], user_id="u1")
+    db.kv_set(c, "cash", caixa, user_id="u1")
+    db.kv_set(c, "watchlist", ["PETR4"], user_id="u1")
+    cfg = db.kv_get(c, "config", user_id="u1")
+    cfg["initialBudget"] = capital
+    cfg["risco"] = {"pctPorTrade": pct, "capital": risco_capital}
+    db.kv_set(c, "config", cfg, user_id="u1")
+    radar_daily.store_result(c, candles.normalize_period(None), {"results": [{
+        "ticker": "PETR4", "veredito": "Estudar",
+        "plano": {"decisao": "COMPRAR", "lado": "alta", "setup": SETUP, **plano}}]}, "manual")
+    db.kv_set(c, intraday.CHAVE, {
+        "at": AGORA.isoformat(), "asOf": f"{HOJE} 14:15", "atLabel": "14:15", "universo": 1, "ativos": 1,
+        "comLacuna": 0, "resultados": [{"ticker": "PETR4", "close": close, "asOf": f"{HOJE} 14:15",
+                                        "cobertura": 1.0, "lacuna": False, "barraEmFormacao": False}],
+        "erros": []}, user_id=None)
+    ag = {"entradaAuto": True, "allocPct": alloc, "maxOpsDia": 3, "maxValorOp": 0}
+    par = agent.agent_params(ag, app_mode="operador")
+    events = []
+    ex = asyncio.run(agent._avaliar_entradas(c, "u1", ag, par, "operador", [], 0, events, agora=AGORA))
+    return c, ex, events
+
+
+PLANO = {"entrada": 20.0, "stop": 19.0, "alvo": 23.5, "alvo2": 23.5, "alvo1": 21.0,
+         "riscoPorAcao": 1.0, "gatilho": 20.0, "invalidacao": 19.0}
+
+
+def test_entrada_compra_com_marcos_do_plano_e_texto_do_buy_intacto(_elegivel):
+    c, ex, events = _entrada(20.10, PLANO)
+    assert ex == 1
+    p = _pos(c)
+    assert (p["stop"], p["alvo"], p["stopInicial"], p["gestaoAuto"]) == (19.0, 23.5, 19.0, True)
+    buy = [e for e in events if e["kind"] == "buy"][0]
+    assert buy["text"].startswith("Entrada automática: PETR4 comprado (")
+    assert buy["text"].endswith("a R$ 20.10 — gatilho de entrada atingido.")
+    assert any(e["kind"] == "info" and "Marcos do motor gravados em PETR4" in e["text"] for e in events)
+
+
+def test_entrada_recusa_rr_baixo_ao_preco_executado_e_avisa_uma_vez(_elegivel):
+    plano = {**PLANO, "stop": 17.0, "invalidacao": 17.0, "riscoPorAcao": 3.0}
+    c, ex, events = _entrada(21.5, plano)          # (23,5-21,5)/(21,5-17)=0,4
+    assert ex == 0 and _pos(c) is None
+    avisos = [e for e in events if "R:R" in e["text"] and "não executada" in e["text"]]
+    assert len(avisos) == 1 and "0,4:1" in avisos[0]["text"]
+    ev2 = []
+    ag = {"entradaAuto": True, "allocPct": 10, "maxOpsDia": 3, "maxValorOp": 0}
+    asyncio.run(agent._avaliar_entradas(c, "u1", ag, agent.agent_params(ag, app_mode="operador"),
+                                        "operador", [], 0, ev2, agora=AGORA))
+    assert ev2 == []                                # dedupe 1x por ticker/dia
+
+
+def test_entrada_alem_de_meio_r_do_gatilho_no_preco_executado_nao_persiga(_elegivel):
+    plano = {**PLANO, "stop": 18.95, "riscoPorAcao": 1.05}
+    c, ex, events = _entrada(20.52, plano)         # timing ainda diz "gatilho"; execução diz não persiga
+    assert ex == 0 and _pos(c) is None
+    assert any("não persiga" in e["text"] and "não executada" in e["text"] for e in events)
+
+
+def test_entrada_sizing_por_risco_limitado_pela_alocacao(_elegivel):
+    # risco 1000 / 1,10 por ação = 909 -> 900; teto alloc 10% de 100000 / 20,10 = 497 -> 400
+    c, ex, _ = _entrada(20.10, PLANO, alloc=10)
+    assert ex == 1 and _pos(c)["qty"] == 400
+    # sem teto relevante (alloc 100%): 900 pelo risco
+    c, ex, _ = _entrada(20.10, PLANO, alloc=100)
+    assert ex == 1 and _pos(c)["qty"] == 900
+
+
+def test_entrada_menos_de_um_lote_nao_compra_e_avisa(_elegivel):
+    c, ex, events = _entrada(20.10, PLANO, caixa=10000.0, alloc=10)
+    assert ex == 0 and _pos(c) is None
+    assert any(e["kind"] == "warn" and "não cobre 1 lote" in e["text"] for e in events)
+
+
+def test_entrada_capital_vem_de_risco_capital_quando_numerico(_elegivel):
+    c, ex, _ = _entrada(20.10, PLANO, capital=10000.0, alloc=100)      # initialBudget 10000 -> 90 ações -> sem lote
+    assert ex == 0
+    c2, ex2, _ = _entrada(20.10, PLANO, capital=10000.0, alloc=100, risco_capital=100000.0)
+    assert ex2 == 1 and _pos(c2)["qty"] == 900
+
+
+def test_entrada_plano_sem_stop_ou_alvo_numericos_e_recusada_com_motivo(_elegivel):
+    plano = {k: v for k, v in PLANO.items() if k not in ("alvo", "alvo2")}
+    c, ex, events = _entrada(20.10, plano)
+    assert ex == 0 and _pos(c) is None
+    assert any("não executada" in e["text"] and "stop e alvo" in e["text"] for e in events)

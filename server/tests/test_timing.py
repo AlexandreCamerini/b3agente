@@ -244,3 +244,13 @@ def test_passada_fresca_por_idade():
     assert intraday.passada_fresca(velha, agora=agora) is False
     assert intraday.passada_fresca(None, agora=agora) is False
     assert intraday.passada_fresca({"at": "não-é-data"}, agora=agora) is False
+
+
+def test_base_do_timing_expoe_alvo_do_plano_fase50():
+    """Fase 50 D-08: a entrada automática lê o alvo (alvo2) e os níveis crus
+    do plano pela base do timing, em todo estado COM plano."""
+    plano = {**PLANO_COMPRA, "alvo2": 23.5, "alvo1": 21.0, "gatilho": 20.0, "invalidacao": 19.0}
+    for r15 in (_r15(19.0), _r15(plano["entrada"] + 0.01)):
+        a = timing.avaliar(plano, r15, passada_ok=True, pregao_aberto=True, data_sessao=_hoje())
+        assert a["alvo"] == 23.5 and a["alvo1"] == 21.0
+        assert a["gatilho"] == 20.0 and a["invalidacao"] == 19.0

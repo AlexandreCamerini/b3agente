@@ -802,18 +802,48 @@ async def _avaliar_entradas(conn, scope, ag, par, app_mode, positions, executed:
         price = r.get("fechamento15m")
         if not isinstance(price, (int, float)) or price <= 0:
             continue
+        # Fase 50 D-06/D-08: marcos do plano do Radar, revalidados no preço
+        # EXECUTADO (fechamento15m) — geometria, perseguição e R:R mínimo.
+        stop, alvo = r.get("stop"), r.get("alvo")
+        modo_txt = "operador"
+        num = lambda v: isinstance(v, (int, float)) and not isinstance(v, bool)  # noqa: E731
+        fmt_rr = lambda v: f"{v:.1f}".replace(".", ",")  # noqa: E731
+        if not (num(stop) and num(alvo)):
+            events.extend(_aviso_diario(
+                conn, scope, "avisoEntradaRecusada", "entrada:" + ticker, ticker,
+                skill_ref.marcos_plano_txt(modo_txt, "entrada_recusada", ticker=ticker,
+                                           motivo="o plano do Radar não traz stop e alvo numéricos do motor.")))
+            continue
+        rv = setups.revalidar_na_execucao(stop, alvo, price, gatilho=r.get("gatilho"),
+                                          invalidacao=r.get("invalidacao"))
+        if not rv["ok"]:
+            so_rr = (num(rv.get("rr")) and rv["rr"] < setups.RR_MINIMO
+                     and rv["motivo"] != setups.MOTIVO_PERSEGUICAO
+                     and setups.validar_marcos(stop, alvo, preco=price) is None)
+            if so_rr:
+                texto = skill_ref.marcos_plano_txt(
+                    modo_txt, "entrada_rr_baixo", ticker=ticker, preco=skill_ref.num_br(price),
+                    alvo=skill_ref.num_br(alvo), rr=fmt_rr(rv["rr"]), rr_min=skill_ref.RR_MIN_TXT)
+            else:
+                texto = skill_ref.marcos_plano_txt(modo_txt, "entrada_recusada", ticker=ticker, motivo=rv["motivo"])
+            events.extend(_aviso_diario(conn, scope, "avisoEntradaRecusada", "entrada:" + ticker, ticker, texto))
+            continue
         cash = store.get(conn, "cash", user_id=scope) or 0.0
-        orcamento = cash * (par["allocPct"] / 100.0)
-        # Arredonda SEMPRE para BAIXO — lotes de 100. `store.buy` sozinho
-        # arredondaria para CIMA (max(100, round(qty/100)*100)) e estouraria o
-        # % prometido; a decisão de não executar precisa ser tomada AQUI, antes
-        # de chamar store.buy.
-        qty = int(orcamento // price // 100) * 100
+        # D-07: quantidade = risco por operação ÷ (entrada − stop), lote de 100
+        # SEMPRE para baixo, limitada por allocPct do caixa. Mesma régua de
+        # capital do `sizingPlano` do front: risco.capital, senão initialBudget.
+        # `store.buy` sozinho arredondaria para CIMA; a decisão de não executar
+        # é tomada AQUI, antes dele.
+        cfg_e = store.get(conn, "config", user_id=scope) or {}
+        risco_cfg = cfg_e.get("risco") if isinstance(cfg_e.get("risco"), dict) else {}
+        capital = risco_cfg.get("capital") if num(risco_cfg.get("capital")) and risco_cfg.get("capital") > 0 \
+            else cfg_e.get("initialBudget")
+        sz = setups.sizing_por_risco(capital, risco_cfg.get("pctPorTrade"), price, stop,
+                                     caixa=cash, alloc_pct=par["allocPct"])
+        qty = sz["qtd"]
         if qty < 100:
             events.append({"time": _now_str(), "kind": "warn",
-                           "text": f"Entrada automática: orçamento de {par['allocPct']:.0f}% do caixa "
-                                   f"(R$ {orcamento:.2f}) não cobre 1 lote de {ticker} a R$ {price:.2f} — "
-                                   f"sem execução, aviso mantido."})
+                           "text": f"Entrada automática em {ticker}: {sz['aviso']} Sem execução, aviso mantido."})
             continue
         if _ops_today(ag) + executed >= par["maxOpsDia"]:
             events.append({"time": _now_str(), "kind": "warn",
@@ -827,7 +857,8 @@ async def _avaliar_entradas(conn, scope, ag, par, app_mode, positions, executed:
                            "text": f"Teto por operação (R$ {par['maxValorOp']:.2f}) excedido na entrada "
                                    f"automática de {ticker} (R$ {valor_op:.2f}). Registrado, sem execução."})
             continue
-        store.buy(conn, ticker, qty, price, user_id=scope, meta={"setup": r.get("setup")}, origem="automatico")  # ADR-012 (Fase 3)
+        store.buy(conn, ticker, qty, price, user_id=scope, meta={"setup": r.get("setup")}, origem="automatico",  # ADR-012 (Fase 3)
+                  marcos={"stop": stop, "alvo": alvo})
         executed += 1
         _bump_ops(conn, scope, store.get(conn, "agent", user_id=scope) or ag)
         # `t`/`tag` (260824-i45, itens 1 e 2): destino do toque e marco do
@@ -836,6 +867,10 @@ async def _avaliar_entradas(conn, scope, ag, par, app_mode, positions, executed:
                        "text": f"Entrada automática: {ticker} comprado ({qty} ações, "
                                f"{par['allocPct']:.0f}% do caixa) a R$ {price:.2f} — gatilho de entrada "
                                f"atingido."})
+        events.append({"time": _now_str(), "kind": "info", "t": ticker,
+                       "text": skill_ref.marcos_plano_txt(
+                           modo_txt, "entrada_marcos_gravados", ticker=ticker, stop=skill_ref.num_br(stop),
+                           alvo=skill_ref.num_br(alvo), rr=fmt_rr(rv["rr"]), preco=skill_ref.num_br(price))})
         # Dedupe com o push do vigia (timing_watch): marca o ticker como já
         # avisado hoje, senão o push "condição atingida" competiria com a
         # compra real já feita neste mesmo ciclo — mesma chave/formato que
