@@ -202,3 +202,12 @@ def test_buy_mercado_fechado_ordem_pendente_leva_marcos(monkeypatch):
     assert j["pendente"] is True
     assert j["order"]["marcos"]["stop"] == 22.95 and j["order"]["marcos"]["alvo"] == 26.0
     assert j["order"]["marcos"]["gatilho"] == 24.0  # do snapshot, não do meta
+
+
+def test_wr01_rota_marcos_usa_o_pm_da_posicao_do_servidor(monkeypatch):
+    c, m, h, uid = _cliente(monkeypatch)
+    store.buy(m._conn, "PETR4", 100, 25.0, user_id=uid)
+    # o avg do corpo é ignorado: vale o da posição no servidor
+    j = c.post("/api/marcos/PETR4", json={"preco": 22.8, "avg": 1.0}, headers=h).json()
+    assert j["valido"] is True and j["alvo"] > 25.0
+    assert setups.validar_marcos(j["stop"], j["alvo"], preco=22.8, avg=25.0) is None

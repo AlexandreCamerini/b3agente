@@ -753,11 +753,7 @@ def marcos_do_plano(lado, gatilho, invalidacao, close=None, niveis=None):
     return _marcos_de(lado, entrada, tipo, invalidacao, atr, niveis.get("resistencias"))
 
 
-def marcos_da_posicao(preco, niveis=None):
-    """Sugestão de proteção para posição JÁ aberta: mede a partir do preço
-    atual; invalidação = maior suporte abaixo dele (sem suporte, 1×ATR)."""
-    if not _num_ok(preco) or preco <= 0:
-        return _marcos_vazio(MOTIVO_SEM_PRECO_VALIDAR, "alta")
+def _marcos_da_posicao_base(preco, niveis):
     niveis = niveis or {}
     atr = niveis.get("atr")
     if not _num_ok(atr) or atr <= 0:
@@ -776,6 +772,30 @@ def marcos_da_posicao(preco, niveis=None):
              "stop": stop, "alvo": alvo, "rr": rr_da_entrada(preco, stop, alvo), "riscoPorAcao": _rr2(risco),
              "alvo1R": _rr2(preco + risco), "origemStop": "piso_1atr", "origemAlvo": origem_alvo, "atr": _rr2(atr)}
     return m
+
+
+def marcos_da_posicao(preco, niveis=None, avg=None):
+    """Sugestão de proteção para posição JÁ aberta: mede a partir do preço
+    atual; invalidação = maior suporte abaixo dele (sem suporte, 1×ATR).
+
+    Review WR-01: com `avg` (preço médio lido do servidor, nunca do corpo) o
+    alvo sugerido TEM de passar em `validar_marcos` (alvo > PM) — o motor não
+    sugere o que o PUT recusaria. Alvo ≤ PM: tenta só as resistências acima do
+    PM (ou a projeção de 2R); se nada servir, devolve inválido com motivo."""
+    if not _num_ok(preco) or preco <= 0:
+        return _marcos_vazio(MOTIVO_SEM_PRECO_VALIDAR, "alta")
+    niveis = niveis or {}
+    m = _marcos_da_posicao_base(preco, niveis)
+    if not (m.get("valido") and _num_ok(avg) and avg > 0 and m.get("alvo") is not None and m["alvo"] <= avg):
+        return m
+    acima = [r for r in niveis.get("resistencias") or [] if _num_ok(r) and r > avg]
+    m2 = _marcos_da_posicao_base(preco, {**niveis, "resistencias": acima})
+    if m2.get("valido") and m2.get("alvo") is not None and validar_marcos(m2.get("stop"), m2["alvo"], preco=preco, avg=avg) is None:
+        return m2
+    return {**_marcos_vazio(
+        "Nenhum alvo do motor fica acima do seu preço médio (R$ %s) com R:R de pelo menos %s:1 — "
+        "a posição está abaixo do preço médio; defina o alvo você mesmo ou espere a recuperação."
+        % (skill_ref.num_br(avg), skill_ref.RR_MIN_TXT), "alta"), "atr": _rr2(niveis.get("atr"))}
 
 
 def validar_marcos(stop, alvo, preco=None, avg=None):

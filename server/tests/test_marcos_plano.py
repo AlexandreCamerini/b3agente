@@ -100,3 +100,27 @@ def test_detect_setups_devolve_niveis():
     res = setups.detect_setups(cs, indicators.compute(cs)["indicators"])
     assert set(res["niveis"]) == {"atr", "suportes", "resistencias"}
     assert res["niveis"]["atr"] is not None and res["niveis"]["atr"] > 0
+
+
+# ---------------------------------------------------------------------------
+# Review WR-01 — marcos_da_posicao respeita o preço médio
+# ---------------------------------------------------------------------------
+_NIV = {"atr": 0.5, "suportes": [22.0], "resistencias": [24.8, 26.0]}
+
+
+def test_wr01_posicao_no_prejuizo_pula_resistencia_abaixo_do_pm():
+    base = setups.marcos_da_posicao(23.0, _NIV)
+    assert base["valido"] and base["alvo"] == 24.8          # sem PM: comportamento anterior
+    m = setups.marcos_da_posicao(23.0, _NIV, avg=25.0)
+    assert m["valido"] and m["alvo"] == 26.0 and m["stop"] == 21.95
+    assert setups.validar_marcos(m["stop"], m["alvo"], preco=23.0, avg=25.0) is None
+
+
+def test_wr01_sem_nivel_acima_do_pm_devolve_invalido_com_motivo():
+    m = setups.marcos_da_posicao(23.0, _NIV, avg=30.0)
+    assert m["valido"] is False and m["stop"] is None and m["alvo"] is None
+    assert "preço médio (R$ 30,00)" in m["motivo"]
+
+
+def test_wr01_pm_abaixo_do_alvo_nao_muda_nada():
+    assert setups.marcos_da_posicao(23.0, _NIV, avg=20.0) == setups.marcos_da_posicao(23.0, _NIV)

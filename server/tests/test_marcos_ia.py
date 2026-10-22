@@ -117,9 +117,10 @@ def rota(monkeypatch):
 def test_n3_proposal_e_do_motor_nunca_da_ia(rota, monkeypatch):
     c, main = rota
     visto = {}
+    # (review WR-01: o stub aceita o `avg` novo da rota)
     # marcos validos fixos: a serie sintetica faz o motor real recusar (R:R baixo)
     monkeypatch.setattr(main.marcos_servico, "marcos_para_posicao",
-                        lambda snap, preco: {"valido": True, "motivo": "", "stop": 18.4, "alvo": 21.4, "rr": 2.0})
+                        lambda snap, preco, avg=None: {"valido": True, "motivo": "", "stop": 18.4, "alvo": 21.4, "rr": 2.0})
 
     async def _ia(config, profile, account, t, quote, history, prompt, tech_context=None):
         visto["ctx"] = tech_context

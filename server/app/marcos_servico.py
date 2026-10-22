@@ -42,6 +42,6 @@ def marcos_de_setup(snap, nome_setup, preco):
     return {**m, **_carimbo(snap, "setup")}
 
 
-def marcos_para_posicao(snap, preco):
-    m = setups.marcos_da_posicao(preco, _niveis(snap))
+def marcos_para_posicao(snap, preco, avg=None):
+    m = setups.marcos_da_posicao(preco, _niveis(snap), avg=avg)
     return {**m, **_carimbo(snap, "posicao")}
