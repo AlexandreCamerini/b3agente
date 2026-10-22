@@ -30,7 +30,7 @@ lista ao cliente.
 import inspect
 import secrets
 
-from . import db, store
+from . import db, setups, skill_ref, store
 
 SECAO = "pendingOrders"
 
@@ -96,7 +96,7 @@ def qty_reservada(conn, user_id=None, t: str = None) -> int:
     return sum(o.get("qty") or 0 for o in _ler(conn, user_id=user_id) if o.get("tipo") == "VENDA" and o.get("t") == t)
 
 
-def criar_compra(conn, user_id, t: str, qty: int, preco_ref: float, meta=None) -> dict:
+def criar_compra(conn, user_id, t: str, qty: int, preco_ref: float, meta=None, marcos=None) -> dict:
     """Reserva o caixa NA HORA do pedido (D-02/D-05): debita `cash` como
     `store.buy` debitaria, mas NÃO grava posição nem history — a posição só
     nasce quando a ordem executar, via `executar_pendentes`."""
@@ -122,6 +122,15 @@ def criar_compra(conn, user_id, t: str, qty: int, preco_ref: float, meta=None) -
             "ultimaTentativaEm": None,
             "ultimoErro": None,
         }
+        # Fase 50 D-09: marcos do motor calculados no PEDIDO, só pelo parâmetro
+        # `marcos` (servidor) — nunca de `meta` (T-50-09). Revalidados ao preço
+        # de execução em executar_pendentes.
+        if isinstance(marcos, dict):
+            def _pos(v):
+                return float(v) if isinstance(v, (int, float)) and not isinstance(v, bool) and v > 0 else None
+            m = {k: _pos(marcos.get(k)) for k in ("stop", "alvo", "gatilho", "invalidacao")}
+            if m["stop"] is not None and m["alvo"] is not None:
+                registro["marcos"] = m
         lista = _ler(conn, user_id=user_id)
         lista.append(registro)
         db.kv_set(conn, "cash", round(cash - custo, 2), user_id=user_id)
@@ -295,13 +304,44 @@ async def executar_pendentes(conn, user_id, price_getter, agora=None) -> list:
                                   round(cash_livre + (alvo.get("caixaReservado") or 0), 2), user_id=user_id)
                         atual = [o for o in atual if o.get("id") != order_id]
                         _gravar(conn, user_id, atual)
+                        # Fase 50 D-09: corrige a divergência 2 do PATTERNS — l.196
+                        # é _restaurar_posicao (cancelamento), o caminho de compra é este.
+                        # Esclarecimento da D-06 (Alex, 2026-10-21, 50-CONTEXT): ordem
+                        # pendente é compra manual — R:R < 1,5 ou entrada além de 0,5R do
+                        # gatilho no preço executado executa SEM marcos e diz por quê; a
+                        # recusa da compra vale só para a entrada automática.
+                        mrc = alvo.get("marcos")
+                        marcos_ok, rev = None, None
+                        if isinstance(mrc, dict) and mrc.get("stop") and mrc.get("alvo"):
+                            rev = setups.revalidar_na_execucao(mrc["stop"], mrc["alvo"], preco,
+                                                               gatilho=mrc.get("gatilho"),
+                                                               invalidacao=mrc.get("invalidacao"))
+                            if rev["ok"]:
+                                marcos_ok = {"stop": mrc["stop"], "alvo": mrc["alvo"]}
                         store.buy(conn, t, alvo["qty"], preco, user_id=user_id, meta=alvo.get("meta"),
-                                  origem="pendente")
+                                  origem="pendente", marcos=marcos_ok)
                         eventos.append({
                             "time": store.now_str(), "kind": "buy", "tag": "pendente-executada", "t": t,
                             "text": (f"Ordem pendente de compra executada: {alvo['qty']} {t} a "
                                      f"R$ {preco:.2f} (fonte: {fonte or '?'})."),
                         })
+                        if rev is not None:
+                            cfg = store.get(conn, "config", user_id=user_id)
+                            modo = "operador" if isinstance(cfg, dict) and cfg.get("appMode") == "operador" else "educacional"
+                            if marcos_ok:
+                                eventos.append({
+                                    "time": store.now_str(), "kind": "info", "tag": "pendente-marcos", "t": t,
+                                    "text": skill_ref.marcos_plano_txt(
+                                        modo, "compra_com_marcos", ticker=t,
+                                        stop=skill_ref.num_br(marcos_ok["stop"]), alvo=skill_ref.num_br(marcos_ok["alvo"]),
+                                        rr=skill_ref.num_br(rev["rr"])),
+                                })
+                            else:
+                                eventos.append({
+                                    "time": store.now_str(), "kind": "warn", "tag": "pendente-marcos", "t": t,
+                                    "text": skill_ref.marcos_plano_txt(
+                                        modo, "compra_sem_marcos", ticker=t, motivo=rev["motivo"]),
+                                })
                 else:  # VENDA
                     atual = [o for o in atual if o.get("id") != order_id]
                     _gravar(conn, user_id, atual)
