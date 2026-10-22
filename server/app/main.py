@@ -2383,6 +2383,24 @@ async def scan_deep_run(body: dict = Body(default={}), scope: Optional[str] = De
         raise HTTPException(502, llm.public_error(e))
 
 
+def _preco_ref_marcos(quote, snap):
+    """Preço de referência dos marcos que a IA explica: cotação ao vivo; sem ela,
+    o último fechamento do snapshot. Sem nenhum dos dois -> None (o motor recusa
+    com motivo; princípio 4: nunca inventar preço)."""
+    p = (quote or {}).get("price")
+    if p in (None, 0):
+        p = (snap or {}).get("close")
+    return p
+
+
+def _proposal_do_motor(marcos):
+    """Fase 50 / D-10: a ÚNICA proposta aplicável que uma rota de IA devolve —
+    stop/alvo do motor quando válidos; nunca número vindo da LLM."""
+    if marcos and marcos.get("valido"):
+        return {"stop": marcos.get("stop"), "alvo": marcos.get("alvo")}
+    return None
+
+
 # ---- Analise pela LLM (config opcional no corpo, para o handset) ----
 @app.post("/api/technical/analyze/{ticker}")
 async def analyze_technical_model(ticker: str, body: dict = Body(default={}), scope: Optional[str] = Depends(current_scope)):
@@ -2432,6 +2450,10 @@ async def analyze_technical_model(ticker: str, body: dict = Body(default={}), sc
     context["quote"] = quote or {}
     context["options"] = opt_status
     technical_models.refocus(context, model)
+    # Fase 50 / D-10: os números de stop/alvo/R:R saem SÓ do motor; a IA os lê
+    # em marcosMotor e explica. Sem marcos válidos a rota devolve proposal None.
+    marcos = marcos_servico.marcos_para_posicao(snap, _preco_ref_marcos(quote, snap))
+    context["marcosMotor"] = marcos
     # FASE 2 (2.4): reanálise SITUADA — a posição do usuário entra no pacote.
     if isinstance(body.get("position"), dict):
         context["userPosition"] = {k: body["position"].get(k) for k in ("qty", "avg", "stop", "alvo", "resultadoAtual")}
@@ -2511,12 +2533,14 @@ async def analyze_technical_model(ticker: str, body: dict = Body(default={}), sc
     # livre — só entra na estatística quando o modelo devolveu proposal com
     # stop E alvo definidos; registrar() já descarta o resto). Best-effort.
     try:
-        prop = result.get("proposal") or {}
+        # Fase 50 D-10: o N2 não tem mais número próprio da IA (stop/alvo = None;
+        # registrar() descarta); a série N1 (motor) segue medindo (ADR-015,
+        # Adendo Fase 50).
         analysis_outcomes.registrar(
             _conn, ticker=t, modo=modo, tipo="n2",
             modelo=f"{config.get('provider')}:{config.get('model')}",
             setup=None, recomendacao=(result.get("kpis") or {}).get("recomendacao"),
-            stop=prop.get("stop"), alvo=prop.get("alvo"),
+            stop=None, alvo=None,
             preco=(quote or {}).get("price"), snapshot_id=snap.get("snapshotId"),
             # qa/35 P2c: no N2 a confiança declarada é a `conviccao` dos kpis
             # (Muito Alto|Alto|Médio|Baixo) — normalizar_confianca traduz.
@@ -2551,7 +2575,7 @@ async def analyze_technical_model(ticker: str, body: dict = Body(default={}), sc
         # get_fundamentals faz I/O de rede BLOQUEANTE (httpx síncrono) — roda
         # em thread para não congelar o event loop durante a resposta do N2.
         fundamento = await asyncio.to_thread(fundamentals.get_fundamentals, _conn, t)
-        operavel = prop.get("stop") is not None and prop.get("alvo") is not None
+        operavel = bool(marcos and marcos.get("valido"))  # Fase 50: operável = marcos do motor válidos
         conf_final, rebaixado = fundamentals.rebaixa_confianca(
             conf_final, (fundamento or {}).get("score"), operavel)
     except Exception as e:  # noqa: BLE001 — fundamento é overlay, nunca bloqueia
@@ -2559,7 +2583,10 @@ async def analyze_technical_model(ticker: str, body: dict = Body(default={}), sc
     payload = {
         "kpis": result.get("kpis"),
         "detail": result.get("detail"),
-        "proposal": result.get("proposal"),
+        # Fase 50 D-10: proposta aplicável = marcos do motor, nunca da LLM.
+        "proposal": _proposal_do_motor(marcos),
+        "marcos": marcos,
+        "proposalOrigem": "motor",
         "markdown": result.get("markdown"),
         "text": result.get("text"),
         "model": model,
@@ -2674,10 +2701,15 @@ async def analyze(ticker: str, body: dict = Body(default={}), scope: Optional[st
         print(f"[ai-activity] registro (analyze) falhou p/ {t}: {e}")
     _consume_ai()  # conta a cota só no sucesso
     at = now_str()
+    # Fase 50 D-10: proposta = marcos do motor (a rota legada não injeta o
+    # pacote técnico na IA; só devolve o número do motor, nunca o da LLM).
+    marcos = marcos_servico.marcos_para_posicao(snap, _preco_ref_marcos(quote, snap))
     payload = {
         "kpis": result.get("kpis"),
         "detail": result.get("detail"),
-        "proposal": result.get("proposal"),
+        "proposal": _proposal_do_motor(marcos),
+        "marcos": marcos,
+        "proposalOrigem": "motor",
         "markdown": result.get("markdown"),
         "text": result.get("text"),
         "snapshotId": snap["snapshotId"],
@@ -2746,10 +2778,16 @@ async def carteira_stopalvo(ticker: str, body: dict = Body(default={}), scope: O
             "viesTendencia": (_ctx.get("trend") or {}).get("bias"),
             "minimaLocal": (_ctx.get("historyStats") or {}).get("low63"),
             "maximaLocal": (_ctx.get("historyStats") or {}).get("high63"),
-            "referencias": _ctx.get("riskPlanReference"),
+            # Fase 50 D-10/D-18: marcosMotor (abaixo) substitui o antigo plano de
+            # risco de referência — a IA não lê número concorrente.
             "setupsRadar": _ctx.get("setupsRadar"),
             "dataQuality": _ctx.get("dataQuality"),
         }
+    # Fase 50 / D-10: marcos do MOTOR para a posição ao preço atual; a IA os
+    # explica. Sem snapshot -> None (princípio 4: a IA declara insuficiência).
+    marcos = marcos_servico.marcos_para_posicao(snap, _preco_ref_marcos(quote, snap)) if snap else None
+    if tech_context is not None:
+        tech_context["marcosMotor"] = marcos
     try:
         with llm.collect_usage() as _uso:  # qa/45
             res = await llm.analyze_carteira(config, profile, account, t, quote, history_data, prompt, tech_context=tech_context)
@@ -2761,8 +2799,11 @@ async def carteira_stopalvo(ticker: str, body: dict = Body(default={}), scope: O
     except Exception as e:  # noqa: BLE001
         print(f"[ai-activity] registro N3 falhou p/ {t}: {e}")
     _consume_ai()  # conta a cota só no sucesso
+    # O proposal do motor SEMPRE sobrescreve o de `res` (a IA só explica).
     return {"t": t, "quote": quote, "at": now_str(),
-            "snapshotId": (snap or {}).get("snapshotId"), "snapshotAt": (snap or {}).get("asOf"), **res}
+            "snapshotId": (snap or {}).get("snapshotId"), "snapshotAt": (snap or {}).get("asOf"), **res,
+            "proposal": _proposal_do_motor(marcos), "marcos": marcos, "proposalOrigem": "motor",
+            "iaExplica": skill_ref.marcos_plano_txt("operador" if modo == "operador" else "educacional", "modal_ia_explica")}
 
 
 # ---- Carteira (preco do servidor = cotacao atual) ----

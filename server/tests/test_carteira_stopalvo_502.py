@@ -134,4 +134,6 @@ def test_n3_com_modelo_vazio_chega_ao_provedor_com_haiku_e_devolve_proposta(monk
                                            "BRAP4", {"price": 20.15, "change": None},
                                            {"candles": []}, "prompt"))
     assert enviado["model"] == "claude-haiku-4-5"
-    assert res["proposal"] == {"stop": 19.4, "alvo": 21.6}
+    # Fase 50 / D-10: a IA não devolve mais proposta; o número vem do motor na rota.
+    assert res["proposal"] is None and res["numerosIaDescartados"] is True
+    assert res["explicacao"] == "ok"

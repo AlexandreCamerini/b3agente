@@ -48,19 +48,18 @@ def test_parse_carteira_extrai_cenarios_e_marca_rr_desfavoravel():
         {"perfil":"invalido","stop":1,"alvo":2}],
       "modelosUtilizados":[{"nome":"ATR","oQueE":"amplitude media","oQueMede":"volatilidade","limitacoes":"defasado"}]}]"""
     res = llm.parse_carteira(raw, "PETR4")
-    assert res["proposal"] == {"stop": 36.3, "alvo": 41.1}
-    assert len(res["cenarios"]) == 3                                   # perfil inválido descartado
-    cons = next(c for c in res["cenarios"] if c["perfil"] == "conservador")
-    assert cons["rrDesfavoravel"] is True and "minima local" in cons["memoriaCalculo"]
-    agr = next(c for c in res["cenarios"] if c["perfil"] == "agressivo")
-    assert agr["rrDesfavoravel"] is False
+    # Fase 50 / D-10: stop/alvo/cenarios da IA são DESCARTADOS (o motor é a
+    # fonte do número). Segue extraído: modelosUtilizados e a marca de descarte.
+    assert res["proposal"] is None
+    assert "cenarios" not in res and res["numerosIaDescartados"] is True
     assert res["modelosUtilizados"][0]["nome"] == "ATR"
 
 
 def test_parse_carteira_sem_cenarios_segue_compativel():
     raw = '[{"ativo":"VALE3","operar":true,"stop":60.0,"alvo":66.0,"explicacao":"x"}]'
     res = llm.parse_carteira(raw, "VALE3")
-    assert res["proposal"] == {"stop": 60.0, "alvo": 66.0} and res["cenarios"] == []
+    # Fase 50 / D-10: número da IA não vira proposta.
+    assert res["proposal"] is None and res["numerosIaDescartados"] is True
 
 
 def test_parse_carteira_operar_false_NAO_apaga_os_niveis_de_protecao():
@@ -75,8 +74,10 @@ def test_parse_carteira_operar_false_NAO_apaga_os_niveis_de_protecao():
            '"precoAtual":38.3,"explicacao":"R:R abaixo do minimo — aguardar"}]')
     res = llm.parse_carteira(raw, "PETR4")
     assert res["operar"] is False, "o parecer da IA tem que continuar visível"
-    assert res["proposal"] == {"stop": 36.3, "alvo": 41.1}, \
-        "operar=false voltou a apagar o stop — o veto que o Alex proibiu"
+    # Fase 50 / D-10: o parser não carrega mais número; a garantia "operar=false
+    # não veta o stop" passa a ser da ROTA, que devolve os marcos do motor
+    # sempre (ver test_marcos_ia.py). Aqui: o parecer segue visível.
+    assert res["proposal"] is None and res["numerosIaDescartados"] is True
 
 
 def test_ui_do_stop_alvo_nunca_bloqueia_o_aplicar_pelo_parecer():
