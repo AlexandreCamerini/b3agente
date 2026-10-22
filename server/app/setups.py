@@ -792,6 +792,53 @@ def validar_marcos(stop, alvo, preco=None, avg=None):
         return "Alvo (%s) abaixo do preço médio (%s) — numa posição comprada o alvo fica acima da entrada." % (brl(alvo), brl(avg))
     return None
 
+
+def revalidar_na_execucao(stop, alvo, preco, gatilho=None, invalidacao=None):
+    """D-03/D-06: no preço EXECUTADO, stop/alvo ficam nos níveis técnicos (não
+    são recalculados); só se reconfere geometria, perseguição e R:R mínimo."""
+    rr = rr_da_entrada(preco, stop, alvo)
+    motivo = validar_marcos(stop, alvo, preco=preco)
+    if motivo:
+        return {"ok": False, "motivo": motivo, "rr": rr}
+    if (_num_ok(gatilho) and _num_ok(invalidacao) and invalidacao < gatilho and _num_ok(preco)
+            and preco > gatilho and (preco - gatilho) > ZONA_PERSEGUICAO * (gatilho - invalidacao)):
+        return {"ok": False, "motivo": MOTIVO_PERSEGUICAO, "rr": rr}
+    if rr is None or rr < RR_MINIMO:
+        return {"ok": False, "rr": rr,
+                "motivo": "Ao preço de R$ %s o R:R até o alvo cai para %s:1, abaixo do mínimo de %s:1."
+                          % (skill_ref.num_br(preco), skill_ref.num_br(rr or 0), skill_ref.RR_MIN_TXT)}
+    return {"ok": True, "motivo": None, "rr": rr}
+
+
+def sizing_por_risco(capital, pct, entrada, stop, caixa=None, alloc_pct=None):
+    """D-07: quantidade em lotes de 100, SEMPRE para baixo — o menor entre o
+    risco por operação (capital × pct ÷ (entrada − stop)) e o teto de alocação
+    do caixa. Espelha web/src/finance.js:sizingPlano."""
+    pct = float(pct) if _num_ok(pct) and pct > 0 else RISCO_PCT_DEFAULT
+    pct = min(RISCO_PCT_MAX, pct)
+    vazio = {"qtd": 0, "valorAprox": 0.0, "riscoFinanceiro": None, "pct": pct, "limitadoPor": None,
+             "aviso": "Sem capital ou stop válidos para dimensionar a posição."}
+    if not (_num_ok(capital) and capital > 0 and _num_ok(entrada) and _num_ok(stop) and entrada > stop > 0):
+        return vazio
+    risco_fin = round(capital * (pct / 100.0), 2)
+    qtd = int(risco_fin / (entrada - stop) // 100) * 100
+    if qtd < 100:
+        return {**vazio, "riscoFinanceiro": risco_fin,
+                "aviso": "Capital insuficiente para 1 lote de 100 com risco de %g%% — aumente o capital operacional ou o %% de risco." % pct}
+    limitado = "risco"
+    if _num_ok(caixa) and _num_ok(alloc_pct) and alloc_pct > 0:
+        orcamento = caixa * alloc_pct / 100.0
+        qtd_aloc = int(orcamento / entrada // 100) * 100
+        if qtd_aloc < 100:
+            return {**vazio, "riscoFinanceiro": risco_fin,
+                    "aviso": "Orçamento de %g%% do caixa (R$ %s) não cobre 1 lote de 100 a R$ %s — sem compra."
+                             % (alloc_pct, skill_ref.num_br(orcamento), skill_ref.num_br(entrada))}
+        if qtd_aloc < qtd:
+            qtd, limitado = qtd_aloc, "alocacao"
+    return {"qtd": qtd, "valorAprox": round(qtd * entrada, 2), "riscoFinanceiro": risco_fin,
+            "pct": pct, "limitadoPor": limitado, "aviso": None}
+
+
 DECISAO_COMPRAR = "COMPRAR"
 DECISAO_VENDER = "VENDER"
 DECISAO_AGUARDAR = "AGUARDAR CONFIRMAÇÃO"
