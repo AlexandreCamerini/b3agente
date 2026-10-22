@@ -2561,11 +2561,12 @@ async def analyze_technical_model(ticker: str, body: dict = Body(default={}), sc
             # ADR-015 / ADR15-01: só `confluencia` — descritiva do snapshot,
             # sem o problema abaixo. `entrada`/`alvo2`/`rr2`/`entrada_a_mercado`
             # ficam de fora (None por default) DELIBERADAMENTE: no N2 o
-            # stop/alvo gravados acima vêm da `proposal` da LLM, ancorada no
-            # preço de mercado do momento — enxertar o `entrada` do plano
-            # determinístico (que não está em escopo aqui, e não deve passar
-            # a estar) produziria geometria incoerente (gatilho de um plano
-            # com stop/alvo de outro), a mesma classe de erro que o ADR-015
+            # stop/alvo (hoje None desde a Fase 50 D-10; antes vinham da
+            # `proposal` da LLM, ancorada no preço de mercado do momento) não
+            # pertencem a um plano determinístico — enxertar o `entrada` do
+            # plano (que não está em escopo aqui, e não deve passar a estar)
+            # produziria geometria incoerente (gatilho de um plano com
+            # stop/alvo de outro), a mesma classe de erro que o ADR-015
             # corrige. Consequência que o Plano 02 honra explicitamente: um
             # registro N2 é metodologiaVersao=2 mas resolve pela âncora de
             # PREÇO, não pela de gatilho — a âncora efetiva é carimbada na
