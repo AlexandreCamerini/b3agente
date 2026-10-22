@@ -68,11 +68,13 @@ def test_proposta_rejeita_numeros_inventados():
     # baixa com geometria certa (alvo < stop) PASSA:
     r3 = kpi.parse_rich('{"recomendacao":"Estudar baixa","corpo":"x",'
                         '"stopSugerido":40.0,"alvoSugerido":35.0}')
-    assert r3["proposal"] == {"stop": 40.0, "alvo": 35.0}
+    # Fase 50 / D-10: a IA não fornece mais número; sanidade qa/40 inaplicável.
+    # A garantia "nunca número inventado" fica mais forte: sempre {None, None}.
+    assert r3["proposal"] == {"stop": None, "alvo": None}
     # alta coerente PASSA:
     r4 = kpi.parse_rich('{"recomendacao":"Estudar alta","corpo":"x",'
                         '"stopSugerido":36.0,"alvoSugerido":43.0}')
-    assert r4["proposal"] == {"stop": 36.0, "alvo": 43.0}
+    assert r4["proposal"] == {"stop": None, "alvo": None}  # Fase 50 / D-10
 
 
 if __name__ == "__main__":

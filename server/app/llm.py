@@ -243,9 +243,7 @@ FORMAT = "\n".join([
     '  "invalidacoes": ["o que invalidaria a tese (curtos)"],',
     '  "cuidados": ["riscos e observacoes (curtos)"],',
     '  "fatosRelevantes": ["somente fatos fornecidos ou contexto explicitamente marcado como geral"],',
-    '  "corpo": "análise em MARKDOWN: use ## títulos, **negrito**, listas com - e quebras de linha",',
-    '  "stopSugerido": 0.0,',
-    '  "alvoSugerido": 0.0',
+    '  "corpo": "análise em MARKDOWN: use ## títulos, **negrito**, listas com - e quebras de linha"',
     "}",
     # qa/39 (P1-2): teto de confiança também NO CONTRATO (o servidor impõe
     # pós-resposta; pedir no prompt reduz retrabalho e explica o porquê).
@@ -255,11 +253,14 @@ FORMAT = "\n".join([
     "para estudo no simulador. Nao use 'comprar' ou 'vender'.",
     "O campo `corpo` e a analise em MARKDOWN (titulos, negrito, listas) — sera",
     "renderizado no app; nao use HTML, apenas markdown simples.",
-    "stopSugerido e alvoSugerido sao referencias TECNICAS em reais para estudo",
-    "e gestao de risco simulada, coerentes com ATR, suportes e resistencias.",
-    # M3 (auditoria): o exemplo "0.0" sem regra de null induzia numero inventado
-    # (o kpi.py ja anula <=0 em codigo; aqui o pedido explica o porque).
-    "Sem referencia tecnica para stop ou alvo, use null (nunca 0.0 nem chute).",
+    # Fase 50 / D-10: a IA nao propoe mais numero de stop/alvo. Os niveis saem
+    # do motor (MARCOS DO MOTOR no contexto); a IA explica. (O guardiao M3
+    # "use null (nunca 0.0" foi reescrito: nenhum campo numerico e pedido.)
+    "Os niveis de stop e alvo vem prontos do motor do simulador (MARCOS DO MOTOR no",
+    "contexto). NAO proponha numeros de stop, alvo ou entrada; explique o racional,",
+    "os riscos e quando revisar esses marcos. Sem marcos no contexto, diga:",
+    "Não há dados suficientes para concluir.",
+    "Nenhum campo numerico e pedido; nunca invente numero.",
     "Cada lista deve ter de 1 a 4 itens curtos. Nao escreva absolutamente nada fora",
     "do objeto JSON.",
     # A4/M5 (auditoria): o "Termine SEMPRE..." dos GUARDRAILS precisa de um
@@ -1106,64 +1107,33 @@ def parse_carteira(raw: str, ticker: str) -> dict:
     if chosen is None and items:
         chosen = items[0]
     if not chosen:
-        return {"proposal": None, "explicacao": "", "operar": None, "precoAtual": None, "raw": txt[:400]}
-
-    def _num(v):
-        try:
-            return None if v is None else round(float(v), 2)
-        except (TypeError, ValueError):
-            return None
+        return {"proposal": None, "explicacao": "", "operar": None, "riscos": [], "quandoRevisar": "",
+                "modelosUtilizados": [], "numerosIaDescartados": False, "raw": txt[:400]}
 
     operar = chosen.get("operar")
     operar = None if operar is None else bool(operar)
-    stop = _num(chosen.get("stop"))
-    alvo = _num(chosen.get("alvo"))
-    # Decisão do Alex (10/08/2026): `operar: false` é PARECER, nunca veto.
-    # Antes este bloco APAGAVA stop/alvo quando a IA desaconselhava — e o N3
-    # roda sobre posição que a pessoa JÁ CARREGA: ficar sem o nível de proteção
-    # deixa a posição mais exposta, não menos. Os números passam sempre; a UI
-    # exibe o parecer como aviso e o Aplicar continua nas mãos do usuário.
-    proposal = {"stop": stop, "alvo": alvo} if (stop is not None or alvo is not None) else None
-    # FASE 1 (N3): cenários estruturados conservador/moderado/agressivo com
-    # memória de cálculo — a UI pré-preenche com 1 toque; usuário SEMPRE confirma.
-    cenarios = []
-    preco_ref = _num(chosen.get("precoAtual"))
-    for c in (chosen.get("cenarios") or []):
-        if not isinstance(c, dict):
-            continue
-        perfil = str(c.get("perfil") or "").strip().lower()
-        if perfil not in ("conservador", "moderado", "agressivo"):
-            continue
-        cs, ca = _num(c.get("stop")), _num(c.get("alvo"))
-        if cs is None and ca is None:
-            continue
-        # qa/39 (P1-3): R:R RECOMPUTADO com os números devolvidos — o modelo
-        # podia declarar "2,0" com stop/alvo que dão 1,0 e passar limpo pelo
-        # gate. |alvo−preço| / |preço−stop| vale para os dois lados (a venda
-        # tem stop acima e alvo abaixo). Sem os 3 números, cai no declarado.
-        rr_calc = None
-        if preco_ref is not None and cs is not None and ca is not None and preco_ref != cs:
-            rr_calc = round(abs(ca - preco_ref) / abs(preco_ref - cs), 2)
-        rr_final = rr_calc if rr_calc is not None else _num(c.get("riscoRetorno"))
-        cenarios.append({
-            "perfil": perfil, "stop": cs, "alvo": ca,
-            "riscoRetorno": rr_final,
-            "memoriaCalculo": str(c.get("memoriaCalculo") or ""),
-            "rrDesfavoravel": bool(c.get("rrDesfavoravel")) or (
-                rr_final is not None and rr_final < skill_ref.RR_MIN
-            ),
-        })
+    # Fase 50 / D-10: a IA NAO devolve mais numero gravavel. Resposta de prompt
+    # salvo antigo (stop/alvo/cenarios/precoAtual) e tolerada no parse mas o
+    # numero e DESCARTADO — so marca numerosIaDescartados. `operar: false` segue
+    # sendo PARECER, nunca veto (decisao do Alex, 10/08/2026).
+    descartou = any(
+        v not in (None, "", [], {}) and (k.startswith(("stop", "alvo")) or k in ("cenarios", "precoAtual"))
+        for k, v in chosen.items()
+    )
     modelos = [m for m in (chosen.get("modelosUtilizados") or []) if isinstance(m, dict)]
+    riscos = chosen.get("riscos")
+    riscos = [str(x) for x in riscos if isinstance(x, (str, int, float))] if isinstance(riscos, list) else []
     # qa/44: a explicação da carteira (N3) também vira markdown no app — normaliza
     # (dialeto + \n literal) para qualquer LLM, como o N2 já fazia.
     from . import kpi as _kpi
     return {
-        "proposal": proposal,
+        "proposal": None,
         "explicacao": _kpi.normalize_markdown(str(chosen.get("explicacao") or "")),
         "operar": operar,
-        "precoAtual": _num(chosen.get("precoAtual")),
-        "cenarios": cenarios,
+        "riscos": [_kpi.normalize_markdown(x) for x in riscos],
+        "quandoRevisar": _kpi.normalize_markdown(str(chosen.get("quandoRevisar") or "")),
         "modelosUtilizados": modelos,
+        "numerosIaDescartados": bool(descartou),
     }
 
 
@@ -1178,24 +1148,16 @@ async def analyze_carteira(config: dict, profile: dict, account: dict, ticker: s
     instruction = (prompt or "").strip()
     cenarios_ext = ""
     if tech_context:
+        # Fase 50 / D-10: sem cenarios numericos da IA. O contexto traz
+        # marcosMotor (stop/alvo/R:R do motor); a IA so explica.
         cenarios_ext = "\n".join([
             "",
-            "EXTENSÃO OBRIGATÓRIA DO FORMATO: além dos campos do array, cada objeto",
-            "inclui:",
-            '  "cenarios": [',
-            '    {"perfil": "conservador", "stop": 0.0, "alvo": 0.0, "riscoRetorno": 0.0,',
-            '     "memoriaCalculo": "ex.: stop didático = mínima local 36,80 − 1×ATR 0,52 = 36,28"},',
-            '    {"perfil": "moderado", ...}, {"perfil": "agressivo", ...}',
-            "  ],",
+            "EXTENSÃO OBRIGATÓRIA DO FORMATO: cada objeto inclui também",
             '  "modelosUtilizados": [{"nome":"...","oQueE":"...","oQueMede":"...","limitacoes":"..."}]',
-            "Regras dos cenários (metodologia de mesa, uso EDUCACIONAL):",
-            "- stop TÉCNICO ligado à invalidação (suporte/mínima local e/ou k×ATR do",
-            "  CONTEXTO TÉCNICO fornecido) — nunca arbitrário; alvo em resistência ou",
-            "  múltiplos de ATR. Todo número citado VEM do contexto (não invente).",
-            "- riscoRetorno = (alvo−preço)/(preço−stop); se < " + skill_ref.RR_MIN_TXT + " marque",
-            '  "rrDesfavoravel": true (cenário fica rotulado como estudo).',
-            "- Ajuste as distâncias ao PERFIL (tolerância de perda) e ao capital.",
-            "- Sem verbo de ordem; são sugestões PARA ESTUDO que o usuário confirma.",
+            "Regras (uso EDUCACIONAL): os níveis de stop, alvo e R:R estão em",
+            "marcosMotor no CONTEXTO TÉCNICO — explique-os, NÃO os recalcule nem",
+            "proponha outros números. Sem marcosMotor, diga: Não há dados suficientes para concluir.",
+            "- Sem verbo de ordem; a decisão é sempre do usuário.",
         ])
     # FASE 8B (B4/N3): no modo OPERADOR o prompt configurável do usuário ganha
     # a camada de MESA por cima (tom direto + conclusões canônicas + limites) —
@@ -1203,8 +1165,8 @@ async def analyze_carteira(config: dict, profile: dict, account: dict, ticker: s
     # qa/39 (P1-4): o modo ESTUDO também ganha a camada de guardrails do
     # SERVIDOR — antes o system era só o prompt salvo (editável pelo usuário):
     # em conta gerenciada, o floor regulatório inteiro ficava apagável.
-    voz = ("\n\n" + GUARDRAILS_PRO + "\nFale como mesa de operações: stop na invalidação técnica, "
-           "alvos com R:R explícito e uma linha de racional por número.") if is_operador(config) else ("\n\n" + GUARDRAILS)
+    voz = ("\n\n" + GUARDRAILS_PRO + "\nFale como mesa de operações: explique o stop e o alvo do motor, "
+           "o R:R e uma linha de racional por marco — sem propor número novo.") if is_operador(config) else ("\n\n" + GUARDRAILS)
     # A4 (auditoria 2026-07-31): o "Termine SEMPRE..." dos guardrails precisa de
     # ENDEREÇO neste contrato (array com `explicacao`) — senão a conclusão sai
     # fora do JSON e arrisca o parse.
@@ -1223,25 +1185,20 @@ async def analyze_carteira(config: dict, profile: dict, account: dict, ticker: s
     user = _build_user_prompt(ticker, quote, history, profile, account,
                               fecho=f"Com base nas instrucoes, no PERFIL e nestes dados reais, produza a analise de stop/alvo de {ticker} no ARRAY JSON especificado (um objeto por ativo).")
     if tech_context:
-        user += "\n\nCONTEXTO TÉCNICO PRÉ-CALCULADO (ATR, suportes/resistências da janela, bandas, viés) — use ESTES números:\n" + json.dumps(tech_context, ensure_ascii=False, separators=(",", ":"))
+        user += "\n\nCONTEXTO TÉCNICO PRÉ-CALCULADO (ATR, suportes/resistências da janela, bandas, viés) — use ESTES números (marcosMotor = stop/alvo do motor):\n" + json.dumps(tech_context, ensure_ascii=False, separators=(",", ":"))
     raw = await _call_llm(config, key, system, user, 1300 if tech_context else 900)
     if not raw:
         raise RuntimeError("A LLM nao retornou texto.")
     res = parse_carteira(raw, ticker)
-    # Robustez: se a resposta veio no formato antigo (objeto único com
-    # stopSugerido/alvoSugerido), aproveita via parse_rich — evita "sem proposta"
-    # quando o prompt salvo ainda é o default anterior.
-    if res.get("proposal") is None and not res.get("explicacao"):
+    # Fase 50 / D-10: o fallback que promovia parse_rich().proposal saiu — nenhum
+    # numero da IA vira proposta. Resposta no formato antigo (objeto unico) so
+    # aproveita o resumo como explicacao.
+    if not res.get("explicacao"):
         try:
             rich = parse_rich(raw)
-            prop = rich.get("proposal")
-            if prop and (prop.get("stop") is not None or prop.get("alvo") is not None):
-                res = {
-                    "proposal": prop,
-                    "explicacao": (rich.get("detail") or {}).get("resumo") or "",
-                    "operar": True,
-                    "precoAtual": None,
-                }
+            resumo = (rich.get("detail") or {}).get("resumo") or ""
+            if resumo:
+                res = {**res, "explicacao": resumo}
         except Exception:  # noqa: BLE001
             pass
     return res

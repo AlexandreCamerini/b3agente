@@ -145,9 +145,11 @@ def test_parse_carteira_recomputa_rr():
            '"cenarios":[{"perfil":"moderado","stop":95.0,"alvo":105.0,'
            '"riscoRetorno":2.0,"memoriaCalculo":"m"}]}]')
     r = llm.parse_carteira(raw, "PETR4")
-    c = r["cenarios"][0]
-    assert c["riscoRetorno"] == 1.0        # recomputado: |105−100|/|100−95|
-    assert c["rrDesfavoravel"] is True     # < 1,5 → gate acende
+    # Fase 50 / D-10: cenários/stop/alvo da IA são DESCARTADOS no parse — o R:R
+    # recomputado deixou de existir porque a IA não devolve mais número (o R:R
+    # vem do motor, marcos_servico). O que travamos agora: nada numérico passa.
+    assert "cenarios" not in r and r["proposal"] is None
+    assert r["numerosIaDescartados"] is True
 
 
 def test_n3_estudo_tem_guardrails_e_maps_conhecem_enum_pro():

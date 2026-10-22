@@ -58,8 +58,11 @@ def test_format_pro_troca_vocabulario_sem_trocar_contrato():
     assert '"recomendacao": "COMPRAR|VENDER|AGUARDAR CONFIRMAÇÃO|NÃO OPERAR|Reduzir risco",' in llm.FORMAT_PRO
     assert "Estudar alta|Estudar baixa" not in llm.FORMAT_PRO
     assert "PLANO EDUCACIONAL" not in llm.FORMAT_PRO
-    for chave in ('"direcao"', '"conviccao"', '"qualidade"', '"resumo"', '"corpo"', '"stopSugerido"', '"alvoSugerido"'):
+    for chave in ('"direcao"', '"conviccao"', '"qualidade"', '"resumo"', '"corpo"'):
         assert chave in llm.FORMAT_PRO, "chave do contrato sumiu no PRO: " + chave
+    # Fase 50 / D-10: a IA não pede nem devolve número de stop/alvo; as chaves
+    # saíram do contrato (o motor entrega os marcos).
+    assert "stopSugerido" not in llm.FORMAT_PRO and "alvoSugerido" not in llm.FORMAT_PRO
     # M1 (auditoria 2026-07-31): o FORMAT_PRO pedia 12 E 10 linhas — o limite
     # herdado do FORMAT tem de sair; só o da mesa (10) fica.
     assert "12 linhas" not in llm.FORMAT_PRO

@@ -306,8 +306,12 @@ def test_a8ii_paridade_defaults_skill_com_catalog_js():
 # ===== M3 — regra explícita de null para stop/alvo sem referência ===========
 
 def test_m3_format_pede_null_nunca_zero():
-    assert "use null (nunca 0.0" in llm.FORMAT
-    assert "use null (nunca 0.0" in llm.FORMAT_PRO  # herdado na derivação
+    # Fase 50 D-10: FORMAT não pede mais número; o guardião passa a travar que
+    # stopSugerido/alvoSugerido NÃO aparecem e que a frase de não inventar número
+    # aparece (a regra "null nunca 0.0" ficou sem objeto).
+    for fmt in (llm.FORMAT, llm.FORMAT_PRO):  # PRO herda na derivação
+        assert "stopSugerido" not in fmt and "alvoSugerido" not in fmt
+        assert "nunca invente numero" in fmt
 
 
 # ===== Pendência 2 (2026-08-01) — migração dos llmPrompts nunca editados ====

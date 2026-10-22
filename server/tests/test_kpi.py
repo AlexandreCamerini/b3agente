@@ -83,8 +83,9 @@ def test_parse_rich_estruturado():
     assert r["detail"]["confirmacoes"] == ["Acima da SMA20", "MACD positivo"]
     assert r["detail"]["invalidacoes"] == ["Perde 38,50"]
     assert r["detail"]["cuidados"] == ["Liquidez baixa"]
-    assert r["proposal"]["stop"] == 37.9
-    assert r["proposal"]["alvo"] == 44.2          # "R$ 44,20" -> 44.2
+    # Fase 50 / D-10: a IA não fornece mais número; o proposal do parser é sempre
+    # {None, None} (o número aplicável vem do motor, na rota).
+    assert r["proposal"] == {"stop": None, "alvo": None}
     assert "{" not in r["text"]                   # JSON nao vaza
 
 
@@ -125,9 +126,10 @@ def test_geometria_incoerente_anulada_para_rec_nao_direcional():
     r = parse_rich(raw)
     assert r["proposal"]["stop"] is None and r["proposal"]["alvo"] is None
     # coerente (baixa, alvo<stop) permanece
+    # Fase 50 / D-10: o caso coerente também vira None — a IA não fornece número.
     ok = parse_rich('{"recomendacao":"Aguardar","direcao":"Baixa","corpo":"y",'
                     '"stopSugerido":4.92,"alvoSugerido":4.55}')
-    assert ok["proposal"]["stop"] == 4.92 and ok["proposal"]["alvo"] == 4.55
+    assert ok["proposal"] == {"stop": None, "alvo": None}
 
 
 def test_normalize_markdown_dialetos_de_llm():
