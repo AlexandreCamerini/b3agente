@@ -234,6 +234,10 @@ export function estadoPrincipalV6({ p, estrutura, leituraPlano } = {}) {
     if (travada > 0 && livre === 0) principal = linha("estado_travadas_todas", {}, "info", "cadeado");
     else if (travada > 0 && livre > 0 && livre < qty) {
       principal = linha("estado_travadas_parcial", { n: travada, m: qty, k: livre }, "info", "cadeado");
+    } else if (leituraPlano && !leituraPlano.desatualizada && leituraPlano.plano === "invalido") {
+      // Fase 50 (D-13): marcos gravados que o motor recusa (geometria impossível)
+      // vencem 'falta stop/alvo'; o detalhe vem pronto do backend (textoInvalido).
+      principal = linha("estado_plano_invalido", {}, "atencao", "⚠");
     } else if (protegidaPelaPut) {
       // 46.1 (2026-10-02, MD-01): proteção declarada pelo motor (stopTexto) — não
       // acusa "sem stop e alvo" nem fora/dentro do plano.

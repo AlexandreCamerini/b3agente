@@ -233,5 +233,18 @@ ok("sem import de react", !/from\s+["']react["']/.test(codigo));
 ok("sem import de persistence/api/App", !/import[^;]*(persistence|\/api|App\.jsx)/.test(codigo));
 ok("sem timers", !/setInterval|setTimeout/.test(codigo));
 
+// Fase 50 (D-13): plano inválido vence falta_stop/falta_alvo; leitura desatualizada não acusa.
+{
+  const inv = { plano: "invalido", desatualizada: false };
+  const r1 = E.estadoPrincipalV6({ p: { t: "A", qty: 10, stop: 25, alvo: null }, leituraPlano: inv });
+  ok("plano inválido vence falta_alvo", r1.principal && r1.principal.chave === "estado_plano_invalido", JSON.stringify(r1));
+  const r2 = E.estadoPrincipalV6({ p: { t: "A", qty: 10, stop: 25, alvo: 20 }, leituraPlano: inv });
+  ok("plano inválido com stop e alvo gravados", r2.principal && r2.principal.chave === "estado_plano_invalido");
+  const r3 = E.estadoPrincipalV6({ p: { t: "A", qty: 10, stop: 25, alvo: null }, leituraPlano: { plano: "invalido", desatualizada: true } });
+  ok("leitura desatualizada não acusa plano inválido", r3.principal && r3.principal.chave === "estado_falta_alvo", JSON.stringify(r3));
+  const r4 = E.estadoPrincipalV6({ p: { t: "A", qty: 10, stop: 18, alvo: 25 }, leituraPlano: { plano: "valido", desatualizada: false } });
+  ok("plano válido não vira inválido", !r4.principal || r4.principal.chave !== "estado_plano_invalido");
+}
+
 if (fails) { console.log(`\n${fails} falha(s)`); process.exit(1); }
 console.log("\ntudo ok");

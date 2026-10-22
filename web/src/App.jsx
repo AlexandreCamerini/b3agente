@@ -3878,7 +3878,7 @@ function AtivoCard({ vm, contexto = "watchlist", children }) {
                       {rrPos != null && (
                         <SetorAlvo setorId="r" rotulo="o R" A={A} didatica={didatica}
                           dados={dadosDoCard} style={{ display: "inline-flex" }}>
-                          <span><span style={SUBLINHADO}>R:R</span> <b style={{ color: T.textPrimary, fontWeight: 700 }}>{rrPos.toFixed(1)}</b></span>
+                          <span><span style={SUBLINHADO}>{cartaoPosicaoTxt(operador ? "operador" : "estudo", "rr_atual")}</span> <b style={{ color: T.textPrimary, fontWeight: 700 }}>{rrPos.toFixed(1)}</b></span>
                         </SetorAlvo>
                       )}
                       {diasPos != null && <span>· {diasPos} dias</span>}
@@ -4988,7 +4988,7 @@ function CartaoPosicao({ p, nomeEmpresa, modoLeitura, leituraEstrutura, leituraP
   const nPernas = e ? (e.pernas || []).length : 0;
   const face = faceEscolhida || faceInicial(nPernas);
   const faceAcao = (
-    <FaceAcao p={p} leitura={leituraPlano} data={data} total={total} modo={modo} cp={cp} onEditarPlano={onEditar} editandoPlano={editAberto} editorPlano={editAberto ? <EditorStopAlvo p={p} ctx={ctx} /> : null} comEstrutura={!!e} />
+    <FaceAcao p={p} leitura={leituraPlano} data={data} total={total} modo={modo} cp={cp} onEditarPlano={onEditar} editandoPlano={editAberto} editorPlano={editAberto ? <EditorStopAlvo p={p} ctx={ctx} /> : null} comEstrutura={!!e} onRedefinir={() => ctx.openStopAlvo(p.t)} />
   );
   const txtValor = rsSinalNbsp(res.cabecalho.valor);
   const corValor = res.cabecalho.valor == null ? T.textMuted : sinalResultado(res.cabecalho.valor) === "pos" ? T.positive : sinalResultado(res.cabecalho.valor) === "neg" ? T.negative : T.textMuted;
@@ -5480,8 +5480,9 @@ function AreaFlip({ face, render }) {
 // (par PM -> atual, régua com ✎ Ajustar, chips), Plano só com R:R e setup. Stop e
 // alvo aparecem UMA vez (régua, ou texto quando há estrutura) e nunca são vetados:
 // Ajustar / Falta definir sempre tocáveis. Sem número novo: tudo vem de p/leitura.
-function FaceAcao({ p, leitura, data, total, modo, cp, onEditarPlano, editandoPlano, editorPlano, comEstrutura }) {
+function FaceAcao({ p, leitura, data, total, modo, cp, onEditarPlano, editandoPlano, editorPlano, comEstrutura, onRedefinir }) {
   const L = leitura || {};
+  const planoInvalido = !!(L && !L.desatualizada && L.plano === "invalido"); // Fase 50 D-13
   const rotulo = { fontSize: TIPO_CARD.rotulo, fontWeight: 400, color: T.textSecondary };
   const tituloBloco = { fontSize: TIPO_CARD.rotulo, fontWeight: 700, color: T.textSecondary };
   const valor = { fontFamily: MONO, fontSize: TIPO_CARD.corpo, fontWeight: 700, color: T.textPrimary, fontVariantNumeric: "tabular-nums" };
@@ -5554,10 +5555,20 @@ function FaceAcao({ p, leitura, data, total, modo, cp, onEditarPlano, editandoPl
         </div>
       </div>
 
-      {(L.rr != null || se) && (
+      {(L.rr != null || L.rrPlano != null || se || planoInvalido) && (
         <div>
           <div style={tituloBloco}>{cartaoPosicaoTxt(modo, "plano_titulo")}</div>
+          {planoInvalido && (
+            /* Fase 50 (D-13): marcos gravados que o motor recusa — o texto vem pronto do
+               backend; o toque abre o modal de marcos (Aplicar fica sempre habilitado). */
+            <div role="alert" style={{ padding: `${SP[2]}px 0`, display: "flex", flexDirection: "column", gap: `${SP[2]}px` }}>
+              <div style={{ fontSize: TIPO_CARD.corpo, fontWeight: 700, color: T.textPrimary }}>{cartaoPosicaoTxt(modo, "estado_plano_invalido")}</div>
+              {L.textoInvalido && <div style={{ fontSize: TIPO_CARD.rotulo, color: T.textSecondary, lineHeight: 1.5, overflowWrap: "anywhere" }}>{L.textoInvalido}</div>}
+              <button type="button" onClick={onRedefinir} style={{ minHeight: 44, alignSelf: "flex-start", padding: `0 ${SP[3]}px`, borderRadius: "10px", border: `1px solid ${T.accent}`, background: "transparent", color: T.accent, fontSize: TIPO_CARD.corpo, fontWeight: 700 }}>Redefinir</button>
+            </div>
+          )}
           {L.rr != null && linha("rr", cartaoPosicaoTxt(modo, "rr_atual"), <span style={valor}>{nf2.format(L.rr)}</span>)}
+          {L.rrPlano != null && linha("rrPlano", cartaoPosicaoTxt(modo, "rr_plano"), <span style={valor}>{nf2.format(L.rrPlano)}</span>)}
           {se && linha("setup", cartaoPosicaoTxt(modo, "setup_entrada"), (
             <span style={{ flex: "1 1 auto", minWidth: 0, textAlign: "right", overflowWrap: "anywhere", fontSize: TIPO_CARD.corpo, color: T.textPrimary }}>
               <b style={{ fontWeight: 400 }}>{se.setup || "—"}</b>
@@ -10211,7 +10222,7 @@ export default function App() {
             // seria propor proteção para algo que não existe.
             flash(cp.toastOrdemPendente(bm.qty, bm.t));
           } else {
-            flash(cp.toastCompra(bm.qty, bm.t)); // FASE 8B (B1): voz do modo
+            flash(cp.toastCompra(bm.qty, bm.t) + (s.marcosTexto ? " " + s.marcosTexto : "")); // FASE 8B (B1): voz do modo; Fase 50: + marcos do motor (ou o motivo de não ter)
             // FASE 2 (2.3): oferta IMEDIATA do N3 — modal com cenários; nada é
             // aplicado sem o toque do usuário (Fechar cancela sem efeito).
             setStopAlvoFor(bm.t);

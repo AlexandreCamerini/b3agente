@@ -29,5 +29,13 @@ ok("modal não lê r.cenarios", !/\.cenarios/.test(modal));
 ok("título do modal vem do vocabulário (modal_titulo)", /"modal_titulo"/.test(modal));
 ok("applyStopAlvoFor não fecha o modal em erro (onRecusa)", /applyStopAlvoFor: async \(t, stop, alvo, onRecusa\)/.test(app));
 
+// ---- Task 2: toggle, card inválido, rótulos de R:R -------------------------
+ok("toggle de gestão no modal (gestao_toggle, gestaoAuto !== false)", /"gestao_toggle"/.test(modal) && /gestaoAuto !== false/.test(modal));
+ok("toggle com alvo de toque de 44px", /minHeight: 44[^}]*alignItems: "flex-start"/.test(modal));
+ok("rótulo R:R do plano (rr_plano)", /"rr_plano"/.test(app));
+ok("rótulo R:R restante (rr_atual) no AtivoCard", /"rr_atual"/.test(app));
+ok("compra mostra marcosTexto do servidor", /marcosTexto/.test(app));
+ok("estruturaCard: estado_plano_invalido", /estado_plano_invalido/.test(estrutura));
+
 if (fails) { console.error("\n" + fails + " falha(s)"); process.exit(1); }
 console.log("\ntodos os testes passaram");
