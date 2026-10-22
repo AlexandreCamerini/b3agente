@@ -44,8 +44,9 @@ def rastrear(cadeia: Any, filtros: dict[str, Any] | None) -> list[dict[str, Any]
     (liquidez + strike extremo).
 
     `filtros` aceita: `tipo` ("call"|"put"), `referencia` (spot, float|None),
-    `relacao` ("acima" -> strike > referencia; "abaixo_ou_igual" -> strike <=
-    referencia; ausente -> não filtra por spot), `criterio` ("min"|"max",
+    `relacao` ("acima" -> strike > referencia; "acima_ou_igual" -> strike >=
+    referencia [Fase 50 D-16: âncora no alvo do plano, que PODE coincidir com um
+    strike]; "abaixo_ou_igual" -> strike <= referencia; ausente -> não filtra por spot), `criterio` ("min"|"max",
     default "min"), `liquidez_minima` (override explícito, opcional — quando
     ausente, seleciona em DUAS PASSADAS: ver abaixo), `n` (default 1).
 
@@ -90,6 +91,8 @@ def rastrear(cadeia: Any, filtros: dict[str, Any] | None) -> list[dict[str, Any]
     relacao = filtros.get("relacao")
     if relacao == "acima" and isinstance(referencia, (int, float)):
         candidatos = [c for c in candidatos if (c.get("strike") or 0) > referencia]
+    elif relacao == "acima_ou_igual" and isinstance(referencia, (int, float)):
+        candidatos = [c for c in candidatos if (c.get("strike") or 0) >= referencia]
     elif relacao == "abaixo_ou_igual" and isinstance(referencia, (int, float)):
         candidatos = [c for c in candidatos if (c.get("strike") or 0) <= referencia]
 

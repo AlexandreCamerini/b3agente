@@ -10,7 +10,7 @@ manchete do motor determinístico).
 """
 import datetime as dt
 
-from . import opcoes_motor, skill_ref, store
+from . import opcoes_motor, setups, skill_ref, store
 from .options_quant import faixa_de_liquidez, liquidity_score, FAIXA_DIFICIL
 
 # Prazo elegível: cadeia carregada traz um vencimento só — escolher outro é
@@ -69,7 +69,71 @@ def _bloco_liquidez(contrato, liq, modo):
     return {"score": score, "faixa": faixa, "volume": contrato.get("volume"), "spreadPct": liq["spreadPct"], "aviso": aviso}
 
 
-def _propor_collar(underlying, chain, spot, contrato_put, posicao, cash, modo, hoje, dias, qty_livre_val):
+def _ancora_spot(spot, modo):
+    return {"tipo": "spot", "valor": spot,
+            "texto": skill_ref.marcos_plano_txt(modo, "opcao_ancora_spot")}
+
+
+def _ancora_alvo(alvo, modo):
+    return {"tipo": "alvo", "valor": alvo,
+            "texto": skill_ref.marcos_plano_txt(modo, "opcao_ancora_alvo", alvo=skill_ref.num_br(alvo))}
+
+
+def _ancora_stop(stop, modo):
+    return {"tipo": "stop", "valor": stop,
+            "texto": skill_ref.marcos_plano_txt(modo, "opcao_ancora_stop", stop=skill_ref.num_br(stop))}
+
+
+def _marcos_validos(posicao, spot):
+    """Fase 50 D-16 (T-50-23): (stop, alvo) utilizáveis como âncora de strike, ou
+    None em cada um. Geometria inválida (validar_marcos com avg=) invalida AMBOS;
+    além disso a âncora precisa estar do lado certo do spot (alvo acima, stop
+    abaixo) — senão o strike seria ITM e deixaria de ser a perna OTM da estrutura."""
+    stop, alvo = posicao.get("stop"), posicao.get("alvo")
+    if (stop is None and alvo is None) or setups.validar_marcos(stop, alvo, avg=posicao.get("avg")) is not None:
+        return None, None
+    stop = stop if stop is not None and stop < spot else None
+    alvo = alvo if alvo is not None and alvo > spot else None
+    return stop, alvo
+
+
+def _call_ancorada(chain, spot, alvo, modo):
+    """Call de menor strike >= alvo; sem strike/liquidez para a âncora, regra do
+    spot com ancora 'spot' (T-50-24: nunca interpola strike). -> (selecionados, ancora)."""
+    if alvo is not None:
+        sel = opcoes_motor.rastrear(chain, {
+            "tipo": "call", "referencia": alvo, "relacao": "acima_ou_igual",
+            "criterio": "min", "n": 1})
+        if sel:
+            return sel, _ancora_alvo(alvo, modo)
+    sel = opcoes_motor.rastrear(chain, {
+        "tipo": "call", "referencia": spot, "relacao": "acima",
+        "criterio": "min", "n": 1})
+    return sel, _ancora_spot(spot, modo)
+
+
+def _put_ancorada(chain, spot, stop, modo):
+    """Put de strike mais próximo do stop (empate -> o de baixo, proteção mais
+    barata); sem strike, regra do spot. -> (selecionados, ancora)."""
+    if stop is not None:
+        abaixo = opcoes_motor.rastrear(chain, {
+            "tipo": "put", "referencia": stop, "relacao": "abaixo_ou_igual",
+            "criterio": "max", "n": 1})
+        acima = opcoes_motor.rastrear(chain, {
+            "tipo": "put", "referencia": stop, "relacao": "acima",
+            "criterio": "min", "n": 1})
+        cands = abaixo + acima
+        if cands:
+            melhor = min(cands, key=lambda c: (abs(c["strike"] - stop), c["strike"]))
+            return [melhor], _ancora_stop(stop, modo)
+    sel = opcoes_motor.rastrear(chain, {
+        "tipo": "put", "referencia": spot, "relacao": "abaixo_ou_igual",
+        "criterio": "max", "n": 1})
+    return sel, _ancora_spot(spot, modo)
+
+
+def _propor_collar(underlying, chain, spot, contrato_put, posicao, cash, modo, hoje, dias, qty_livre_val,
+                   alvo=None, ancora_put=None):
     """Trava protetora (collar): vende 1 call OTM (mesma régua do ramo
     `call_coberta` — `opcoes_motor.rastrear`, duas passadas NEGOCIÁVEL/DIFÍCIL
     via `options_quant.faixa_de_liquidez`, strike acima do spot) + a put de
@@ -81,13 +145,14 @@ def _propor_collar(underlying, chain, spot, contrato_put, posicao, cash, modo, h
     não cabe no caixa disponível) — `propor()` cai no `caixa_insuficiente` de
     sempre quando isto acontece; nunca uma exceção, nunca uma proposta
     incompleta."""
-    selecionados = opcoes_motor.rastrear(chain, {
-        "tipo": "call", "referencia": spot, "relacao": "acima",
-        "criterio": "min", "n": 1,
-    })
+    # Fase 50 D-16: `alvo` (já validado por `_marcos_validos`) ancora a call; a put
+    # chega escolhida (e ancorada no stop, se for o caso) por `ancora_put`.
+    selecionados, ancora = _call_ancorada(chain, spot, alvo, modo)
     contrato_call = selecionados[0] if selecionados else None
     if not contrato_call:
         return None
+    if ancora["tipo"] == "spot" and ancora_put is not None and ancora_put["tipo"] == "stop":
+        ancora = ancora_put
 
     # Pernas de opção, por unidade do objeto (mesma convenção "quantidade=1"
     # do resto do módulo).
@@ -189,6 +254,7 @@ def _propor_collar(underlying, chain, spot, contrato_put, posicao, cash, modo, h
         "estrutura": estrutura,
         "caixa": caixa,
         "precoObjeto": round(float(spot), 2),
+        "ancora": ancora,
     }
 
 
@@ -271,24 +337,15 @@ def propor(underlying, chain, spot, plano, posicao, cash, modo, hoje, *, multipe
     if not prazo_elegivel(dias):
         return {"proposta": None, "motivo": "sem_vencimento_elegivel"}
 
+    # Fase 50 D-16: strikes ancorados nos marcos do plano quando válidos; senão a
+    # regra do spot, DECLARADA em `ancora`. Desempate de put em `_put_ancorada`
+    # (e o do spot segue o `rastrear(criterio="max")` de sempre — o ÚLTIMO empatado;
+    # cadeia real da B3 não repete strike por tipo/vencimento).
+    stop_ok, alvo_ok = _marcos_validos(posicao, spot)
     if tipo == "call_coberta":
-        selecionados = opcoes_motor.rastrear(chain, {
-            "tipo": "call", "referencia": spot, "relacao": "acima",
-            "criterio": "min", "n": 1,
-        })
+        selecionados, ancora = _call_ancorada(chain, spot, alvo_ok, modo)
     else:
-        # Desempate de strike mudou com a migração: `max(validos,
-        # key=strike)` (implementação anterior) devolvia o PRIMEIRO strike
-        # máximo na ordem da cadeia; `rastrear(criterio="max")` ordena
-        # ascendente e devolve `list(reversed(...))[:n]`
-        # (opcoes_motor.py:105-108) — o ÚLTIMO empatado. Cadeia real da B3
-        # não repete strike no mesmo tipo e vencimento; a régua única (fonte
-        # compartilhada com venda coberta e o futuro collar) vale mais que
-        # preservar o desempate arbitrário anterior.
-        selecionados = opcoes_motor.rastrear(chain, {
-            "tipo": "put", "referencia": spot, "relacao": "abaixo_ou_igual",
-            "criterio": "max", "n": 1,
-        })
+        selecionados, ancora = _put_ancorada(chain, spot, stop_ok, modo)
     # NÃO passar `liquidez_minima`: sem override, `rastrear()` já faz as duas
     # passadas NEGOCIÁVEL/DIFÍCIL sozinho (quick 260908-ldg) — repassar um
     # piso aqui recriaria o acoplamento local que a migração da Fase 16
@@ -314,7 +371,8 @@ def propor(underlying, chain, spot, plano, posicao, cash, modo, hoje, *, multipe
         # parâmetro, nunca reseleciona.
         if multiperna:
             colar = _propor_collar(
-                underlying, chain, spot, contrato, posicao, cash, modo, hoje, dias, qty_livre_val)
+                underlying, chain, spot, contrato, posicao, cash, modo, hoje, dias, qty_livre_val,
+                alvo=alvo_ok, ancora_put=ancora)
         if contratos < 1:
             # Julgamento de produto herdado da Fase 16 (16-CONTEXT.md,
             # decisão tomada com autonomia concedida): sem caixa para a put
@@ -399,6 +457,7 @@ def propor(underlying, chain, spot, plano, posicao, cash, modo, hoje, *, multipe
             "fluxo": caixa_pernas["fluxo"],
         },
         "precoObjeto": round(float(spot), 2),
+        "ancora": ancora,
     }
     # Fase 19, MULTI-01: `candidatos` começa pelo candidato PRIMÁRIO
     # (`proposta`, put_protecao ou call_coberta) e acrescenta `colar` quando
