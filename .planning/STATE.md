@@ -21,7 +21,7 @@ progress:
 See: .planning/PROJECT.md (updated 2026-09-27)
 
 **Core value:** O usuário leigo sai do Modo Estudo entendendo de verdade como o mercado funciona — não decorou uma resposta, aprendeu o raciocínio — e só então tem acesso a automações do Modo Operador.
-**Current focus:** Milestone v2.0 sem fase aberta (47 fechada, não publicada). Pendente: conferência visual da 47 pelo Alex, publicação com aval, dívidas abaixo.
+**Current focus:** Fase 50 (marcos do plano — stop, alvo e entrada pelo motor) FECHADA em 2026-10-22 (10/10 planos, suíte canônica rc=0 com 3772 pytest + 231 .mjs, 50-REVIEW CR-01/WR-01..06 resolvidos, 50-VERIFICATION passed, checkpoint 50-10 aprovado); NÃO publicada — produção em F10-20261015-03 com auto-deploy do Railway parado desde 15/10 (F10-20261021-01/-02 pushados e não deployados). Pendências da fase: IN-01 textos fixos fora do vocabulário, IN-05, IN-06, stopInicial ao somar lote, set_option_position sem validação numérica, notaStopAlvo órfã em copy.js/skill_ref. Antes: milestone v2.0 sem fase aberta (47 fechada, não publicada). Pendente: conferência visual da 47 pelo Alex, publicação com aval, dívidas abaixo.
 
 ## Current Position
 

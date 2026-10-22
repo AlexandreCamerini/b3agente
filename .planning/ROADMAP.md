@@ -529,7 +529,7 @@ Plans:
 **Goal:** stop, alvo e ponto de entrada de toda posição (manual ou automática) — e as variáveis que as opções reutilizam — saem de UMA função determinística do motor, com geometria validada; a IA explica os marcos, não escolhe o número gravado; entrada automática já nasce com stop e alvo.
 **Requirements**: MARC-01, MARC-02, MARC-03, MARC-04, MARC-05, MARC-06, MARC-07, MARC-08, MARC-09, MARC-10, MARC-11, MARC-12, MARC-13, MARC-14, MARC-15, MARC-16, MARC-17, MARC-18, MARC-19
 **Depends on:** Phase 49
-**Plans:** 10 plans
+**Plans:** 10/10 plans complete — FECHADA em 2026-10-22 (verifier passed, checkpoint 50-10 aprovado pelo Alex; NÃO publicada)
 
 Requisitos (IDs da fase, derivados de D-01..D-16 do 50-CONTEXT.md):
 
@@ -567,13 +567,13 @@ Requisitos (IDs da fase, derivados de D-01..D-16 do 50-CONTEXT.md):
 
 Plans:
 
-- [ ] 50-01-PLAN.md — Wave 1 · motor puro de marcos (geometria/R:R; revalidação na execução com perseguição; sizing) e plano do Radar sobre ele (TDD)
-- [ ] 50-02-PLAN.md — Wave 1 · vocabulário da fase (skill_ref ↔ copy.js), nota D-12 no CLAUDE.md, adendo de quebra de série no ADR-015 (inclui N2)
-- [ ] 50-03-PLAN.md — Wave 2 · store: set_position validado, buy com marcos (lote somado), ordem pendente com marcos revalidados
-- [ ] 50-06-PLAN.md — Wave 2 · card (plano inválido, rrPlano) e opções ancoradas nos marcos (put_bridge/curadoria diferidos, D-19)
-- [ ] 50-04-PLAN.md — Wave 3 · rotas: PUT 400 com preço obrigatório + gestaoAuto, /api/buy com marcos no preço executado, POST /api/marcos/{ticker}
-- [ ] 50-05-PLAN.md — Wave 3 · Operador: gate de plano inválido + gestão padrão (T1); entrada automática com marcos, perseguição e sizing (T2)
-- [ ] 50-07-PLAN.md — Wave 4 · IA só explica: FORMAT/parsers (T1), contexto sem riskPlanReference/alvoSugerido (T2), prompts N3 + paridade (T3), rotas N2/N3 (T4)
-- [ ] 50-08-PLAN.md — Wave 4 · front dados: validarMarcos/sizing espelhados, stores com marcos(), putPosition local com preço obrigatório, gate do laço local
-- [ ] 50-09-PLAN.md — Wave 5 · UI: modal sobre marcos (Aplicar habilitado, recusa no modal), toggle, card "plano inválido", R:R, bloco do plano/régua (D-18), guardiões D-12
-- [ ] 50-10-PLAN.md — Wave 6 · checkpoint do Alex no web e iPhone (regressão 23,01/23,51/23,36/21,58)
+- [x] 50-01-PLAN.md — Wave 1 · motor puro de marcos (geometria/R:R; revalidação na execução com perseguição; sizing) e plano do Radar sobre ele (TDD)
+- [x] 50-02-PLAN.md — Wave 1 · vocabulário da fase (skill_ref ↔ copy.js), nota D-12 no CLAUDE.md, adendo de quebra de série no ADR-015 (inclui N2)
+- [x] 50-03-PLAN.md — Wave 2 · store: set_position validado, buy com marcos (lote somado), ordem pendente com marcos revalidados
+- [x] 50-06-PLAN.md — Wave 2 · card (plano inválido, rrPlano) e opções ancoradas nos marcos (put_bridge/curadoria diferidos, D-19)
+- [x] 50-04-PLAN.md — Wave 3 · rotas: PUT 400 com preço obrigatório + gestaoAuto, /api/buy com marcos no preço executado, POST /api/marcos/{ticker}
+- [x] 50-05-PLAN.md — Wave 3 · Operador: gate de plano inválido + gestão padrão (T1); entrada automática com marcos, perseguição e sizing (T2)
+- [x] 50-07-PLAN.md — Wave 4 · IA só explica: FORMAT/parsers (T1), contexto sem riskPlanReference/alvoSugerido (T2), prompts N3 + paridade (T3), rotas N2/N3 (T4)
+- [x] 50-08-PLAN.md — Wave 4 · front dados: validarMarcos/sizing espelhados, stores com marcos(), putPosition local com preço obrigatório, gate do laço local
+- [x] 50-09-PLAN.md — Wave 5 · UI: modal sobre marcos (Aplicar habilitado, recusa no modal), toggle, card "plano inválido", R:R, bloco do plano/régua (D-18), guardiões D-12
+- [x] 50-10-PLAN.md — Wave 6 · checkpoint do Alex no web e iPhone (regressão 23,01/23,51/23,36/21,58)
