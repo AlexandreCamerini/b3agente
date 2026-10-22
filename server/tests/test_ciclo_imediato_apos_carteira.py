@@ -52,6 +52,12 @@ def _cliente(monkeypatch):
         return {"events": [], "executed": 0}
 
     monkeypatch.setattr(main.agent_mod, "run_cycle_for", _fake_run_cycle_for)
+    # Fase 50 / D-12: a invariante vale para parecer; geometria é validada
+    # contra preço (D-11) — cotação coerente fixada (41,00 > stop 39,5).
+    async def _fake_quote(t):
+        return {"price": 41.0}
+
+    monkeypatch.setattr(main.candle_provider, "get_quote", _fake_quote)
     return TestClient(main.app), main, chamadas
 
 

@@ -357,12 +357,17 @@ def test_stop_alvo_nunca_ganha_gate_de_papel_ou_plano(monkeypatch):
     """Guardrail do CLAUDE.md: papel/plano NUNCA veta stop/alvo. Usuário SEM
     nenhuma permissão administrativa e SEM plano pago continua conseguindo
     armar proteção normalmente."""
-    c, _ = _client(monkeypatch)
+    c, _m = _client(monkeypatch)
     _registra(c, "dono@teste.com")
     comum = _registra(c, "comum@teste.com")
     h = _auth(comum["token"])
     assert comum["user"]["permissions"] == []
     assert comum["user"]["plan"] == "free"
+    # Fase 50 / D-12: a invariante vale para parecer; geometria é validada
+    # contra preço (D-11) — cotação coerente (35,00 entre 30 e 40) fixada.
+    async def _q(t):
+        return {"price": 35.0}
+    monkeypatch.setattr(_m.candle_provider, "get_quote", _q)
     r = c.put("/api/position/PETR4", json={"stop": 30.0, "alvo": 40.0}, headers=h)
     assert r.status_code == 200
     r2 = c.put("/api/options/position/FAKE123", json={"stop": 1.0, "alvo": 2.0}, headers=h)

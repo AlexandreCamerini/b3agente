@@ -94,6 +94,11 @@ def test_r1_put_position_fechado_grava_e_ciclo_nao_executa(monkeypatch):
     store.buy(m._conn, "PETR4", 100, 40.0, user_id=uid)
     disparos = []
     monkeypatch.setattr(m, "_disparar_ciclo_imediato", lambda scope: disparos.append(scope))
+    # Fase 50 / D-12: a invariante vale para parecer; geometria é validada
+    # contra preço (D-11) — cotação coerente (40,00 > stop 38) fixada.
+    async def _q(t):
+        return {"price": 40.0}
+    monkeypatch.setattr(m.candle_provider, "get_quote", _q)
     r = client.put("/api/position/PETR4", json={"stop": 38.0}, headers=h)
     assert r.status_code == 200, r.text
     assert disparos == [uid]  # continua disparando; o portão é do motor

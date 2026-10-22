@@ -57,6 +57,7 @@ from . import opcoes_curadoria  # Fase 30 (Plano 01/02): motor puro + varredura 
 from . import opcoes_escada  # Fase 48 (Plano 06): motor puro da escada de Opções (caminho B)
 from . import curadoria_narrativa  # Fase 30 (Plano 03): camada fina de LLM sobre o top já rankeado
 from .options_quant import FAIXA_DIFICIL, FAIXA_SEM_MERCADO, faixa_de_liquidez, historical_volatility, liquidity_score  # quick 260908-ldg: gate de liquidez em três faixas; historical_volatility (Fase 39/D-08): fallback lazy de vol para o piso da curadoria
+from . import marcos_servico  # Fase 50: I/O fino em volta do motor puro de marcos
 from . import skill_ref  # Fase 14 (Plano 03): frase canônica da proposta lastreada por modo
 
 app = FastAPI(title="Boris+ API")
@@ -2835,6 +2836,44 @@ async def buy(body: dict = Body(default={}), scope: Optional[str] = Depends(curr
         raise HTTPException(502, "Sem cotacao para " + t)
     price = quote["price"]
 
+    # Fase 50 D-09/D-03: compra a partir de setup nasce com os marcos do MOTOR,
+    # calculados AQUI no servidor a partir do snapshot — gatilho/invalidação do
+    # `meta` do cliente são ignorados (T-50-13; só `meta["setup"]` é lido, como
+    # nome). Snapshot e revalidação ficam ANTES do ORDER_LOCK: nunca segurar
+    # lock atravessando await (T-50-16). Julgado no PREÇO EXECUTADO (perseguição
+    # além de 0,5R, R:R < 1,5, geometria).
+    # Esclarecimento da D-06 (Alex, 2026-10-21, 50-CONTEXT): compra MANUAL,
+    # imediata ou pendente, nunca é recusada por qualidade do plano — com R:R
+    # < 1,5 ou entrada além de 0,5R do gatilho executa SEM marcos e a resposta
+    # diz por quê; a recusa vale só para a entrada automática.
+    marcos = None
+    marcos_motivo = None
+    marcos_texto = None
+    meta_cli = body.get("meta")
+    setup_nome = meta_cli.get("setup") if isinstance(meta_cli, dict) else None
+    if isinstance(setup_nome, str) and setup_nome.strip() and (meta_cli or {}).get("lado") != "baixa":
+        modo_marcos = (store.get(_conn, "config", user_id=scope) or {}).get("appMode")
+        snap_m = await marcos_servico.snapshot_canonico(t)
+        if not snap_m:
+            marcos_motivo = "Sem dados técnicos para calcular os marcos agora."
+        else:
+            plano_m = marcos_servico.marcos_de_setup(snap_m, setup_nome.strip(), price)
+            if plano_m["valido"]:
+                rv = setups.revalidar_na_execucao(plano_m["stop"], plano_m["alvo"], price,
+                                                  gatilho=plano_m["gatilho"], invalidacao=plano_m["invalidacao"])
+                if rv["ok"]:
+                    marcos = {"stop": plano_m["stop"], "alvo": plano_m["alvo"],
+                              "gatilho": plano_m["gatilho"], "invalidacao": plano_m["invalidacao"]}
+                    marcos_texto = skill_ref.marcos_plano_txt(
+                        modo_marcos, "compra_com_marcos", ticker=t, stop=skill_ref.num_br(plano_m["stop"]),
+                        alvo=skill_ref.num_br(plano_m["alvo"]), rr=skill_ref.num_br(rv["rr"]))
+                else:
+                    marcos_motivo = rv["motivo"]
+            else:
+                marcos_motivo = plano_m["motivo"]
+        if marcos is None:
+            marcos_texto = skill_ref.marcos_plano_txt(modo_marcos, "compra_sem_marcos", ticker=t, motivo=marcos_motivo)
+
     if pregao.in_market_hours():
         # T-02-35: caminho IMEDIATO e execução de PENDENTES (scheduler) escrevem
         # o mesmo cash/positions da mesma conta na janela da abertura — a
@@ -2857,10 +2896,14 @@ async def buy(body: dict = Body(default={}), scope: Optional[str] = Depends(curr
                         f"Caixa insuficiente para {qty} {t} a R$ {price} — disponível: R$ {cash_disp}.",
                         user_id=scope, origem="manual")
                 raise HTTPException(400, "Caixa insuficiente.")
-            store.buy(_conn, t, qty, price, user_id=scope, meta=body.get("meta"))  # FASE 2 (2.4)
+            store.buy(_conn, t, qty, price, user_id=scope, meta=body.get("meta"),  # FASE 2 (2.4)
+                      marcos=({"stop": marcos["stop"], "alvo": marcos["alvo"]} if marcos else None))
         _disparar_ciclo_imediato(scope)  # 2026-08-07: reavalia na hora, não espera o próximo tick
         out = store.public_state(_conn, user_id=scope)
         out["priceUsed"] = round(price, 2)
+        out["marcos"] = {"stop": marcos["stop"], "alvo": marcos["alvo"]} if marcos else None
+        out["marcosMotivo"] = marcos_motivo
+        out["marcosTexto"] = marcos_texto
         return out
 
     # Mercado fechado: vira ordem pendente (D-01).
@@ -2871,7 +2914,7 @@ async def buy(body: dict = Body(default={}), scope: Optional[str] = Depends(curr
         raise HTTPException(401, "Ordens fora do horário de pregão exigem conta conectada — "
                                   "entre para que a ordem fique guardada na sua carteira.")
     try:
-        order = pending_orders.criar_compra(_conn, scope, t, qty, price, meta=body.get("meta"))
+        order = pending_orders.criar_compra(_conn, scope, t, qty, price, meta=body.get("meta"), marcos=marcos)
     except pending_orders.CaixaInsuficiente as e:
         # mesma normalização de lote que `criar_compra` já aplicou internamente
         # antes de recusar — o motivo grava a quantidade que de fato foi avaliada.
@@ -2888,6 +2931,9 @@ async def buy(body: dict = Body(default={}), scope: Optional[str] = Depends(curr
     out["order"] = order
     out["priceUsed"] = None
     out["precoReferencia"] = round(price, 2)
+    out["marcos"] = marcos
+    out["marcosMotivo"] = marcos_motivo
+    out["marcosTexto"] = marcos_texto
     return out
 
 
@@ -3009,12 +3055,62 @@ async def cancel_pending_order(order_id: str, scope: Optional[str] = Depends(cur
 
 @app.put("/api/position/{ticker}")
 async def position(ticker: str, body: dict = Body(default={}), scope: Optional[str] = Depends(current_scope)):
-    store.set_position(_conn, ticker.upper(), stop=body.get("stop"), alvo=body.get("alvo"), has_stop=("stop" in body), has_alvo=("alvo" in body), user_id=scope)
+    t = ticker.upper()
+    # Fase 50 D-11: preço de referência = cotação, senão último close do
+    # snapshot, senão recusa — marco nunca gravado sem checagem contra preço.
+    # Limpar marcos (None/"") e PUT só de gestaoAuto não precisam de preço.
+    preco_ref = None
+    grava_marco = (body.get("stop") not in (None, "")) or (body.get("alvo") not in (None, ""))
+    if grava_marco:
+        try:
+            q = await candle_provider.get_quote(t)
+        except Exception:
+            q = None
+        p = (q or {}).get("price")
+        if isinstance(p, (int, float)) and not isinstance(p, bool) and p > 0:
+            preco_ref = float(p)
+        else:
+            snap = await marcos_servico.snapshot_canonico(t)
+            c = (snap or {}).get("close")
+            if isinstance(c, (int, float)) and not isinstance(c, bool) and c > 0:
+                preco_ref = float(c)
+        if preco_ref is None:
+            raise HTTPException(400, setups.MOTIVO_SEM_PRECO_VALIDAR)
+    gestao_auto = body["gestaoAuto"] if isinstance(body.get("gestaoAuto"), bool) else None
+    try:
+        store.set_position(_conn, t, stop=body.get("stop"), alvo=body.get("alvo"), has_stop=("stop" in body), has_alvo=("alvo" in body), user_id=scope, preco_ref=preco_ref, gestao_auto=gestao_auto)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
     # 2026-08-07: stop/alvo recém-armado é avaliado na hora. quick 261013-vai:
     # registrar é SEMPRE permitido; fora do pregão o ciclo (portão em
     # agent._run_cycle_inner) só avisa no Diário — nada é vendido.
     _disparar_ciclo_imediato(scope)
     return store.public_state(_conn, user_id=scope)
+
+
+@app.post("/api/marcos/{ticker}")
+async def marcos_da_rota(ticker: str, body: dict = Body(default={}), scope: Optional[str] = Depends(current_scope)):
+    """Fase 50: marcos do motor (stop/alvo/R:R) — sem IA e sem custo de cota.
+    Escopo anônimo permitido (iPhone sem conta). Snapshot via
+    technical_snapshot.get (cache L2 + orçamento brapi), ticker validado antes
+    do I/O (T-50-14)."""
+    t = _normalize_ticker(ticker)
+    if len(t) < 4:
+        raise HTTPException(400, "Ticker invalido.")
+    preco = body.get("preco")
+    if preco is not None and not (isinstance(preco, (int, float)) and not isinstance(preco, bool) and preco > 0):
+        raise HTTPException(400, "Preço inválido.")
+    snap = await marcos_servico.snapshot_canonico(t)
+    if not snap:
+        raise HTTPException(502, f"Sem dados técnicos para calcular os marcos de {t} agora.")
+    if preco is None:
+        preco = snap.get("close")
+    setup = body.get("setup")
+    if isinstance(setup, str) and setup.strip():
+        m = marcos_servico.marcos_de_setup(snap, setup.strip(), preco)
+    else:
+        m = marcos_servico.marcos_para_posicao(snap, preco)
+    return {**m, "t": t}
 
 
 # ---- Carteira: opções (v2 — ADR-003/004/005) ----
