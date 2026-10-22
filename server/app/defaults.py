@@ -15,7 +15,7 @@ _CONTRATO_SAIDA = "\n".join([
     "Responda com UM único objeto JSON, sem texto fora dele e sem cercas de",
     "markdown. Inclua os KPIs (direcao, conviccao, qualidade, recomendacao), o",
     "campo `corpo` com a análise em MARKDOWN, as listas confirmacoes/invalidacoes/",
-    "cuidados e stopSugerido/alvoSugerido. O app valida e normaliza a resposta.",
+    "cuidados; stop e alvo vêm do motor. O app valida e normaliza a resposta.",
 ])
 
 
@@ -64,18 +64,18 @@ def default_skill_text_operador() -> str:
 
 def _formato_array_carteira(frases: str) -> str:
     """Contrato de saída do N3 (array por ativo, parseado pelo popup) — comum
-    aos dois modos; só o tamanho da explicação muda."""
+    aos dois modos; só o tamanho da explicação muda. Fase 50 / D-10: sem
+    precoAtual/stop/alvo/cenarios — os números vêm do motor (MARCOS DO MOTOR)."""
     return (
         "Formato de saída: retorne SOMENTE um JSON (nada fora dele), um objeto por\n"
         "ativo:\n"
         "[\n"
         "  {\n"
         '    "ativo": "PETR4",\n'
-        '    "precoAtual": 38.50,\n'
-        '    "stop": 36.20,\n'
-        '    "alvo": 43.00,\n'
+        '    "operar": true,\n'
         '    "explicacao": "…' + frases + '…",\n'
-        '    "operar": true\n'
+        '    "riscos": ["risco curto"],\n'
+        '    "quandoRevisar": "condição que pede nova leitura dos marcos"\n'
         "  }\n"
         "]"
     )
@@ -98,11 +98,15 @@ LEGACY_PROMPT_SHA256 = {
         "ecdfea67063ebc0736829cbb8e3b284e6b4c8ec5783bc92777b386c53b920d81",
         # 10/08/2026 — geração que mandava zerar stop/alvo com operar=false
         "72f5394e112fd23f14d1618c5efc7e764a3cb5778aabb486bf3e8446de966056",
+        # 2026-10-21 — Fase 50 D-10 (IA deixa de devolver números)
+        "3ccfd9c582895c9230478cb2ec535526a0728dd7a746b454ce7450ce8be750b7",
     },
     "carteiraStopAlvoOperador": {
         "021b5ac9827417685ac52f7aed77745828b2da783ff9816f44eda8dc7258a375",
         # 10/08/2026 — idem (o stop nunca é proibido)
         "c0b27d0bc97f4a96e46bb1d23a89ac93decbf34732c9adb04875c9545ba01bc8",
+        # 2026-10-21 — Fase 50 D-10 (IA deixa de devolver números)
+        "a470ed3bf1b1953aa9786cffd515e404a7d2bc6de81c29af87de7ada25eb369a",
     },
 }
 
@@ -162,7 +166,8 @@ def default_llm_prompts() -> dict:
     return {
         "carteiraStopAlvo": (
             "Você é um analista técnico educacional da B3. Sua tarefa é analisar CADA\n"
-            "ATIVO INDIVIDUALMENTE e propor, para cada um, um STOP e um ALVO.\n"
+            "ATIVO INDIVIDUALMENTE e EXPLICAR os MARCOS DO MOTOR (stop, alvo, R:R e a origem\n"
+            "de cada um) fornecidos no contexto (marcosMotor).\n"
             "Base da análise:\n"
             "- Use PRIMEIRO as informações do ativo fornecidas nesta requisição (preço\n"
             "  atual, histórico e indicadores passados). NÃO invente dados que não foram\n"
@@ -170,54 +175,60 @@ def default_llm_prompts() -> dict:
             "- Não cite notícias, resultados ou eventos que NÃO estejam nos dados\n"
             "  fornecidos; conceito geral de análise técnica é permitido se prefixado\n"
             "  com [contexto geral]. Fonte indisponível = declare a ausência.\n"
+            "- Os números de stop, alvo e R:R são calculados pelo motor do simulador e\n"
+            "  chegam prontos em MARCOS DO MOTOR. Você NÃO propõe, NÃO recalcula e NÃO\n"
+            "  corrige esses números; sem marcos no contexto, responda: Não há dados\n"
+            "  suficientes para concluir.\n"
             "- Considere o PERFIL do investidor (apetite a risco, horizonte e tolerância\n"
-            "  de perda por operação) como o fator que dimensiona os números.\n"
+            "  de perda por operação) para contextualizar o risco, não para mudar os números.\n"
             "Cada análise é INDIVIDUAL: avalie cada ativo isoladamente. Não produza um\n"
-            "número único para a carteira inteira; o stop/alvo de um ativo não influencia\n"
-            "o do outro.\n"
+            "número único para a carteira inteira; os marcos de um ativo não influenciam\n"
+            "os do outro.\n"
             + skill_ref.PRINCIPIOS_N3 + "\n"
             "Regras específicas do modo ESTUDO:\n"
             "- Conteúdo EDUCACIONAL e dinheiro SIMULADO — deixe isso explícito.\n"
-            "- A proposta é uma SUGESTÃO por perfil, NÃO recomendação de compra ou venda,\n"
+            "- Os marcos são referência de ESTUDO, NÃO recomendação de compra ou venda,\n"
             "  nem sinal de entrada.\n"
-            "- Dimensione o STOP para limitar a perda por operação conforme a tolerância\n"
-            "  do perfil.\n"
-            "- Abaixo do R:R mínimo, trate como cenário de estudo desfavorável ou use\n"
-            '  "operar": false.\n'
+            "- Explique por que o stop fica onde está (invalidação) e o que o alvo\n"
+            "  representa; se o R:R estiver abaixo do mínimo, diga que é um cenário de\n"
+            '  estudo desfavorável e use "operar": false.\n'
             "Para cada ativo, explique em 2 a 4 frases, em linguagem simples, o raciocínio\n"
-            "por trás dos números.\n"
+            "por trás dos marcos do motor.\n"
             + _formato_array_carteira("2 a 4 frases") + "\n"
-            'Quando recomendar aguardar, use "operar": false — e MESMO ASSIM devolva\n'
-            'stop e alvo técnicos: quem já está posicionado precisa do nível de\n'
-            'proteção, e definir stop nunca é proibido. Explique em "explicacao".\n'
+            'Quando recomendar aguardar, use "operar": false — é um PARECER, não um veto:\n'
+            'os marcos continuam valendo como proteção para quem já está posicionado,\n'
+            'e o stop nunca é proibido. Explique em "explicacao".\n'
             + _ENQUADRAMENTO_CARTEIRA
         ),
         # FASE 8B (N4) — versão MESA DE OPERAÇÕES do mesmo contrato (usada
         # quando config.appMode == "operador"). MESMO formato de saída (o popup
         # parseia o mesmo array); muda a voz, o rigor de R:R e a disciplina.
         "carteiraStopAlvoOperador": (
-            "Você é a mesa de operações do cliente na B3. Sua tarefa é definir, para CADA\n"
-            "ATIVO INDIVIDUALMENTE, o STOP e o ALVO da posição — números executáveis, direto\n"
-            "ao ponto.\n"
+            "Você é a mesa de operações do cliente na B3. Sua tarefa é EXPLICAR, para CADA\n"
+            "ATIVO INDIVIDUALMENTE, os MARCOS DO MOTOR (stop, alvo, R:R e a origem de cada\n"
+            "um) fornecidos no contexto (marcosMotor) — direto ao ponto.\n"
             "Base da análise:\n"
             "- Use SOMENTE as informações fornecidas nesta requisição (preço atual,\n"
             "  histórico, indicadores e contexto técnico pré-calculado). NÃO invente dados.\n"
             "- O PERFIL do cliente dimensiona o risco (tolerância de perda por operação);\n"
             "  ele NÃO muda a leitura técnica.\n"
+            "- Os números de stop, alvo e R:R vêm prontos do motor (MARCOS DO MOTOR). Você\n"
+            "  NÃO propõe nem recalcula; sem marcos no contexto, responda: Não há dados\n"
+            "  suficientes para concluir.\n"
             + skill_ref.PRINCIPIOS_N3 + "\n"
             "Regras específicas do modo MESA:\n"
-            "- O STOP fica na INVALIDAÇÃO TÉCNICA da posição (suporte/resistência, extremo\n"
-            "  do setup, ATR) — nunca num percentual arbitrário.\n"
+            "- Explique o STOP como INVALIDAÇÃO TÉCNICA da posição (origem informada no\n"
+            "  marco) e o ALVO com o R:R do motor.\n"
             '- Abaixo do R:R mínimo, a posição não compensa: "operar": false —\n'
             "  não operar também é posição.\n"
             "- A execução é do cliente, na corretora dele; isto não é recomendação\n"
             "  personalizada de investimento.\n"
-            "Para cada ativo, dê a explicação em 1 a 3 frases de mesa: nível técnico do\n"
-            "stop, R:R do alvo e a condição que cancela o plano.\n"
+            "Para cada ativo, dê a explicação em 1 a 3 frases de mesa: o que o stop do\n"
+            "motor invalida, o R:R do alvo e a condição que cancela o plano.\n"
             + _formato_array_carteira("1 a 3 frases") + "\n"
-            'Quando a posição não compensar, use "operar": false — e MESMO ASSIM devolva\n'
-            'stop e alvo técnicos: o stop é a proteção de quem já está posicionado e\n'
-            'nunca é omitido. Diga objetivamente o porquê em "explicacao".\n'
+            'Quando a posição não compensar, use "operar": false — é parecer, não veto:\n'
+            'os marcos do motor seguem como proteção de quem já está posicionado e o\n'
+            'stop nunca é omitido. Diga objetivamente o porquê em "explicacao".\n'
             + _ENQUADRAMENTO_CARTEIRA
         ),
     }

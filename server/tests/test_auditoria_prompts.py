@@ -243,13 +243,20 @@ def test_a8ii_prompts_de_carteira_compoem_do_canonico():
         # roda sobre posição que a pessoa JÁ carrega: a IA pode desaconselhar
         # ("operar": false é parecer), mas SEMPRE devolve os níveis de
         # proteção. Stop nunca é proibido.
-        for campo in ('"ativo"', '"precoAtual"', '"stop"', '"alvo"',
-                      '"explicacao"', '"operar"'):
+        # Fase 50 / D-10: o contrato mudou de forma DELIBERADA — a IA não
+        # devolve mais precoAtual/stop/alvo (os números vêm do motor,
+        # MARCOS DO MOTOR); o array passa a ter ativo/operar/explicacao/
+        # riscos/quandoRevisar. "operar: false é parecer, não veto" segue.
+        for campo in ('"ativo"', '"explicacao"', '"operar"', '"riscos"',
+                      '"quandoRevisar"'):
             assert campo in prompts[chave], f"{chave}: {campo}"
+        for campo in ('"precoAtual"', '"stop"', '"alvo"'):
+            assert campo not in prompts[chave], f"{chave}: voltou a pedir {campo}"
+        assert "MARCOS DO MOTOR" in prompts[chave]
         assert "como null" not in prompts[chave], \
             f"{chave}: voltou a mandar zerar stop/alvo no operar=false"
-        assert "MESMO ASSIM devolva" in prompts[chave], \
-            f"{chave}: perdeu a garantia de que os níveis sempre vêm"
+        assert "não um veto" in prompts[chave] or "não veto" in prompts[chave], \
+            f"{chave}: perdeu a garantia de que operar:false é parecer"
 
 
 def test_a8ii_paridade_defaults_carteira_com_catalog_js():

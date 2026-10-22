@@ -46,3 +46,19 @@ def test_technical_models_sem_risk_plan_reference():
     import inspect
     from app import technical_models
     assert "riskPlanReference" not in inspect.getsource(technical_models)
+
+
+# ---- Task 3 (D-10): prompts default e hashes legados -------------------------
+
+def test_prompts_default_explicam_marcos_do_motor():
+    import hashlib
+    from app import defaults
+    prompts = defaults.default_llm_prompts()
+    for chave, texto in prompts.items():
+        assert "MARCOS DO MOTOR" in texto, chave
+        assert "stopSugerido" not in texto
+        h = hashlib.sha256(texto.encode()).hexdigest()
+        assert h not in defaults.LEGACY_PROMPT_SHA256[chave], "default atual nao pode ser legado"
+    # geracao anterior (Fase 50 D-10 trocou o texto) entrou como legada
+    assert "3ccfd9c582895c9230478cb2ec535526a0728dd7a746b454ce7450ce8be750b7" in defaults.LEGACY_PROMPT_SHA256["carteiraStopAlvo"]
+    assert "a470ed3bf1b1953aa9786cffd515e404a7d2bc6de81c29af87de7ada25eb369a" in defaults.LEGACY_PROMPT_SHA256["carteiraStopAlvoOperador"]
