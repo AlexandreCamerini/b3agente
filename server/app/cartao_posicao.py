@@ -22,7 +22,7 @@ import math
 import re
 from typing import Any, Optional
 
-from . import opcoes_payoff, skill_ref
+from . import opcoes_payoff, setups, skill_ref
 
 # D-03: decisão de produto — "alta forte" = K × 1,09.
 ALTA_FORTE_FATOR = 1.09
@@ -228,8 +228,17 @@ def leitura_plano(posicao: dict, preco, compras, modo: str) -> dict:
     plano = ("completo" if stop is not None and alvo is not None else
              "so_stop" if stop is not None else
              "so_alvo" if alvo is not None else "sem_plano")
+    # Fase 50 D-05/D-13: geometria estrutural (sem preço) — marcos incoerentes nunca
+    # caem em "completo" nem alimentam régua/proximidade/R:R.
+    motivo_inv = (setups.validar_marcos(stop, alvo, avg=avg)
+                  if (stop is not None or alvo is not None) else None)
+    if motivo_inv:
+        plano = "invalido"
 
     r: dict = {"ticker": ticker, "preco": _r2(preco), "plano": plano}
+    if plano == "invalido":
+        r["motivoInvalido"] = motivo_inv
+        r["textoInvalido"] = skill_ref.cartao_posicao_txt(modo, "plano_invalido_detalhe", motivo=motivo_inv)
     r["resultado"] = (_r2((preco - avg) * qty)
                       if preco is not None and avg is not None and qty is not None else None)
     r["variacaoPct"] = (_r1((preco / avg - 1) * 100)
@@ -247,10 +256,14 @@ def leitura_plano(posicao: dict, preco, compras, modo: str) -> dict:
         v = (alvo - preco) / (preco - stop)
         rr = round(v, 2) if math.isfinite(v) and v > 0 else None
     r["rr"] = rr
+    # Fase 50 D-05: rr = R:R restante (do preço atual, acompanhamento); rrPlano = R:R de
+    # decisão (da entrada) — rótulos distintos em skill_ref (rr_atual × rr_plano).
+    rr_plano = setups.rr_da_entrada(avg, stop, alvo) if plano == "completo" else None
+    r["rrPlano"] = round(rr_plano, 2) if rr_plano is not None else None
     r["resultadoNoStop"] = (_r2((stop - avg) * qty)
-                            if stop is not None and avg is not None and qty is not None else None)
+                            if plano != "invalido" and stop is not None and avg is not None and qty is not None else None)
     r["resultadoNoAlvo"] = (_r2((alvo - avg) * qty)
-                            if alvo is not None and avg is not None and qty is not None else None)
+                            if plano != "invalido" and alvo is not None and avg is not None and qty is not None else None)
 
     gat = None
     se = posicao.get("setupEntrada")

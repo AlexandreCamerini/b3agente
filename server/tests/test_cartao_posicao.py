@@ -131,3 +131,30 @@ def test_modulo_puro():
                      "datetime.now", "date.today"):
         assert proibido not in src
     assert not math.isnan(cp.ALTA_FORTE_FATOR)
+
+
+# ---------------------------------------------------------------- Fase 50 (D-05, D-13)
+
+def test_fase50_plano_invalido_pm_2301_stop_acima_do_alvo():
+    pos = {"t": "PETR4", "qty": 100, "avg": 23.01, "stop": 23.36, "alvo": 21.58}
+    for modo in ("operador", "educacional"):
+        r = cp.leitura_plano(pos, 23.51, [], modo)
+        assert r["plano"] == "invalido"
+        assert r["motivoInvalido"] == "Stop (R$ 23,36) precisa ficar abaixo do alvo (R$ 21,58)."
+        assert r["textoInvalido"] == skill_ref.cartao_posicao_txt(
+            modo, "plano_invalido_detalhe", motivo=r["motivoInvalido"])
+        assert r["posicaoNoPlano"] is None and r["proximidade"] is None
+        assert r["rr"] is None and r["rrPlano"] is None
+        assert r["resultadoNoStop"] is None and r["resultadoNoAlvo"] is None
+
+
+def test_fase50_rr_restante_e_rr_plano_sao_distintos():
+    r = cp.leitura_plano({"t": "X", "qty": 100, "avg": 20, "stop": 19, "alvo": 23}, 21, [], "operador")
+    assert r["plano"] == "completo"
+    assert r["rr"] == 1.0
+    assert r["rrPlano"] == 3.0
+
+
+def test_fase50_rr_plano_none_sem_plano_completo():
+    assert L(32, pos={"t": "X", "qty": 100, "avg": 30, "stop": 28})["rrPlano"] is None
+    assert L(32, pos={"t": "X", "qty": 100, "avg": 30})["rrPlano"] is None

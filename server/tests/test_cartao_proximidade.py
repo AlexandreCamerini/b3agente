@@ -6,6 +6,9 @@ import pytest
 
 from app import cartao_posicao
 
+# Fase 50 (2026-10-22, D-05/D-13): as 4 linhas com alvo <= PM (fallback stop->alvo)
+# eram a geometria que a fase declara INVALIDA (plano 'invalido', proximidade None,
+# o simulador não vende por elas). Linhas mantidas, expectativa atualizada: None.
 CASOS = [
     (20, 16, 30, 17, "perto_stop"),
     (20, 16, 30, 17.05, None),
@@ -19,8 +22,8 @@ CASOS = [
     (20, 22, 30, 28, "perto_alvo"),
     (20, 20, 30, 22.5, "perto_stop"),
     (20, 20, 30, 23, None),
-    (30, 20, 28, 27, "perto_alvo"),
-    (40, 20, 24, 24, "perto_stop"),
+    (30, 20, 28, 27, None),
+    (40, 20, 24, 24, None),
     (20, 16, 30, None, None),
     (20, 16, None, 17, None),
     (20, None, 30, 28, None),
@@ -30,8 +33,8 @@ CASOS = [
     (20, 25, 25, 25, None),
     (None, 16, 30, 17, None),
     ("abc", 16, 30, 17, None),
-    (30, 20, 30, 29, "perto_alvo"),
-    (30, 20, 30, 30, "perto_alvo"),
+    (30, 20, 30, 29, None),
+    (30, 20, 30, 30, None),
 ]
 
 
