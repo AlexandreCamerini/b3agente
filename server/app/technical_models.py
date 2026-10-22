@@ -255,17 +255,6 @@ def build_context(ticker: str, quote: dict | None, candles: list[dict], model: s
     support = piv["supports"][0] if piv["supports"] else None
     resistance = piv["resistances"][0] if piv["resistances"] else None
 
-    stop_reference = None
-    target_reference = None
-    if support and atr14:
-        stop_reference = _r(min(support, last["close"] - atr14))
-    elif atr14:
-        stop_reference = _r(last["close"] - atr14)
-    if resistance:
-        target_reference = _r(resistance)
-    elif atr14:
-        target_reference = _r(last["close"] + 2 * atr14)
-
     context = {
         "ticker": ticker,
         "source": "yfinance",
@@ -330,12 +319,10 @@ def build_context(ticker: str, quote: dict | None, candles: list[dict], model: s
             "distanceToSupportPct": _pct(last["close"], support) if support else None,
             "distanceToResistancePct": _pct(resistance, last["close"]) if resistance else None,
         },
-        "riskPlanReference": {
-            "stopReference": stop_reference,
-            "targetReference": target_reference,
-            "riskPerShare": _r(last["close"] - stop_reference) if stop_reference else None,
-            "rewardPerShare": _r(target_reference - last["close"]) if target_reference else None,
-        },
+        # Fase 50 / D-18: o bloco de plano de risco de referencia (stop/alvo) saiu do
+        # contexto — nenhum consumidor restante depois de 50-07 (N3 trocou por
+        # marcosMotor, montado na rota); removido em vez de mantido como insumo
+        # interno para a IA nao ler numero concorrente ao dos marcos do motor.
         "options": options_status or {"available": None, "reason": "Não consultado para este modelo."},
         "candles": _tail_candles(candles, tail_n),
     }
@@ -365,7 +352,7 @@ def build_context(ticker: str, quote: dict | None, candles: list[dict], model: s
         "volume": context["volume"],
         "volatilidade": context["volatility"],
         "suporte_resistencia": context["levels"],
-        "swing_trade": {"trend": context["trend"], "levels": context["levels"], "riskPlanReference": context["riskPlanReference"], "volatility": context["volatility"]},
+        "swing_trade": {"trend": context["trend"], "levels": context["levels"], "volatility": context["volatility"]},
         "opcoes": {"options": context["options"], "underlyingTrend": context["trend"], "underlyingVolatility": context["volatility"]},
         "completo": "Usar todos os blocos.",
     }.get(model)
@@ -389,7 +376,7 @@ def refocus(context: dict, model: str) -> dict:
         "volume": context.get("volume"),
         "volatilidade": context.get("volatility"),
         "suporte_resistencia": context.get("levels"),
-        "swing_trade": {"trend": context.get("trend"), "levels": context.get("levels"), "riskPlanReference": context.get("riskPlanReference"), "volatility": context.get("volatility")},
+        "swing_trade": {"trend": context.get("trend"), "levels": context.get("levels"), "volatility": context.get("volatility")},
         "opcoes": {"options": context.get("options"), "underlyingTrend": context.get("trend"), "underlyingVolatility": context.get("volatility")},
         "completo": "Usar todos os blocos.",
     }.get(model)
@@ -409,6 +396,5 @@ def compact_for_response(ctx: dict) -> dict:
         "volume": ctx.get("volume"),
         "volatility": ctx.get("volatility"),
         "levels": ctx.get("levels"),
-        "riskPlanReference": ctx.get("riskPlanReference"),
         "options": ctx.get("options"),
     }

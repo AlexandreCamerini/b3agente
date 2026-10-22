@@ -36,4 +36,5 @@ def test_compact_response_nao_carrega_candles():
     ctx = technical_models.build_context("PETR4", {}, _candles(), "swing_trade")
     compact = technical_models.compact_for_response(ctx)
     assert "candles" not in compact
-    assert compact["riskPlanReference"]["stopReference"] is not None
+    # Fase 50 / D-18: sem riskPlanReference na visao enviada a IA.
+    assert "riskPlanReference" not in compact

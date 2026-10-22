@@ -31,3 +31,18 @@ def test_parse_rich_ignora_stop_alvo_da_ia():
     r = kpi.parse_rich('{"recomendacao":"Estudar alta","corpo":"x",'
                        '"stopSugerido":36.0,"alvoSugerido":43.0}')
     assert r["proposal"] == {"stop": None, "alvo": None}
+
+
+# ---- Task 2 (D-18): a IA nao le numero concorrente ao dos marcos -------------
+
+def test_compact_setups_sem_alvo_sugerido():
+    from app import technical_snapshot
+    sres = {"setups": [{"nome": "S", "lado": "compra", "alvoSugerido": 12.3, "invalidacao": "x"}]}
+    out = technical_snapshot._compact_setups(sres)
+    assert out and "alvoSugerido" not in out[0] and out[0]["invalidacao"] == "x"
+
+
+def test_technical_models_sem_risk_plan_reference():
+    import inspect
+    from app import technical_models
+    assert "riskPlanReference" not in inspect.getsource(technical_models)

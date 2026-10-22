@@ -83,11 +83,12 @@ def _snapshot_id(ticker: str, period: str, fp: str, interval: str = "1d") -> str
 
 
 def _compact_setups(sres: dict) -> list:
-    """Versão enxuta dos setups para o prompt do LLM (sem o checklist inteiro)."""
+    """Versão enxuta dos setups para o prompt do LLM (sem o checklist inteiro).
+    Fase 50 / D-18: sem o alvo 2:1 do setup — a IA não lê número concorrente."""
     out = []
     for s in (sres or {}).get("setups") or []:
         out.append({k: s.get(k) for k in (
-            "nome", "lado", "confluencia", "gatilho", "invalidacao", "alvoSugerido", "referencia",
+            "nome", "lado", "confluencia", "gatilho", "invalidacao", "referencia",
         ) if s.get(k) is not None})
     return out
 

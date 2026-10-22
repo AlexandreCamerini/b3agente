@@ -107,7 +107,10 @@ def test_n3_carrega_o_mesmo_snapshot_id():
     ctx = snap["context"]
     assert ctx["snapshotId"] == snap["snapshotId"]
     # blocos que o N3 consome existem e vêm do mesmo objeto
-    assert ctx.get("volatility") and ctx.get("levels") and ctx.get("riskPlanReference")
+    # Fase 50 / D-18: o bloco de risco de referencia saiu do contexto da IA
+    # (o N3 le marcosMotor, montado na rota); volatility/levels seguem exigidos.
+    assert ctx.get("volatility") and ctx.get("levels")
+    assert "riskPlanReference" not in ctx
 
 
 def test_snapshot_estavel_entre_scan_repetido():
