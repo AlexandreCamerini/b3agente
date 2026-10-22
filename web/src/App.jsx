@@ -6,7 +6,7 @@ import { testServer, describeRuntimeConfig, getApiBase, PROD_BASE } from "./api.
 import { createChart, ColorType, CrosshairMode, LineStyle } from "lightweight-charts";
 import { sampleTechnicals } from "./demo.js";
 import { DISCLAIMERS, TERMO_OPERADOR_VERSAO, TERMO_DESCOBERTO_VERSAO } from "./disclaimers.js";
-import { copyFor, retornoAcumuladoTxt, curvaEvolucaoTxt, historicoTxt, entradaAutoTxt, reconciliacaoTxt, reconciliacaoPorQueImporta, reconciliacaoPorQueImportaRotulo, estruturaCardTxt, cartaoPosicaoTxt, cartaoDidaticaTxt, execucaoForaPregaoTxt } from "./copy.js";
+import { copyFor, marcosPlanoTxt, retornoAcumuladoTxt, curvaEvolucaoTxt, historicoTxt, entradaAutoTxt, reconciliacaoTxt, reconciliacaoPorQueImporta, reconciliacaoPorQueImportaRotulo, estruturaCardTxt, cartaoPosicaoTxt, cartaoDidaticaTxt, execucaoForaPregaoTxt } from "./copy.js";
 import { tickersComPernas, tickersSoComPernas, assinaturaEstrutura, estadoLeitura, mostraAvisoSemStop, mostraRR, valorRR, criarFilaLeituras, tipoPillTravada, chipVencimento, ddmmDeIso, tomDoEstado, dominioRegua, posRegua, sinalResultado, kickerResultadoSoAcoes, ancoraRotulo, estadoPrincipalV6, linhasResultadoV6, chipsMetaV6, rsSinalNbsp, fonteValorCabecalho, pctCapitalTexto, flipDuracaoMs, prefereMovimentoReduzido, faceInicial, pontoDoIndice, indiceNomeado, zonaVisual, rotulosSemColisao, colunasDaGrade, rsNbsp, nomeEmpresaCard, sigPosicaoLeitura, situacaoLeituraPlano } from "./estruturaCard.js";
 import { varsCartaoV6, ALFA_ZONA_V6, ALFA_ZONA_MEIO_V6 } from "./cartaoV6Cores.js"; // 2026-10-01: cores do design v6 ESCOPADAS ao card (CSS vars no wrapper); não toca T/PALETTE
 // Fase 41 (TELAS-01): registro único das 8 telas que o assistente conhece —
@@ -390,22 +390,8 @@ const LIMIAR_CONCENTRACAO = 50;
 // decidido pelo orquestrador (15%), não reaberto aqui.
 const LIMIAR_DRAWDOWN_ALERTA = 15;
 
-// Estimativa educacional de stop/alvo a partir do PERFIL + preço atual.
-// Usada como fallback quando a IA (servidor) não devolve `proposal` — assim a
-// função é útil mesmo offline. É deterministica e claramente rotulada (não-IA).
-function localProposal(price, profile) {
-  if (!(price > 0)) return null;
-  const pf = profile || {};
-  const tol = Math.min(20, Math.max(0.5, Number(pf.toleranciaPerdaPct) || 2)); // % perda/operação
-  const riskMult = pf.risco === "conservador" ? 0.8 : pf.risco === "agressivo" ? 1.4 : 1.0;
-  const stopFrac = Math.min(0.25, (tol / 100) * riskMult);   // mais conservador → mais próximo
-  const rr = pf.horizonte === "intraday" ? 1.5 : pf.horizonte === "posicao" ? 2.5 : 2.0;
-  const stop = +(price * (1 - stopFrac)).toFixed(2);
-  const alvo = +(price * (1 + stopFrac * rr)).toFixed(2);
-  const rationale = `Perfil ${pf.risco || "moderado"} / horizonte ${pf.horizonte || "swing"}: stop ~${(stopFrac * 100).toFixed(1)}% abaixo do preço para limitar a perda, e alvo na proporção ${rr.toFixed(1)}:1 sobre o risco.`;
-  return { stop, alvo, rr, stopFrac, rationale };
-}
-
+// Fase 50 D-04: localProposal removida — o único número de stop/alvo é o do motor
+// (setups.marcos_*, via store.marcos). A IA explica; não escolhe nem estima.
 const card = { background: T.bgCard, border: `1px solid ${T.borderSubtle}`, borderRadius: "12px" };
 const kicker = { fontSize: "10px", color: T.textFaint, letterSpacing: "0.06em" };
 // Fase 22 (SYS-01): padrão ÚNICO de rolagem horizontal do app. Todo trilho
@@ -1714,7 +1700,7 @@ function AnalysisView({ an, operador }) {
   const semDados = an.semDados === true || (source === "deterministico" && !body);
   // FASE 1: a análise do ativo individual exibe SÓ texto. O stop/alvo
   // (an.proposal) foi desacoplado deste fluxo — a lógica permanece em
-  // localProposal() e no estado an.proposal, e migra para a Carteira na Fase 3.
+  // o motor (store.marcos) e o StopAlvoModal da Carteira (Fase 50: localProposal removida).
   return (
     <div style={{ display: "grid", gap: "2px" }}>
       {an.iaIndisponivel && <IaIndisponivelAviso info={an.iaIndisponivel} operador={operador} />}
@@ -4163,74 +4149,79 @@ function MercadoScreen({ ctx }) {
   );
 }
 
-// FASE 3: popup de stop/alvo, exclusivo da Carteira, acionado por ícone. Base do
-// cálculo = localProposal (desacoplada na Fase 1). A IA (prompts.carteiraStopAlvo
-// + BYOK) refina quando disponível; sem IA/chave, a estimativa por perfil vale.
-// FASE 3 (revisão): popup INDIVIDUAL de stop/alvo de UM ativo da carteira.
-// Acionado pelo ícone do card; analisa só aquele ativo; o usuário decide aplicar
-// ou não NAQUELE ativo e a popup fecha. Base do cálculo = localProposal (Fase 1);
-// a IA (prompts.carteiraStopAlvo + BYOK) propõe os números e a explicação.
+// Fase 50 (D-04/D-10/D-17): popup INDIVIDUAL de stop/alvo de UM ativo da carteira.
+// Os números exibidos e aplicados são SÓ os do motor (setups.marcos_*, via
+// store.marcos, rota gratuita; o N3 devolve os mesmos em r.marcos). A IA
+// (prompts.carteiraStopAlvo + BYOK) só EXPLICA — nunca escolhe o número. Aplicar
+// fica SEMPRE habilitado (parecer não é veto); a recusa do motor aparece aqui
+// dentro, em role="alert". Falha de rede: "—" + o motivo, nunca número estimado.
+function origemMarcoTxt(modo, eixo, valor) {
+  if (!valor) return "";
+  try { return marcosPlanoTxt(modo, "origem_" + eixo + "_" + valor); } catch { return ""; }
+}
 function StopAlvoModal({ ctx }) {
   const { data, quotes, stopAlvo, stopAlvoFor, A } = ctx;
   const t = stopAlvoFor;
+  const modo = ctx.operador ? "operador" : "estudo";
+  const [busca, setBusca] = useState({ loading: true, data: null, error: null });
+  const [recusa, setRecusa] = useState(null);
+  const pos = t ? (data.positions || []).find((p) => p.t === t) : null;
+  const q = t ? (quotes[t] || {}) : {};
+  const precoRef = q.price != null ? q.price : null;
+  const avgRef = pos ? pos.avg : null;
+  useEffect(() => {
+    if (!t) return undefined;
+    let vivo = true;
+    setBusca({ loading: true, data: null, error: null });
+    setRecusa(null);
+    store.marcos(t, { preco: precoRef != null ? precoRef : undefined, avg: avgRef != null ? avgRef : undefined })
+      .then((m) => { if (vivo) setBusca({ loading: false, data: m, error: null }); })
+      .catch((e) => { if (vivo) setBusca({ loading: false, data: null, error: (e && e.message) || String(e) }); });
+    return () => { vivo = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [t]);
   if (!t) return null;
-  const pos = (data.positions || []).find((p) => p.t === t);
-  const q = quotes[t] || {};
-  const base = q.price != null ? q.price : (pos ? pos.avg : null);
   const r = (stopAlvo && stopAlvo[t]) || {};
-  const est = base != null ? (localProposal(base, data.profile) || {}) : {};
   const loading = !!r.loading;
-  const done = r.loading === false;
   // Decisão do Alex (10/08/2026): a IA pode DESACONSELHAR, nunca vetar a
-  // proteção. `operar === false` virou parecer exibido como aviso; antes ele
-  // zerava stop/alvo, escondia os cenários e desabilitava o Aplicar — quem já
-  // estava posicionado saía do modal SEM o nível de proteção, o oposto do que
-  // "não operar" quer dizer. Se a IA (prompt salvo antigo) não devolver
-  // números, a estimativa determinística pelo perfil assume — stop sempre há.
+  // proteção. `operar === false` é parecer exibido como aviso; o Aplicar segue.
   const aguardar = r.operar === false;
-  const fromAI = done && (r.stop != null || r.alvo != null);
-  // FASE 2 (1.3/2.3): CENÁRIOS estruturados (conservador/moderado/agressivo)
-  // com memória de cálculo — 1 toque escolhe; o Aplicar continua manual.
-  const cen = r.cenarios || [];
-  const [selPerfil, setSelPerfil] = useState(null);
-  const chosen = cen.length ? (cen.find((c) => c.perfil === selPerfil) || cen.find((c) => c.perfil === ((data.profile || {}).risco || "moderado")) || cen[0]) : null;
-  // cadeia: cenário escolhido → resposta da IA → estimativa pelo perfil
-  const stop = chosen && chosen.stop != null ? chosen.stop : (r.stop != null ? r.stop : (loading ? est.stop : (fromAI ? null : est.stop)));
-  const alvo = chosen && chosen.alvo != null ? chosen.alvo : (r.alvo != null ? r.alvo : (loading ? est.alvo : (fromAI ? null : est.alvo)));
-  const why = r.explicacao || (loading ? "" : est.rationale) || "";
-  const canApply = !loading && (stop != null || alvo != null);
-  const apply = () => A.applyStopAlvoFor(t, stop != null ? stop : null, alvo != null ? alvo : null);
+  // marcos do N3 (mesmos números do motor) têm precedência; senão a busca gratuita.
+  const m = (r.marcos && r.marcos.valido !== undefined) ? r.marcos : busca.data;
+  const stop = m && m.valido ? m.stop : null;
+  const alvo = m && m.valido ? m.alvo : null;
+  const rrTxt = m && m.valido && m.rr != null ? m.rr + ":1" : "—";
+  const why = r.explicacao || "";
+  const gestaoVisivel = !!(pos && pos.stop != null);
+  const gestaoLigada = !!(pos && pos.gestaoAuto !== false);
+  const apply = () => {
+    setRecusa(null);
+    if (busca.loading && !m) { setRecusa("Os marcos do motor ainda estão sendo calculados."); return; }
+    if (!m) { setRecusa(busca.error || "Os marcos do motor estão indisponíveis agora."); return; }
+    if (!m.valido) { setRecusa(m.motivo || "O motor não conseguiu calcular marcos válidos agora."); return; }
+    A.applyStopAlvoFor(t, m.stop, m.alvo, setRecusa);
+  };
+  const stopOrigem = m && m.valido ? origemMarcoTxt(modo, "stop", m.origemStop) : "";
+  const alvoOrigem = m && m.valido ? origemMarcoTxt(modo, "alvo", m.origemAlvo) : "";
   return (
     <div onClick={A.closeStopAlvo} style={{ position: "fixed", inset: 0, zIndex: 55, background: T.scrim, display: "flex", alignItems: "center", justifyContent: "center", padding: "18px" }}>
       <div onClick={(e) => e.stopPropagation()} style={{ width: "100%", maxWidth: "480px", maxHeight: "86vh", display: "flex", flexDirection: "column", ...card, borderRadius: "14px" }}>
         <div style={{ padding: "16px 18px", borderBottom: `1px solid ${T.borderSubtle}` }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "10px" }}>
-            <div style={{ fontSize: "16px", fontWeight: 700, fontFamily: MONO }}>{t} · stop e alvo</div>
-            {loading && <SweepGauge compact label="Alvo & stop com IA" steps={["ATR, suportes e resistências", "cenários por perfil", "memória de cálculo"]} />}
+            <div style={{ fontSize: "16px", fontWeight: 700, fontFamily: MONO }}>{t} · {marcosPlanoTxt(modo, "modal_titulo")}</div>
+            {loading && <SweepGauge compact label="Explicação com IA" steps={["ATR, suportes e resistências", "leitura dos marcos do motor", "explicação"]} />}
           </div>
-          <div style={{ fontSize: "13px", color: T.textMuted, marginTop: "4px", lineHeight: 1.5 }}>Perfil <b>{(data.profile || {}).risco || "—"}</b> · {ctx.cp.notaStopAlvo}</div>
+          <div style={{ fontSize: "13px", color: T.textMuted, marginTop: "4px", lineHeight: 1.5 }}>{marcosPlanoTxt(modo, "modal_ia_explica")}</div>
           {/* qa/35 (P1): o hash saiu; a data dos dados é o que importa pro usuário. */}
           {r.snapshotAt && <div style={{ fontFamily: MONO, fontSize: "11px", color: T.textFaint, marginTop: "5px" }}>Análise baseada nos dados de {r.snapshotAt}</div>}
         </div>
         <div style={{ padding: "16px 18px", overflowY: "auto" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "10px", marginBottom: "10px" }}>
-            <span style={{ fontSize: "11px", fontWeight: 700, letterSpacing: "0.04em", color: loading ? T.textMuted : aguardar ? T.textSecondary : fromAI ? T.accent : T.textSecondary }}>
-              {loading ? "ANALISANDO…" : aguardar ? "SUGESTÃO: AGUARDAR" : fromAI ? "SUGESTÃO DA IA" : "ESTIMATIVA PELO PERFIL"}
+            <span style={{ fontSize: "11px", fontWeight: 700, letterSpacing: "0.04em", color: busca.loading ? T.textMuted : aguardar ? T.textSecondary : T.accent }}>
+              {busca.loading ? "CALCULANDO…" : aguardar ? "PARECER: AGUARDAR" : "CÁLCULO DO MOTOR"}
             </span>
             {q.price != null && <span style={{ fontFamily: MONO, fontSize: "12px", color: T.textMuted }}>atual R$ {price(q.price)}</span>}
           </div>
-          {cen.length > 0 && (
-            <div style={{ display: "flex", gap: "7px", marginBottom: "11px" }}>
-              {cen.map((c) => {
-                const on = chosen && chosen.perfil === c.perfil;
-                return (
-                  <button key={c.perfil} onClick={() => setSelPerfil(c.perfil)} style={{ flex: 1, padding: "8px 6px", borderRadius: "10px", border: `1px solid ${on ? T.accent : T.borderSubtle}`, background: on ? T.accentTint : T.bgBase, color: on ? T.accent : T.textSecondary, fontWeight: 800, fontSize: "11px", textTransform: "capitalize" }}>
-                    {c.perfil}{c.rrDesfavoravel ? " ⚠" : ""}
-                  </button>
-                );
-              })}
-            </div>
-          )}
           {aguardar && (
             /* O parecer vira AVISO — os números ficam. Proteger posição nunca
                é proibido; a decisão de aplicar segue sendo da pessoa. */
@@ -4238,31 +4229,43 @@ function StopAlvoModal({ ctx }) {
               A leitura da IA é de <b>não abrir/não manter</b> esta operação agora. Ainda assim, os níveis de proteção continuam disponíveis — definir stop é sempre uma opção sua.
             </div>
           )}
-          {(
-            <div style={{ display: "flex", gap: "14px" }}>
-              <div style={{ flex: 1, padding: "11px 12px", borderRadius: "10px", background: T.bgBase, border: `1px solid ${T.negative}` }}>
-                <div style={{ fontSize: "10px", color: T.textFaint, letterSpacing: "0.04em" }}>STOP</div>
-                <div style={{ fontFamily: MONO, fontWeight: 700, fontSize: "17px", color: T.negative }}>{stop != null ? "R$ " + price(stop) : "—"}</div>
-              </div>
-              <div style={{ flex: 1, padding: "11px 12px", borderRadius: "10px", background: T.bgBase, border: `1px solid ${T.positive}` }}>
-                <div style={{ fontSize: "10px", color: T.textFaint, letterSpacing: "0.04em" }}>ALVO</div>
-                <div style={{ fontFamily: MONO, fontWeight: 700, fontSize: "17px", color: T.positive }}>{alvo != null ? "R$ " + price(alvo) : "—"}</div>
-              </div>
+          <div style={{ display: "flex", gap: "14px" }}>
+            <div style={{ flex: 1, padding: "11px 12px", borderRadius: "10px", background: T.bgBase, border: `1px solid ${T.negative}` }}>
+              <div style={{ fontSize: "10px", color: T.textFaint, letterSpacing: "0.04em" }}>STOP</div>
+              <div style={{ fontFamily: MONO, fontWeight: 700, fontSize: "17px", color: T.negative }}>{stop != null ? "R$ " + price(stop) : "—"}</div>
+              {stopOrigem && <div style={{ marginTop: "4px", fontSize: "11px", color: T.textMuted, lineHeight: 1.45 }}>{stopOrigem}</div>}
             </div>
-          )}
-          {chosen && (
-            <div style={{ marginTop: "10px", fontSize: "12px", color: T.textMuted, lineHeight: 1.55 }}>
-              {chosen.riscoRetorno != null && <span style={{ fontFamily: MONO, fontWeight: 700, color: chosen.rrDesfavoravel ? T.negative : T.textSecondary }}>R:R {chosen.riscoRetorno}{chosen.rrDesfavoravel ? " · desfavorável (fins de estudo)" : ""}</span>}
-              {chosen.memoriaCalculo && <div style={{ marginTop: "4px" }}>Memória de cálculo: {chosen.memoriaCalculo}</div>}
+            <div style={{ flex: 1, padding: "11px 12px", borderRadius: "10px", background: T.bgBase, border: `1px solid ${T.positive}` }}>
+              <div style={{ fontSize: "10px", color: T.textFaint, letterSpacing: "0.04em" }}>ALVO</div>
+              <div style={{ fontFamily: MONO, fontWeight: 700, fontSize: "17px", color: T.positive }}>{alvo != null ? "R$ " + price(alvo) : "—"}</div>
+              {alvoOrigem && <div style={{ marginTop: "4px", fontSize: "11px", color: T.textMuted, lineHeight: 1.45 }}>{alvoOrigem}</div>}
             </div>
+          </div>
+          <div style={{ marginTop: "10px", fontSize: "12px", color: T.textSecondary, lineHeight: 1.55 }}>
+            <span style={{ fontFamily: MONO, fontWeight: 700 }}>{cartaoPosicaoTxt(modo, "rr_plano")}: {rrTxt}</span>
+          </div>
+          {m && !m.valido && m.motivo && <div style={{ marginTop: "8px", fontSize: "12px", color: T.textMuted, lineHeight: 1.5 }}>{m.motivo}</div>}
+          {!m && busca.error && <div style={{ marginTop: "8px", fontSize: "12px", color: T.textMuted, lineHeight: 1.5 }}>{busca.error}</div>}
+          {gestaoVisivel && (
+            <label style={{ marginTop: "12px", minHeight: 44, display: "flex", alignItems: "flex-start", gap: "10px", fontSize: "12px", color: T.textSecondary, lineHeight: 1.5, cursor: "pointer" }}>
+              <input type="checkbox" checked={gestaoLigada} onChange={(e) => A.setGestaoAuto(t, e.target.checked, setRecusa)} style={{ width: 22, height: 22, flex: "0 0 auto", marginTop: 1 }} />
+              <span>{marcosPlanoTxt(modo, "gestao_toggle")}</span>
+            </label>
           )}
           {why && <div style={{ marginTop: "13px", fontSize: "13px", color: T.textSecondary, lineHeight: 1.6 }}><Markdown text={why} /></div>}
-          {r.error && <div style={{ marginTop: "10px", fontSize: "12px", color: T.textFaint, lineHeight: 1.5 }}>IA indisponível ({r.error}) — exibindo a estimativa automática pelo seu perfil.</div>}
-          <div style={{ marginTop: "13px", fontSize: "11px", color: T.textFaint, lineHeight: 1.5 }}>Os níveis são uma sugestão dimensionada pelo seu perfil de risco. A decisão é sua — isto não é recomendação de investimento.</div>
+          {Array.isArray(r.riscos) && r.riscos.length > 0 && <ul style={{ margin: "8px 0 0", paddingLeft: "18px", fontSize: "12px", color: T.textMuted, lineHeight: 1.5 }}>{r.riscos.map((x, i) => <li key={i}>{x}</li>)}</ul>}
+          {r.quandoRevisar && <div style={{ marginTop: "8px", fontSize: "12px", color: T.textMuted, lineHeight: 1.5 }}>{r.quandoRevisar}</div>}
+          {r.error && <div style={{ marginTop: "10px", fontSize: "12px", color: T.textFaint, lineHeight: 1.5 }}>IA indisponível ({r.error}) — os marcos acima são do motor e valem sem a explicação.</div>}
+          <div style={{ marginTop: "13px", fontSize: "11px", color: T.textFaint, lineHeight: 1.5 }}>A decisão é sua — isto não é recomendação de investimento.</div>
+          {recusa && (
+            <div role="alert" style={{ marginTop: "12px", padding: "10px 12px", borderRadius: "10px", background: T.bgBase, border: `1px solid ${T.negative}`, fontSize: "12px", color: T.textPrimary, lineHeight: 1.55 }}>
+              <b>{marcosPlanoTxt(modo, "modal_recusa_titulo")}</b> {recusa}
+            </div>
+          )}
         </div>
         <div style={{ padding: "14px 18px", borderTop: `1px solid ${T.borderSubtle}`, display: "flex", gap: "9px", justifyContent: "flex-end" }}>
-          <button onClick={A.closeStopAlvo} style={{ padding: "10px 16px", borderRadius: "8px", border: `1px solid ${T.borderSubtle}`, background: T.bgPanel, color: T.textSecondary, fontWeight: 600, fontSize: "13px" }}>Fechar</button>
-          <button onClick={apply} disabled={!canApply} style={{ padding: "10px 18px", borderRadius: "8px", border: `1px solid ${canApply ? T.accent : T.borderSubtle}`, background: canApply ? T.accent : T.bgPanel, color: canApply ? T.onAccent : T.textFaint, fontWeight: 800, fontSize: "13px" }}>Aplicar em {t}</button>
+          <button onClick={A.closeStopAlvo} style={{ minHeight: 44, padding: "10px 16px", borderRadius: "8px", border: `1px solid ${T.borderSubtle}`, background: T.bgPanel, color: T.textSecondary, fontWeight: 600, fontSize: "13px" }}>Fechar</button>
+          <button onClick={apply} style={{ minHeight: 44, padding: "10px 18px", borderRadius: "8px", border: `1px solid ${T.accent}`, background: T.accent, color: T.onAccent, fontWeight: 800, fontSize: "13px" }}>Aplicar em {t}</button>
         </div>
       </div>
     </div>
@@ -10421,13 +10424,17 @@ export default function App() {
       setStopAlvo((s) => ({ ...s, [t]: { ...(s[t] || {}), loading: true, error: null } }));
       try {
         const r = await store.analyzeStopAlvo(t, { prompt });
+        // Fase 50 (D-10): stop/alvo vêm do motor (r.proposal/r.marcos); a IA só
+        // devolve explicação, riscos e quando revisar. r.cenarios não é mais lido.
         const prop = r.proposal || {};
-        setStopAlvo((s) => ({ ...s, [t]: { loading: false, stop: prop.stop != null ? prop.stop : null, alvo: prop.alvo != null ? prop.alvo : null, explicacao: r.explicacao || "", operar: r.operar, at: r.at, snapshotId: r.snapshotId || null, snapshotAt: r.snapshotAt || null, cenarios: r.cenarios || [], modelos: r.modelosUtilizados || [] } }));
+        setStopAlvo((s) => ({ ...s, [t]: { loading: false, stop: prop.stop != null ? prop.stop : null, alvo: prop.alvo != null ? prop.alvo : null, marcos: r.marcos || null, explicacao: r.explicacao || "", riscos: r.riscos || [], quandoRevisar: r.quandoRevisar || "", operar: r.operar, at: r.at, snapshotId: r.snapshotId || null, snapshotAt: r.snapshotAt || null, modelos: r.modelosUtilizados || [] } }));
       } catch (e) {
         setStopAlvo((s) => ({ ...s, [t]: { ...(s[t] || {}), loading: false, error: e.message || String(e) } }));
       }
     },
-    applyStopAlvoFor: async (t, stop, alvo) => {
+    // Fase 50 (D-17): em recusa do motor o modal NÃO fecha — a mensagem (PT-BR, do
+    // motor) vai para `onRecusa` e aparece dentro do modal.
+    applyStopAlvoFor: async (t, stop, alvo, onRecusa) => {
       try {
         const s = await store.putPosition(t, { stop, alvo });
         setData(s);
@@ -10436,8 +10443,17 @@ export default function App() {
           const s2 = await store.pushAnalysisLog(t, { tipo: "stop/alvo", stop, alvo, preco: (quotes[t] || {}).price || null });
           if (s2 && s2.analysisLog) setData(s2);
         } catch { /* best-effort */ }
-      } catch (e) { flash("Erro ao aplicar: " + (e.message || e)); }
+      } catch (e) {
+        const msg = (e && e.message) || String(e);
+        if (typeof onRecusa === "function") onRecusa(msg); else flash("Erro ao aplicar: " + msg);
+        return;
+      }
       setStopAlvoFor(null);
+    },
+    // Fase 50 (D-14): liga/desliga a gestão automática (breakeven 1R + trailing 2×ATR).
+    setGestaoAuto: async (t, v, onRecusa) => {
+      try { const s = await store.putPosition(t, { gestaoAuto: !!v }); setData(s); if (typeof onRecusa === "function") onRecusa(null); }
+      catch (e) { const msg = (e && e.message) || String(e); if (typeof onRecusa === "function") onRecusa(msg); else flash(msg); }
     },
     openAbout: () => setAboutOpen(true),
     closeAbout: () => setAboutOpen(false),
