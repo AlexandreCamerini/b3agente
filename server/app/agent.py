@@ -543,7 +543,16 @@ def avaliar_alvo_dinamico(price: float, pos: dict, ctx: dict = None):
     if not atr or atr <= 0:
         return None, None
     novo_alvo = round(alvo + ALVO_ATR_MULT * atr, 2)
-    rr = _rr(avg, stop, novo_alvo)
+    # Fase 50 review CR-01: o R:R se mede contra o risco ORIGINAL. Com a gestão
+    # padrão (D-14) o stop já está em breakeven/trailing (risco = avg − stop ≤ 0)
+    # quando o alvo é batido, e medir contra ele tornaria a extensão impossível.
+    # Base: `stopInicial` (se abaixo do PM); legado sem ele, o stop atual só
+    # enquanto estiver abaixo do PM; sem base de risco, não estende.
+    base = pos.get("stopInicial")
+    if not (isinstance(base, (int, float)) and not isinstance(base, bool)
+            and avg is not None and base < avg):
+        base = stop
+    rr = _rr(avg, base, novo_alvo)
     if rr is None or rr < RR_MINIMO:
         return None, None
     return novo_alvo, (f"extensão {usadas + 1}/{MAX_ALVO_EXTENSOES}: alvo levado a R$ {novo_alvo:.2f} "

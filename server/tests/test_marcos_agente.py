@@ -168,6 +168,8 @@ def test_set_position_com_valueerror_vira_warn_e_o_ciclo_segue(monkeypatch):
 
 
 def test_alvo_dinamico_mede_do_stop_ja_gerido(monkeypatch):
+    # Nota review CR-01: o stop gerido (BE) ainda é o que o ciclo entrega à
+    # função; o R:R, porém, é medido contra o `stopInicial` (ver testes abaixo).
     c = _conn()
     _seed(c, [{**GERIDA, "alvo": 20.5}], {"rules": {"alvo": True}, "alvoDinamico": True})
     vistos = []
@@ -179,6 +181,31 @@ def test_alvo_dinamico_mede_do_stop_ja_gerido(monkeypatch):
     monkeypatch.setattr(agent, "avaliar_alvo_dinamico", _spy)
     _run(c, {"PETR4": 21.0}, snapshot_getter=_snap(0.8))       # trailing 19.4 < PM -> breakeven 20.0
     assert vistos == [20.0]
+
+
+def test_cr01_alvo_dinamico_estende_com_stop_em_breakeven():
+    pos = {"avg": 23.50, "stop": 23.50, "stopInicial": 22.50, "alvo": 25.50, "gestaoAuto": True}
+    novo, crit = agent.avaliar_alvo_dinamico(25.60, pos, {"atr": 0.5})
+    assert novo == 26.25 and "R:R 2.8:1" in crit
+    # stop acima do PM (trailing) idem; legado sem stopInicial e stop >= PM não estende
+    assert agent.avaliar_alvo_dinamico(25.60, {**pos, "stop": 24.0}, {"atr": 0.5})[0] == 26.25
+    legado = {"avg": 23.50, "stop": 23.50, "alvo": 25.50}
+    assert agent.avaliar_alvo_dinamico(25.60, legado, {"atr": 0.5}) == (None, None)
+
+
+def test_cr01_ciclo_estende_alvo_com_gestao_ligada_e_fecha_na_terceira():
+    c = _conn()
+    pos = {"t": "PETR4", "qty": 100, "avg": 23.50, "stop": 22.50, "stopInicial": 22.50,
+           "alvo": 25.50, "gestaoAuto": True}
+    _seed(c, [pos], {"rules": {"alvo": True}, "alvoDinamico": True})
+    r = _run(c, {"PETR4": 25.60}, snapshot_getter=_snap(0.5))
+    p = _pos(c)
+    assert r["executed"] == 0 and p["alvo"] == 26.25 and p["alvoExtensoes"] == 1
+    assert p["stop"] >= 23.50                                  # gestão levou o stop ao BE ou acima
+    assert any("Alvo dinâmico" in e["text"] for e in r["events"])
+    db.kv_set(c, "positions", [{**p, "alvoExtensoes": 2, "alvo": 25.0}], user_id="u1")
+    r2 = _run(c, {"PETR4": 25.60}, snapshot_getter=_snap(0.5))
+    assert r2["executed"] == 1 and _pos(c) is None
 
 
 # ---------------------------------------------------------------------------
