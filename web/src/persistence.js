@@ -21,7 +21,7 @@ import { backfillStructural, limparCarteiraDemo } from "./migrate.js";
 // Fase 14 (opções lastreadas, Plano 05): fonte ÚNICA da quantidade vendável
 // do front (gêmeo de store.qty_livre, server/app/store.py) — importada, nunca
 // reimplementada aqui (guardrail de fonte única, mesmo padrão de RR_MIN).
-import { qtyLivre, faixaDeLiquidez } from "./finance.js";
+import { qtyLivre, faixaDeLiquidez, validarMarcos, MOTIVO_SEM_PRECO_VALIDAR } from "./finance.js";
 // FASE 13 (13-02, CR-01): gate fail-closed de watchlist no deviceStore —
 // mesmos hooks puros que o web/PWA já usa via App.jsx, importados aqui
 // direto no store porque no iOS não existe gate autoritativo no servidor
@@ -34,7 +34,7 @@ import { canAddTicker, canGrowWatchlistTo, erroDeLimiteWatchlist } from "./plan.
 import * as sync from "./sync.js";
 // Quick 261013-vai (2026-10-14): portão de pregão do ciclo local (D3) — vocabulário espelhado
 // de skill_ref.EXECUCAO_FORA_PREGAO e relógio BRT (nunca UTC).
-import { execucaoForaPregaoTxt } from "./copy.js";
+import { execucaoForaPregaoTxt, marcosPlanoTxt } from "./copy.js";
 import { hojeBRT, horaMinutoBRT } from "./evolucaoPosicao.js";
 
 // Normaliza a entrada do usuario igual ao servidor: sem espacos, MAIUSCULAS,
@@ -390,6 +390,10 @@ function serverStore() {
     cachedTechnicals: (_t, _period) => null,
     buy: (t, qty, meta) => api.buy(t, qty, meta),  // FASE 2 (2.4): mesma interface do deviceStore
     sell: (t, qty) => api.sell(t, qty),
+    // Fase 50 (D-04/D-09): marcos de stop/alvo/entrada vêm SÓ do motor do servidor;
+    // delegação pura nos DOIS stores (o aparelho não duplica o motor, mesma regra de
+    // opcoesEscada). Leitura/cálculo, fora de sync.mutate/outbox.
+    marcos: (t, b) => api.marcos(t, b),
     // Fase 2 (MERC-01): roda ANTES do login (D-08) — sem ensure()/sessão,
     // delegação pura. Existe nos DOIS stores só para não abrir exceção ao
     // guardrail de paridade: a UI lê `store.marketStatus()`, nunca `api`
@@ -1817,6 +1821,8 @@ function deviceStore() {
     // consulta. Sem conta: local, como sempre (nada muda pra quem usa sem
     // login). Erro do servidor SOBE (sem try/catch aqui) — a mesma regra do
     // putAgent: nunca fingir sucesso local quando o servidor recusou.
+    // Fase 50: delegação pura (paridade com serverStore.marcos).
+    async marcos(t, b) { return api.marcos(t, b); },
     async buy(t, qty, meta) {
       ensure();
       if (sync.hasSession()) {
@@ -1848,14 +1854,35 @@ function deviceStore() {
       }
       // FASE 2 (2.4): contexto de ENTRADA (setup do STU) — espelho do store.py
       const m = sanitizeTradeMeta(meta);
+      // espelho de store.buy (Fase 50 D-08/D-09): compra a partir de setup nasce com os
+      // marcos DO MOTOR (POST /api/marcos), nunca calculados aqui. Falha de rede ou marcos
+      // inválidos ao preço => a posição nasce sem marcos e a resposta traz marcosMotivo.
+      let mStop = null, mAlvo = null, marcosMotivo = null;
+      if (meta && meta.setup) {
+        try {
+          const r = await api.marcos(t, { setup: meta.setup, preco: price });
+          if (r && r.valido) {
+            const mot = validarMarcos(r.stop, r.alvo, price, price);
+            if (mot === null && typeof r.stop === "number" && typeof r.alvo === "number") {
+              mStop = +r.stop.toFixed(2); mAlvo = +r.alvo.toFixed(2);
+            } else marcosMotivo = mot || (r && r.motivo) || null;
+          } else marcosMotivo = (r && r.motivo) || null;
+        } catch { marcosMotivo = null; }
+      }
       const ex = doc.positions.find((p) => p.t === t);
       if (ex) {
         const tot = ex.qty + qty;
         ex.avg = +(((ex.avg * ex.qty) + price * qty) / tot).toFixed(2);
         ex.qty = tot;
         if (m) ex.setupEntrada = m; // última entrada define o contexto
+        // nunca sobrescreve marco válido do usuário ao somar lote
+        const temValido = (ex.stop || ex.alvo) && validarMarcos(ex.stop, ex.alvo, price, ex.avg) === null;
+        if (mStop !== null && !temValido) {
+          ex.stop = mStop; ex.alvo = mAlvo; ex.stopInicial = mStop; ex.gestaoAuto = true; ex.marcosOrigem = "motor";
+        }
       } else {
-        const pos = { t, qty, avg: +price.toFixed(2), stop: null, alvo: null, abertaEm: now() };
+        const pos = { t, qty, avg: +price.toFixed(2), stop: mStop, alvo: mAlvo, abertaEm: now() };
+        if (mStop !== null) { pos.stopInicial = mStop; pos.gestaoAuto = true; pos.marcosOrigem = "motor"; }
         if (m) pos.setupEntrada = m;
         doc.positions.push(pos);
       }
@@ -1867,6 +1894,7 @@ function deviceStore() {
       _agendarSyncPrefs();   // posição nova entra no universo do push
       const out = pub();
       out.priceUsed = +price.toFixed(2);
+      if (marcosMotivo) out.marcosMotivo = marcosMotivo;
       return out;
     },
     async sell(t, qty) {
@@ -1959,8 +1987,29 @@ function deviceStore() {
       }
       const pos = doc.positions.find((p) => p.t === t);
       if (pos) {
-        if ("stop" in b) pos.stop = b.stop === "" || b.stop == null ? null : Number(b.stop);
-        if ("alvo" in b) pos.alvo = b.alvo === "" || b.alvo == null ? null : Number(b.alvo);
+        const temStop = "stop" in b, temAlvo = "alvo" in b;
+        const nStop = temStop ? (b.stop === "" || b.stop == null ? null : Number(b.stop)) : pos.stop;
+        const nAlvo = temAlvo ? (b.alvo === "" || b.alvo == null ? null : Number(b.alvo)) : pos.alvo;
+        // espelho de store.set_position (Fase 50 D-11/D-12): geometria impossível é recusada
+        // ANTES de gravar. Gravar marco novo exige preço de referência (nunca gravar sem
+        // checar contra o preço); limpar marco e gestaoAuto não exigem.
+        if (temStop || temAlvo) {
+          const gravaMarco = (temStop && nStop !== null) || (temAlvo && nAlvo !== null);
+          let ref;
+          if (gravaMarco) {
+            try {
+              const r = await api.getQuotes(t);
+              const px = r && r.quotes && r.quotes[t] ? r.quotes[t].price : null;
+              if (typeof px === "number" && px > 0) ref = px;
+            } catch { /* sem preço: tratado abaixo */ }
+            if (ref === undefined) throw new Error(MOTIVO_SEM_PRECO_VALIDAR);
+          }
+          const motivo = validarMarcos(nStop, nAlvo, ref, pos.avg);
+          if (motivo) throw new Error(motivo);
+          if (temStop) pos.stop = nStop;
+          if (temAlvo) pos.alvo = nAlvo;
+        }
+        if (typeof b.gestaoAuto === "boolean") pos.gestaoAuto = b.gestaoAuto;
       }
       write();
       return pub();
@@ -2047,6 +2096,20 @@ function deviceStore() {
       for (const pos of aberto ? [...doc.positions] : []) {
         const price = quotes[pos.t] && quotes[pos.t].price;
         if (price == null) continue;
+        // Fase 50 D-13/T-50-31: marco legado inválido (geometria impossível contra o preço
+        // médio) NUNCA dispara venda nem aviso de stop/alvo — 1 aviso "plano inválido" por dia.
+        const invalLocal = validarMarcos(pos.stop, pos.alvo, undefined, pos.avg);
+        if (invalLocal) {
+          const hojeP = hojeBRT();
+          let avP = doc.agent.avisoPlanoInvalido;
+          if (!avP || avP.data !== hojeP || !Array.isArray(avP.chaves)) avP = { data: hojeP, chaves: [] };
+          if (!avP.chaves.includes(pos.t)) {
+            avP.chaves.push(pos.t);
+            events.push({ time: "Agora", kind: "warn", t: pos.t, text: marcosPlanoTxt(modo, "plano_invalido_diario", { ticker: pos.t, motivo: invalLocal }) });
+          }
+          doc.agent.avisoPlanoInvalido = avP;
+          continue;
+        }
         const breachStop = pos.stop != null && price <= pos.stop;
         const hitAlvo = pos.alvo != null && price >= pos.alvo;
         if (breachStop || hitAlvo) {
@@ -2216,6 +2279,7 @@ function deviceStore() {
         for (const pos of doc.positions) {
           const price = quotes[pos.t] && quotes[pos.t].price;
           if (price == null) continue;
+          if (validarMarcos(pos.stop, pos.alvo, undefined, pos.avg)) continue; // Fase 50 D-13: plano inválido não gera aviso_diario
           const breachStop = pos.stop != null && price <= pos.stop;
           const hitAlvo = pos.alvo != null && price >= pos.alvo;
           if (!(breachStop || hitAlvo)) continue;

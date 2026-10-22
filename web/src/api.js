@@ -447,6 +447,8 @@ export const api = {
   buy: (t, qty, meta) => req("POST", "/api/buy", meta ? { t, qty, meta } : { t, qty }),   // FASE 2 (2.4): setup de entrada
   sell: (t, qty) => req("POST", "/api/sell", qty ? { t, qty } : { t }),                    // FASE 2 (2.4): venda parcial
   putPosition: (t, b) => req("PUT", "/api/position/" + t, b),
+  // Fase 50 (D-04/D-09): marcos de stop/alvo/entrada do motor deterministico.
+  marcos: (t, b) => req("POST", "/api/marcos/" + t, b || {}, 15000),
   // Fase 2 (realismo de mercado, MERC-01): ÚNICA chamada do app que roda
   // ANTES do login (D-08, badge na tela de entrada) — nunca pode depender de
   // sessão nem de estado de conta. Rota pública, sem token.
