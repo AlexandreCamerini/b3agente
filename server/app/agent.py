@@ -1199,6 +1199,16 @@ async def _run_cycle_inner(conn, scope, quotes_getter, origem: str, t0: float, s
         # Fase 50 D-14 (breakeven a 1R + 2×ATR). Vale o MAIOR nível — ligar a
         # regra global nunca enfraquece a gestão, nem o contrário.
         gestao_on = plano_ok and _gestao_ligada(pos)
+        # Review WR-03: posição legada sem `stopInicial` — ancora o 1R na PRIMEIRA
+        # avaliação da gestão (stop ainda abaixo do PM), antes de o trailing
+        # subir o stop e encolher o R a cada ajuste.
+        if gestao_on and not isinstance(pos.get("stopInicial"), (int, float)) \
+                and float(pos["stop"]) < float(pos["avg"]):
+            try:
+                store.set_position(conn, pos["t"], stop_inicial=pos["stop"], user_id=scope)
+                pos = {**pos, "stopInicial": float(pos["stop"])}
+            except Exception:  # noqa: BLE001 — âncora é best-effort
+                pass
         trail_on = plano_ok and par["rules"]["trailing"] and pos.get("stop") is not None
         if gestao_on or trail_on:
             ctx_p = ctxs.get(pos["t"])

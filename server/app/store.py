@@ -617,7 +617,14 @@ def _marco_num(v):
 
 
 def set_position(conn, t: str, stop=None, alvo=None, has_stop=False, has_alvo=False,
-                  alvo_extensoes=None, user_id=None, preco_ref=None, gestao_auto=None) -> None:
+                  alvo_extensoes=None, user_id=None, preco_ref=None, gestao_auto=None,
+                  manual=False, stop_inicial=None) -> None:
+    """...`manual=True` = edição do USUÁRIO (rota PUT): reancora o 1R da gestão
+    (review WR-03) — `stopInicial` passa a ser o stop que ele assumiu, se estiver
+    abaixo do PM; stop limpo ou ≥ PM remove a âncora (sem risco original, a
+    gestão cai no ramo R ≤ 0). Ajuste do AGENTE (gestão/trailing, manual=False)
+    NUNCA mexe em `stopInicial`: é a base fixa do 1R. `stop_inicial` grava a
+    âncora explicitamente (legado sem ela, primeira avaliação da gestão)."""
     positions = get(conn, "positions", user_id=user_id)
     for p in positions:
         if p["t"] == t:
@@ -637,8 +644,16 @@ def set_position(conn, t: str, stop=None, alvo=None, has_stop=False, has_alvo=Fa
                     raise ValueError(motivo)
             if has_stop:
                 p["stop"] = novo_stop
+                if manual:
+                    avg_p = p.get("avg")
+                    if novo_stop is not None and isinstance(avg_p, (int, float)) and novo_stop < avg_p:
+                        p["stopInicial"] = novo_stop
+                    else:
+                        p.pop("stopInicial", None)
             if has_alvo:
                 p["alvo"] = novo_alvo
+            if stop_inicial is not None:
+                p["stopInicial"] = float(stop_inicial)
             if gestao_auto is not None:
                 p["gestaoAuto"] = bool(gestao_auto)
             # F3 — alvo dinâmico: contador de quantas vezes JÁ estendeu (o

@@ -3129,7 +3129,7 @@ async def position(ticker: str, body: dict = Body(default={}), scope: Optional[s
             raise HTTPException(400, setups.MOTIVO_SEM_PRECO_VALIDAR)
     gestao_auto = body["gestaoAuto"] if isinstance(body.get("gestaoAuto"), bool) else None
     try:
-        store.set_position(_conn, t, stop=body.get("stop"), alvo=body.get("alvo"), has_stop=("stop" in body), has_alvo=("alvo" in body), user_id=scope, preco_ref=preco_ref, gestao_auto=gestao_auto)
+        store.set_position(_conn, t, stop=body.get("stop"), alvo=body.get("alvo"), has_stop=("stop" in body), has_alvo=("alvo" in body), user_id=scope, preco_ref=preco_ref, gestao_auto=gestao_auto, manual=True)
     except ValueError as e:
         raise HTTPException(400, str(e))
     # 2026-08-07: stop/alvo recém-armado é avaliado na hora. quick 261013-vai:

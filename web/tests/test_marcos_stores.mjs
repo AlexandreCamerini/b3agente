@@ -72,6 +72,14 @@ e = await erro(() => st.putPosition("PETR4", { stop: 22 }));
 ok("sem cotação: recusa com MOTIVO_SEM_PRECO_VALIDAR", e && e.message === MOTIVO_SEM_PRECO_VALIDAR, e && e.message);
 ok("sem cotação: não grava", lerDoc().positions[0].stop === null);
 
+// Review WR-03: edição manual do stop reancora o 1R (stopInicial); stop >= PM remove
+quotePrice = 23.51;
+st = await novoStore(base([{ ...PM(), stopInicial: 20 }]));
+e = await erro(() => st.putPosition("PETR4", { stop: 22 }));
+ok("WR-03: edição manual reancora stopInicial", !e && lerDoc().positions[0].stopInicial === 22, e && e.message);
+e = await erro(() => st.putPosition("PETR4", { stop: 23.2 }));
+ok("WR-03: stop >= PM remove stopInicial", !e && lerDoc().positions[0].stopInicial === undefined, e && e.message);
+
 // limpar e gestaoAuto não exigem preço
 st = await novoStore(base([{ ...PM(), stop: 22, alvo: 26 }]));
 e = await erro(() => st.putPosition("PETR4", { stop: null, alvo: null }));

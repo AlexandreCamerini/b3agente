@@ -2006,7 +2006,12 @@ function deviceStore() {
           }
           const motivo = validarMarcos(nStop, nAlvo, ref, pos.avg);
           if (motivo) throw new Error(motivo);
-          if (temStop) pos.stop = nStop;
+          if (temStop) {
+            pos.stop = nStop;
+            // Review WR-03 (espelho de store.set_position manual=True): a edição do usuário reancora o 1R.
+            if (nStop !== null && typeof pos.avg === "number" && nStop < pos.avg) pos.stopInicial = nStop;
+            else delete pos.stopInicial;
+          }
           if (temAlvo) pos.alvo = nAlvo;
         }
         if (typeof b.gestaoAuto === "boolean") pos.gestaoAuto = b.gestaoAuto;

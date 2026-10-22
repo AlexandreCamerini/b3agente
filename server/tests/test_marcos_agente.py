@@ -341,3 +341,35 @@ def test_entrada_plano_sem_stop_ou_alvo_numericos_e_recusada_com_motivo(_elegive
     c, ex, events = _entrada(20.10, plano)
     assert ex == 0 and _pos(c) is None
     assert any("não executada" in e["text"] and "stop e alvo" in e["text"] for e in events)
+
+
+# ---------------------------------------------------------------------------
+# Review WR-03 — âncora do 1R (`stopInicial`)
+# ---------------------------------------------------------------------------
+def test_wr03_edicao_manual_do_stop_reancora_o_1r():
+    c = _conn()
+    _seed(c, [dict(GERIDA)])                                   # PM 20, stopInicial 19
+    store.set_position(c, "PETR4", stop=19.5, has_stop=True, manual=True, user_id="u1")
+    assert _pos(c)["stopInicial"] == 19.5                      # 1R passa a ser 0,5
+    assert agent.nivel_gestao(_pos(c), 20.5, {}) == (20.0, "gestao_breakeven")
+    # stop >= PM remove a âncora; limpar também
+    store.set_position(c, "PETR4", stop=20.2, has_stop=True, manual=True, user_id="u1")
+    assert "stopInicial" not in _pos(c)
+
+
+def test_wr03_ajuste_do_agente_nao_mexe_na_ancora():
+    c = _conn()
+    _seed(c, [dict(GERIDA)])
+    _run(c, {"PETR4": 21.0}, snapshot_getter=_snap(0.3))        # gestão sobe o stop para 20,4
+    p = _pos(c)
+    assert p["stop"] == 20.4 and p["stopInicial"] == 19.0
+
+
+def test_wr03_legado_sem_ancora_ganha_stopinicial_na_primeira_avaliacao():
+    c = _conn()
+    leg = {k: v for k, v in GERIDA.items() if k not in ("stopInicial", "gestaoAuto")}
+    _seed(c, [leg])
+    _run(c, {"PETR4": 20.5}, snapshot_getter=_snap(0.3))        # < 1R: gestão não age, mas ancora
+    assert _pos(c)["stopInicial"] == 19.0
+    _run(c, {"PETR4": 21.0}, snapshot_getter=_snap(0.3))
+    assert _pos(c)["stop"] == 20.4 and _pos(c)["stopInicial"] == 19.0
