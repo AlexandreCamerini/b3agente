@@ -522,3 +522,15 @@ Plans:
 - [x] 49-06-PLAN.md — PosicaoTotal (chips, slider, com/sem) + PernasAbertas contêiner com fallback 48-16 (onda 3)
 - [x] 49-07-PLAN.md — fiação OpcoesScreen (store, proposta.estrutura) + ObjetivoAtivo posição → pernas → objetivos (onda 4)
 - [x] 49-08-PLAN.md — pré-voo + checkpoint do Alex iPhone/web ITUB4/PETR4 (onda 5)
+
+
+### Phase 50: Marcos do plano — stop, alvo e entrada pelo motor
+
+**Goal:** stop, alvo e ponto de entrada de toda posição (manual ou automática) — e as variáveis que as opções reutilizam — saem de UMA função determinística do motor, com geometria validada; a IA explica os marcos, não escolhe o número gravado; entrada automática já nasce com stop e alvo.
+**Requirements**: TBD
+**Depends on:** Phase 49
+**Plans:** 0 plans
+
+Plans:
+
+- [ ] TBD (run /gsd:plan-phase 50 to break down)
