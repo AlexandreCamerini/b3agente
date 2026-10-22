@@ -65,6 +65,7 @@ ok("A.openSell usa qtyLivre(pos)",
   /setSellModal\(\{\s*t,\s*qty:\s*qtyLivre\(pos\)\s*\}\)/.test(app));
 
 // ---- (5) guardrail: stop/alvo NUNCA são vetados pela trava -----------------
+// Fase 50 / D-12 (Alex, 2026-10-21): 'nunca vetados' vale para parecer (operar:false, R:R baixo) — os botões seguem sem disabled e Aplicar segue habilitado (D-17); geometria impossível é recusada pelo motor no PUT/deviceStore, com a mensagem exibida.
 ok("nenhum botão de stop/alvo é desabilitado por qtyTravada (asserção negativa)",
   !/disabled=\{[^}]*qtyTravada[^}]*\}/.test(app));
 // Fase 22 (SYS-02, 2026-09-06): o emoji de gráfico do botão de Stop/alvo

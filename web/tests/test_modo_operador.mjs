@@ -70,7 +70,8 @@ ok("decisões coloridas (COMPRAR/VENDER/AGUARDAR)", app.includes('"COMPRAR": [T.
 ok("veredito educacional segue no ramo estudo (via decisaoDoModo)",
   /const decMr = decisaoDoModo\(r, operador\)/.test(app)
   && /\(operador && item && item\.plano && item\.plano\.decisao\) \? item\.plano\.decisao : \(item \|\| \{\}\)\.veredito/.test(app));
-ok("stop rotulado como invalidação do setup", app.includes("Stop (invalidação do setup)"));
+// Fase 50 D-18: o rótulo do stop vem do vocabulário (marcosPlanoTxt bloco_stop: "Stop (onde a ideia deixa de valer, com folga de ATR)"); a frase literal antiga saiu do App.jsx.
+ok("stop rotulado como invalidação do setup", app.includes('"bloco_stop"'));
 ok("sizing usa capital real OU simulado com aviso", app.includes("capital simulado — defina o real na Config"));
 // FIX-C21 (2026-08-23): mesma migração — ctx.operador em vez de recomputar.
 ok("disclaimer da persona no modo operador", app.includes("ctx.operador ? DISCLAIMERS.operador : DISCLAIMERS.radar"));

@@ -37,5 +37,13 @@ ok("rótulo R:R restante (rr_atual) no AtivoCard", /"rr_atual"/.test(app));
 ok("compra mostra marcosTexto do servidor", /marcosTexto/.test(app));
 ok("estruturaCard: estado_plano_invalido", /estado_plano_invalido/.test(estrutura));
 
+// ---- Task 3: bloco do plano e régua sobre o motor (D-18) -------------------
+ok("App.jsx sem alvoSugerido", !/alvoSugerido/.test(app));
+ok("App.jsx sem 'ALVO 2:1'", !/ALVO 2:1/.test(app));
+ok("App.jsx sem 'Alvo 1 (parcial'", !/Alvo 1 \(parcial/.test(app));
+ok("bloco do plano usa bloco_stop/bloco_alvo/bloco_breakeven/bloco_rr", ["bloco_stop", "bloco_alvo", "bloco_breakeven", "bloco_rr"].every((k) => app.includes('"' + k + '"')));
+ok("régua usa regua_alvo", /"regua_alvo"/.test(app));
+
+
 if (fails) { console.error("\n" + fails + " falha(s)"); process.exit(1); }
 console.log("\ntodos os testes passaram");

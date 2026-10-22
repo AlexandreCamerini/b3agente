@@ -1535,13 +1535,19 @@ function LinhaContexto({ regime, fundamento, alinhamento, operador, A, didatica,
 // (App.jsx ~6910-6969, pré-Fase 42) — nenhuma tela muda ainda; a fiação no
 // AtivoCard/Radar é do 42-04. Cores T.negative/T.positive aqui são NÍVEL DE
 // PREÇO (permitido por D-05), não chip de contexto.
-function PlanoOperacionalBloco({ operador, plano, motivo, setup, close, config }) {
+function PlanoOperacionalBloco({ operador, plano, planoMotor, motivo, setup, close, config }) {
   const cRisco = (config && config.risco) || {};
   const capitalOp = typeof cRisco.capital === "number" ? cRisco.capital : (config && config.initialBudget) || null;
   const siz = plano ? sizingPlano(plano, capitalOp, cRisco.pctPorTrade || 1) : null;
   const temCaixa = !!(operador && plano && (plano.decisao === "COMPRAR" || plano.decisao === "VENDER"));
   const temMotivoOperador = !!(operador && !temCaixa && plano && plano.motivo);
-  const temRegua = !!(setup && setup.gatilho != null && setup.invalidacao != null && setup.alvoSugerido != null);
+  // Fase 50 (D-18): a régua e o bloco leem SÓ o plano do motor (setups.marcos_do_plano):
+  // stop/entrada/alvo numéricos. `alvo2` cobre o VENDER legado. Sem números (NÃO OPERAR)
+  // a régua não aparece e o motivo do motor segue exibido.
+  const pm = planoMotor || plano; // Estudo recebe só planoMotor (a caixa do Operador segue exclusiva)
+  const alvoPlano = pm ? (pm.alvo != null ? pm.alvo : pm.alvo2) : null;
+  const modoTxt = operador ? "operador" : "estudo";
+  const temRegua = !!(pm && [pm.entrada, pm.stop, alvoPlano].every((v) => typeof v === "number" && isFinite(v)));
   const temMotivoEstudo = !operador && !!motivo;
   const temReguaEstudo = !operador && temRegua;
   if (!temCaixa && !temMotivoOperador && !temMotivoEstudo && !temReguaEstudo) return null;
@@ -1551,9 +1557,10 @@ function PlanoOperacionalBloco({ operador, plano, motivo, setup, close, config }
         <div style={{ marginTop: SP[3], padding: `${SP[3]}px ${SP[3]}px`, borderRadius: "10px", background: T.bgBase, border: `1px solid ${T.borderFaint}` }}>
           {[
             ["Entrada (" + (plano.tipo || "") + ")", "R$ " + price(plano.entrada), T.textSecondary],
-            ["Stop (invalidação do setup)", "R$ " + price(plano.stop), T.negative],
-            ["Alvo 1 (parcial, 1R) / Alvo final", price(plano.alvo1) + " / " + price(plano.alvo2), T.positive],
-            ["Risco:retorno (alvo final)", (plano.rr2 != null ? plano.rr2.toFixed(1).replace(".", ",") : "—") + " : 1", T.textSecondary],
+            [marcosPlanoTxt(modoTxt, "bloco_stop"), "R$ " + price(plano.stop), T.negative],
+            [marcosPlanoTxt(modoTxt, "bloco_alvo"), "R$ " + price(alvoPlano), T.positive],
+            [marcosPlanoTxt(modoTxt, "bloco_breakeven"), "R$ " + price(plano.alvo1), T.textSecondary],
+            [marcosPlanoTxt(modoTxt, "bloco_rr"), (plano.rr2 != null ? plano.rr2.toFixed(1).replace(".", ",") : "—") + " : 1", T.textSecondary],
           ].map(([k, v, cor], i2) => (
             <div key={i2} style={{ display: "flex", justifyContent: "space-between", gap: SP[2], fontSize: "12px", padding: `${SP[1]}px 0`, color: T.textMuted }}>
               <span>{k}</span><b style={{ fontFamily: MONO, color: cor }}>{v}</b>
@@ -1577,13 +1584,13 @@ function PlanoOperacionalBloco({ operador, plano, motivo, setup, close, config }
       {!operador && temRegua && (
         <PlanRuler
           caption="PLANO DO SETUP (didático)"
-          marks={[{ v: setup.invalidacao, color: T.negative }, { v: setup.gatilho, color: T.accent }, { v: setup.alvoSugerido, color: T.positive }]}
+          marks={[{ v: pm.stop, color: T.negative }, { v: pm.entrada, color: T.accent }, { v: alvoPlano, color: T.positive }]}
           cur={close}
           curLabel={close != null ? "agora " + price(close) : null}
           legend={[
-            { k: "INVALIDAÇÃO", v: setup.invalidacao, color: T.negative },
-            { k: "GATILHO", kColor: T.accent, v: setup.gatilho },
-            { k: "ALVO 2:1", v: setup.alvoSugerido, color: T.positive },
+            { k: "STOP", v: pm.stop, color: T.negative },
+            { k: "ENTRADA", kColor: T.accent, v: pm.entrada },
+            { k: marcosPlanoTxt(modoTxt, "regua_alvo"), v: alvoPlano, color: T.positive },
           ]}
         />
       )}
@@ -3782,7 +3789,7 @@ function AtivoCard({ vm, contexto = "watchlist", children }) {
               {/* Fase 42 (HIER-02, D-12): plano por modo, um bloco só — nos DOIS
                   contextos (a mesma sequência vale para watchlist e radar
                   porque é UM render, HIER-02). */}
-              <PlanoOperacionalBloco operador={operador} plano={operador && sc ? sc.plano : null}
+              <PlanoOperacionalBloco operador={operador} plano={operador && sc ? sc.plano : null} planoMotor={sc ? sc.plano : null}
                 motivo={sc && sc.plano ? sc.plano.motivo : null} setup={s0Card}
                 close={sc ? sc.close : null} config={data && data.config} />
 

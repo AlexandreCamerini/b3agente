@@ -66,6 +66,7 @@ ok("FaceAcao: sem hex literal", !/#[0-9a-fA-F]{3,6}\b/.test(faceAcao));
 // --- BlocoBorisIA -----------------------------------------------------------
 const botaoPlano = /<button[^>]*onClick=\{\(\) => ctx\.openStopAlvo\(p\.t\)\}[^>]*>/.exec(bloco);
 ok("BlocoBorisIA: botão de plano chama ctx.openStopAlvo(", !!botaoPlano);
+// Fase 50 / D-12 (Alex, 2026-10-21): 'nunca vetados' vale para parecer (operar:false, R:R baixo) — os botões seguem sem disabled e Aplicar segue habilitado (D-17); geometria impossível é recusada pelo motor no PUT/deviceStore, com a mensagem exibida.
 ok("BlocoBorisIA: botão de plano SEM aria-disabled/disabled (stop/alvo nunca vetados)", !!botaoPlano && !/disabled/.test(botaoPlano[0]) && !/disabled/.test(bloco.slice(bloco.indexOf("openStopAlvo") - 80, bloco.indexOf("openStopAlvo") + 400).split("</button>")[0]));
 ok("BlocoBorisIA: reanalisar chama ctx.openAvaliar(", /ctx\.openAvaliar\(p\.t\)/.test(bloco));
 ok("BlocoBorisIA: saída usa qtyLivre(p) === 0, aria-disabled, aria-describedby e saida_motivo_lastro", /qtyLivre\(p\) === 0/.test(bloco) && /aria-disabled=/.test(bloco) && /aria-describedby=\{semLivres/.test(bloco) && /"saida_motivo_lastro"/.test(bloco));

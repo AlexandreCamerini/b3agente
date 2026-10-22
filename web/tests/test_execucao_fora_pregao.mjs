@@ -233,6 +233,7 @@ ok("S5 rodarAgora segue exibindo s.mensagem", /rodarAgora/.test(app) && /s\.mens
 {
   const i = app.indexOf("    applyProposal: async");
   const corte = app.slice(i, i + 500);
+// Fase 50 / D-12 (Alex, 2026-10-21): 'nunca vetados' vale para parecer (operar:false, R:R baixo) — os botões seguem sem disabled e Aplicar segue habilitado (D-17); geometria impossível é recusada pelo motor no PUT/deviceStore, com a mensagem exibida.
   ok("S6 applyProposal (stop/alvo) NÃO referencia mercadoRef — nunca vetado", i > 0 && !corte.includes("mercadoRef"));
 }
 ok("S7 deviceStore.cycle consulta api.marketStatus() e usa hojeBRT (não UTC)", persist.includes("await api.marketStatus()") && !/const hoje = new Date\(\)\.toISOString\(\)/.test(persist));

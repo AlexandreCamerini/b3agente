@@ -62,6 +62,7 @@ ok("App.jsx sem \"editar_plano\"", !/"editar_plano"/.test(src));
 // 5. Ajustar / Falta definir (stop/alvo nunca vetados)
 ok("FaceAcao: ajustar_plano com onClick={onEditarPlano} e aria-label ajustar_plano_aria",
   /"ajustar_plano"/.test(face) && /onClick=\{onEditarPlano\}/.test(face) && /aria-label=\{cartaoPosicaoTxt\(modo, "ajustar_plano_aria"/.test(face));
+// Fase 50 / D-12 (Alex, 2026-10-21): 'nunca vetados' vale para parecer (operar:false, R:R baixo) — os botões seguem sem disabled e Aplicar segue habilitado (D-17); geometria impossível é recusada pelo motor no PUT/deviceStore, com a mensagem exibida.
 ok("FaceAcao: falta_definir presente e nenhum disabled", /"falta_definir"/.test(face) && !/disabled/.test(face));
 
 // 6. editor colado na régua
