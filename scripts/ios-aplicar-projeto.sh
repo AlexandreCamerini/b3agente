@@ -75,26 +75,28 @@ my %want = (
   MARKETING_VERSION       => $ENV{APR_MKT},
 );
 my $nconf = 0;
-$c =~ s{(\t\t[0-9A-F]{24} /\* \w+ \*/ = \{\n\t\t\tisa = XCBuildConfiguration;\n.*?\n\t\t\};\n)}{
-  my $blk = $1;
-  if ($blk =~ /INFOPLIST_FILE = App\/Info\.plist;/ && $blk =~ /(buildSettings = \{\n)((?:\t\t\t\t[^\n]*\n)*?)(\t\t\t\};)/) {
-    my ($pre, $body, $post) = ($1, $2, $3);
-    $nconf++;
-    for my $k (sort keys %want) {
-      my $v = $want{$k};
-      if ($body =~ s/^(\t\t\t\t\Q$k\E = )[^;\n]*;$/$1$v;/m) { next; }
-      my @lines = split /^/, $body; my $done = 0; my @res;
-      for my $l (@lines) {
-        if (!$done && $l =~ /^\t\t\t\t([A-Za-z0-9_\[\]=*]+) = / && $1 gt $k) { push @res, "\t\t\t\t$k = $v;\n"; $done = 1; }
-        push @res, $l;
-      }
-      push @res, "\t\t\t\t$k = $v;\n" unless $done;
-      $body = join '', @res;
+sub ajusta {
+  my ($blk) = @_;
+  return $blk unless $blk =~ /INFOPLIST_FILE = App\/Info\.plist;/;
+  return $blk unless $blk =~ /buildSettings = \{\n((?:\t\t\t\t[^\n]*\n)*?)\t\t\t\};/;
+  my $body = $1;
+  $nconf++;
+  for my $k (sort keys %want) {
+    my $v = $want{$k};
+    next if $body =~ s/^(\t\t\t\t\Q$k\E = )[^;\n]*;$/$1$v;/m;
+    my @lines = split /^/, $body;
+    my @res; my $done = 0;
+    for my $l (@lines) {
+      if (!$done && $l =~ /^\t\t\t\t([A-Za-z0-9_\[\]=*]+) = / && $1 gt $k) { push @res, "\t\t\t\t$k = $v;\n"; $done = 1; }
+      push @res, $l;
     }
-    $blk =~ s/buildSettings = \{\n(?:\t\t\t\t[^\n]*\n)*?\t\t\t\};/buildSettings = {\n$body\t\t\t};/;
+    push @res, "\t\t\t\t$k = $v;\n" unless $done;
+    $body = join '', @res;
   }
-  $blk;
-}gse;
+  $blk =~ s/(buildSettings = \{\n)(?:\t\t\t\t[^\n]*\n)*?(\t\t\t\};)/$1$body$2/;
+  return $blk;
+}
+$c =~ s{(\t\t[0-9A-F]{24} /\* \w+ \*/ = \{\n\t\t\tisa = XCBuildConfiguration;\n.*?\n\t\t\};\n)}{ajusta($1)}gse;
 die "nenhuma config do target App encontrada\n" if $nconf == 0;
 
 # PrivacyInfo

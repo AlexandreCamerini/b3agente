@@ -18,10 +18,12 @@ Bundle id: `com.alexandrecamerini.bolsia` · Team: `LC65399YC9` · Nome: **Boris
    ```bash
    bash scripts/ios-testflight.sh
    ```
-3. **[Xcode]** AÇÃO ÚNICA que o script pede: arraste
-   `web/ios/App/App/PrivacyInfo.xcprivacy` para o grupo **App** no Xcode e marque
-   o target **App**. (O projeto é SPM e ignorado no git, então essa referência
-   fica no projeto local; persiste entre `cap sync`, só precisa uma vez.)
+3. **[automático]** `setup-ios.sh`, `instalar-iphone.sh` e `ios-testflight.sh` rodam
+   `scripts/ios-aplicar-projeto.sh`, que reaplica (idempotente) o time `LC65399YC9`,
+   `CODE_SIGN_ENTITLEMENTS`, `MARKETING_VERSION`/`CURRENT_PROJECT_VERSION` de
+   `resources/ios/versao.env`, o `PrivacyInfo.xcprivacy` no grupo **App** + fase
+   Resources e o nome Boris+. Nenhum passo no Xcode. Se acusar "sem target nativo",
+   o projeto está corrompido: `bash scripts/instalar-iphone.sh --recriar-ios`.
 
 ## 2. Apple Developer (portal)
 
@@ -66,6 +68,10 @@ Bundle id: `com.alexandrecamerini.bolsia` · Team: `LC65399YC9` · Nome: **Boris
     ```bash
     bash scripts/ios-bump-build.sh
     ```
+    Incrementa em `resources/ios/versao.env` (fonte versionada) e aplica no projeto;
+    **commite o `versao.env` junto do upload**. Falha (em vez de calcular 0->1) se o
+    projeto estiver quebrado. A versão pública se muda editando `MARKETING_VERSION`
+    nesse arquivo, na mesma cadência do `package.json` (decisão do Alex).
 12. **[Xcode]** Product → **Archive** (target genérico "Any iOS Device").
 13. **[Xcode]** Organizer → **Distribute App** → **App Store Connect** → Upload.
     Assinatura **Automatic** cuida do provisioning.
@@ -117,7 +123,9 @@ e mais rápida que a revisão de publicação na App Store.
 |---|---|
 | `scripts/setup-ios.sh` | gera o projeto iOS (Capacitor) |
 | `scripts/ios-testflight.sh` | manifesto de privacidade + export compliance (+`--apns-prod/--apns-dev`) |
-| `scripts/ios-bump-build.sh` | incrementa o build number |
+| `scripts/ios-bump-build.sh` | incrementa o build number em `versao.env` e aplica no projeto |
+| `scripts/ios-aplicar-projeto.sh` | reaplica time, entitlements, versões, PrivacyInfo e nome no `web/ios` (idempotente) |
+| `resources/ios/versao.env` | versão pública + último build enviado (fonte versionada) |
 | `resources/ios/PrivacyInfo.xcprivacy` | manifesto de privacidade versionado (fonte) |
 
 O que **não** precisa: exceções ATS (o app é HTTPS puro) e `instalar-iphone.sh`

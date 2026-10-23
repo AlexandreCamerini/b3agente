@@ -155,7 +155,7 @@ educacional → 8. registrar o aprendizado e comparar com o benchmark.
   segue as regras de `scripts/bump.sh` acima. (3) **`package.json`
   (raiz/`web`/`web-admin`) + `MARKETING_VERSION` (iOS)** — versão PÚBLICA,
   o que o usuário vê na App Store; os dois sobem juntos, na cadência que o
-  Alex decidir (não a cada milestone). Nenhum dos três lê os outros em
+  Alex decidir (não a cada milestone). No iOS, `MARKETING_VERSION` e o build number vivem em `resources/ios/versao.env`, aplicados por `scripts/ios-aplicar-projeto.sh`, porque `web/ios/` é gitignored. Nenhum dos três lê os outros em
   runtime — são só rótulos; misturar as cadências é o erro, não o número.
 
 <!-- GSD:project-start source:PROJECT.md -->
