@@ -4201,7 +4201,9 @@ function StopAlvoModal({ ctx }) {
   const alvo = m && m.valido ? m.alvo : null;
   const rrTxt = m && m.valido && m.rr != null ? m.rr + ":1" : "—";
   const why = r.explicacao || "";
-  const gestaoVisivel = !!(pos && pos.stop != null);
+  // D-14: a gestão automática só roda no servidor; no iPhone sem sessão o toggle
+  // não teria efeito, então nem aparece.
+  const gestaoVisivel = !!(pos && pos.stop != null) && (!isNative || hasSession());
   const gestaoLigada = !!(pos && pos.gestaoAuto !== false);
   const apply = () => {
     setRecusa(null);
