@@ -42,6 +42,40 @@ def marcos_de_setup(snap, nome_setup, preco):
     return {**m, **_carimbo(snap, "setup")}
 
 
-def marcos_para_posicao(snap, preco, avg=None):
+def _num(v):
+    return isinstance(v, (int, float)) and not isinstance(v, bool) and v == v and v > 0
+
+
+def marcos_para_posicao(snap, preco, avg=None, pos=None):
+    """Proteção de posição aberta — UMA fonte por ativo (debug 2026-10-23).
+
+    Antes, o card mostrava o plano do setup (PETR3: stop 63,26 / alvo 72,86) e
+    este ramo recalculava por suporte (64,74 / 67,62): dois motores, dois
+    números para o mesmo ativo, e "Aplicar" sobrescrevia o plano gravado na
+    compra. Precedência, nesta ordem:
+      1. marcos já gravados na posição (servidor, nunca o corpo) se a
+         geometria ainda vale no preço atual — é o plano em vigor;
+      2. o plano do setup em vigor, o MESMO de `plano_do_resultado` que o
+         card exibe (fechamento do snapshot, como o card);
+      3. só sem plano: proteção por suporte (`marcos_da_posicao`).
+    """
+    if pos and _num(pos.get("stop")) and _num(pos.get("alvo")) and _num(preco) \
+            and setups.validar_marcos(pos["stop"], pos["alvo"], preco=preco, avg=avg) is None:
+        stop, alvo = round(float(pos["stop"]), 2), round(float(pos["alvo"]), 2)
+        m = {**setups._marcos_vazio("", "alta"), "valido": True, "entrada": round(float(preco), 2),
+             "tipoEntrada": "plano gravado na posição", "stop": stop, "alvo": alvo,
+             "rr": setups.rr_da_entrada(preco, stop, alvo), "riscoPorAcao": round(preco - stop, 2),
+             "origemStop": "gravado", "origemAlvo": "gravado", "atr": _niveis(snap).get("atr")}
+        return {**m, **_carimbo(snap, "posicao_gravada")}
+    plano = setups.plano_do_resultado((snap or {}).get("setups"), close=(snap or {}).get("close"))
+    if plano.get("decisao") == setups.DECISAO_COMPRAR and _num(preco) \
+            and _num(plano.get("stop")) and _num(plano.get("alvo")) \
+            and setups.validar_marcos(plano["stop"], plano["alvo"], preco=preco, avg=avg) is None:
+        m = {**setups._marcos_vazio("", "alta"), "valido": True, "entrada": plano.get("entrada"),
+             "tipoEntrada": plano.get("tipo"), "stop": plano["stop"], "alvo": plano["alvo"],
+             "rr": plano.get("rr2"), "riscoPorAcao": plano.get("riscoPorAcao"), "alvo1R": plano.get("alvo1"),
+             "origemStop": plano.get("origemStop"), "origemAlvo": plano.get("origemAlvo"), "atr": plano.get("atr"),
+             "setup": plano.get("setup")}
+        return {**m, **_carimbo(snap, "setup")}
     m = setups.marcos_da_posicao(preco, _niveis(snap), avg=avg)
     return {**m, **_carimbo(snap, "posicao")}

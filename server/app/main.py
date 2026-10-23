@@ -2393,6 +2393,12 @@ def _preco_ref_marcos(quote, snap):
     return p
 
 
+def _posicao_aberta(scope, t):
+    """Posição ABERTA do escopo (servidor, nunca o corpo) ou None — insumo da
+    fonte única de marcos (debug 2026-10-23: plano gravado tem precedência)."""
+    return next((p for p in store.get(_conn, "positions", user_id=scope) or [] if p.get("t") == t), None)
+
+
 def _avg_da_posicao(scope, t):
     """Preço médio da posição ABERTA do escopo (fonte: servidor, nunca o corpo da
     requisição) ou None. Insumo de `marcos_da_posicao` (review WR-01)."""
@@ -2462,7 +2468,8 @@ async def analyze_technical_model(ticker: str, body: dict = Body(default={}), sc
     technical_models.refocus(context, model)
     # Fase 50 / D-10: os números de stop/alvo/R:R saem SÓ do motor; a IA os lê
     # em marcosMotor e explica. Sem marcos válidos a rota devolve proposal None.
-    marcos = marcos_servico.marcos_para_posicao(snap, _preco_ref_marcos(quote, snap), avg=_avg_da_posicao(scope, t))
+    marcos = marcos_servico.marcos_para_posicao(snap, _preco_ref_marcos(quote, snap), avg=_avg_da_posicao(scope, t),
+                                                  pos=_posicao_aberta(scope, t))
     context["marcosMotor"] = marcos
     # FASE 2 (2.4): reanálise SITUADA — a posição do usuário entra no pacote.
     if isinstance(body.get("position"), dict):
@@ -2714,7 +2721,8 @@ async def analyze(ticker: str, body: dict = Body(default={}), scope: Optional[st
     at = now_str()
     # Fase 50 D-10: proposta = marcos do motor (a rota legada não injeta o
     # pacote técnico na IA; só devolve o número do motor, nunca o da LLM).
-    marcos = marcos_servico.marcos_para_posicao(snap, _preco_ref_marcos(quote, snap), avg=_avg_da_posicao(scope, t))
+    marcos = marcos_servico.marcos_para_posicao(snap, _preco_ref_marcos(quote, snap), avg=_avg_da_posicao(scope, t),
+                                                  pos=_posicao_aberta(scope, t))
     payload = {
         "kpis": result.get("kpis"),
         "detail": result.get("detail"),
@@ -2796,7 +2804,8 @@ async def carteira_stopalvo(ticker: str, body: dict = Body(default={}), scope: O
         }
     # Fase 50 / D-10: marcos do MOTOR para a posição ao preço atual; a IA os
     # explica. Sem snapshot -> None (princípio 4: a IA declara insuficiência).
-    marcos = marcos_servico.marcos_para_posicao(snap, _preco_ref_marcos(quote, snap), avg=_avg_da_posicao(scope, t)) if snap else None
+    marcos = marcos_servico.marcos_para_posicao(snap, _preco_ref_marcos(quote, snap), avg=_avg_da_posicao(scope, t),
+                                                  pos=_posicao_aberta(scope, t)) if snap else None
     if tech_context is not None:
         tech_context["marcosMotor"] = marcos
     try:
@@ -3185,7 +3194,8 @@ async def marcos_da_rota(ticker: str, body: dict = Body(default={}), scope: Opti
     if isinstance(setup, str) and setup.strip():
         m = marcos_servico.marcos_de_setup(snap, setup.strip(), preco)
     else:
-        m = marcos_servico.marcos_para_posicao(snap, preco, avg=_avg_da_posicao(scope, t))
+        m = marcos_servico.marcos_para_posicao(snap, preco, avg=_avg_da_posicao(scope, t),
+                                                  pos=_posicao_aberta(scope, t))
     return {**m, "t": t}
 
 
