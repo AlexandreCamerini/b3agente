@@ -557,6 +557,7 @@ MARCOS_PLANO = {
         "modal_marcos_calculando": "Os marcos do motor ainda estão sendo calculados.",
         "modal_marcos_indisponiveis": "Os marcos do motor estão indisponíveis agora.",
         "modal_decisao_sua": "A decisão é sua — isto não é recomendação de investimento.",
+        "bloco_stop_legado": "Stop do plano (nível do setup, sem folga de ATR)",
     },
     "educacional": {
         "plano_invalido_diario": "{ticker}: o plano está inválido — {motivo} Por isso o simulador ignora o marco inválido (o outro, se válido, segue valendo). Stop e alvo precisam ser definidos de novo; os marcos que o motor calculou aparecem no card como sugestão. Este aviso aparece uma vez por dia.",
@@ -590,6 +591,7 @@ MARCOS_PLANO = {
         "modal_marcos_calculando": "Os marcos do motor ainda estão sendo calculados.",
         "modal_marcos_indisponiveis": "Os marcos do motor estão indisponíveis agora.",
         "modal_decisao_sua": "A decisão é sua — isto não é recomendação de investimento.",
+        "bloco_stop_legado": "Stop do plano (nível onde a ideia deixa de valer)",
     },
 }
 

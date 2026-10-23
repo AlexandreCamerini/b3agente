@@ -814,7 +814,7 @@ async def _avaliar_entradas(conn, scope, ag, par, app_mode, positions, executed:
         # Fase 50 D-06/D-08: marcos do plano do Radar, revalidados no preço
         # EXECUTADO (fechamento15m) — geometria, perseguição e R:R mínimo.
         stop, alvo = r.get("stop"), r.get("alvo")
-        modo_txt = "operador"
+        modo_txt = "operador" if app_mode == "operador" else "educacional"
         num = lambda v: isinstance(v, (int, float)) and not isinstance(v, bool)  # noqa: E731
         fmt_rr = lambda v: f"{v:.1f}".replace(".", ",")  # noqa: E731
         if not (num(stop) and num(alvo)):

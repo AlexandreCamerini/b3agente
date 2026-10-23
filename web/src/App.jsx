@@ -1557,9 +1557,11 @@ function PlanoOperacionalBloco({ operador, plano, planoMotor, motivo, setup, clo
         <div style={{ marginTop: SP[3], padding: `${SP[3]}px ${SP[3]}px`, borderRadius: "10px", background: T.bgBase, border: `1px solid ${T.borderFaint}` }}>
           {[
             ["Entrada (" + (plano.tipo || "") + ")", "R$ " + price(plano.entrada), T.textSecondary],
-            [marcosPlanoTxt(modoTxt, "bloco_stop"), "R$ " + price(plano.stop), T.negative],
+            // IN-05: só o plano de COMPRA vem do motor (folga de ATR, nível de 1R);
+            // o VENDER legado não tem 1R nem folga de ATR — rótulo sem essa promessa.
+            [marcosPlanoTxt(modoTxt, plano.decisao === "COMPRAR" ? "bloco_stop" : "bloco_stop_legado"), "R$ " + price(plano.stop), T.negative],
             [marcosPlanoTxt(modoTxt, "bloco_alvo"), "R$ " + price(alvoPlano), T.positive],
-            [marcosPlanoTxt(modoTxt, "bloco_breakeven"), "R$ " + price(plano.alvo1), T.textSecondary],
+            ...(plano.decisao === "COMPRAR" ? [[marcosPlanoTxt(modoTxt, "bloco_breakeven"), "R$ " + price(plano.alvo1), T.textSecondary]] : []),
             [marcosPlanoTxt(modoTxt, "bloco_rr"), (plano.rr2 != null ? plano.rr2.toFixed(1).replace(".", ",") : "—") + " : 1", T.textSecondary],
           ].map(([k, v, cor], i2) => (
             <div key={i2} style={{ display: "flex", justifyContent: "space-between", gap: SP[2], fontSize: "12px", padding: `${SP[1]}px 0`, color: T.textMuted }}>

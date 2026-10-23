@@ -639,6 +639,7 @@ export const COPY = {
       modal_marcos_calculando: "Os marcos do motor ainda estão sendo calculados.",
       modal_marcos_indisponiveis: "Os marcos do motor estão indisponíveis agora.",
       modal_decisao_sua: "A decisão é sua — isto não é recomendação de investimento.",
+      bloco_stop_legado: "Stop do plano (nível onde a ideia deixa de valer)",
     },
     // Quick 261013-vai (2026-10-13): espelho byte a byte de skill_ref.EXECUCAO_FORA_PREGAO.
     execucaoForaPregao: {
@@ -2094,6 +2095,7 @@ export const COPY = {
       modal_marcos_calculando: "Os marcos do motor ainda estão sendo calculados.",
       modal_marcos_indisponiveis: "Os marcos do motor estão indisponíveis agora.",
       modal_decisao_sua: "A decisão é sua — isto não é recomendação de investimento.",
+      bloco_stop_legado: "Stop do plano (nível do setup, sem folga de ATR)",
     },
     // Quick 261013-vai (2026-10-13): espelho byte a byte de skill_ref.EXECUCAO_FORA_PREGAO.
     execucaoForaPregao: {
