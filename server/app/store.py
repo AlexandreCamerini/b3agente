@@ -616,6 +616,19 @@ def _marco_num(v):
     return f
 
 
+def _reancorar_stop_inicial(p: dict) -> None:
+    """Review WR-03: reancora o 1R da gestão no stop vigente quando o preço médio
+    muda (edição manual do usuário ou soma de lote sem marcos novos do motor).
+    `stopInicial` = stop se existir e estiver abaixo do PM; senão remove a âncora
+    (sem risco original, a gestão cai no ramo R ≤ 0). Espelho: `reancorarStopInicial`
+    em web/src/persistence.js."""
+    stop, avg_p = p.get("stop"), p.get("avg")
+    if isinstance(stop, (int, float)) and not isinstance(stop, bool) and isinstance(avg_p, (int, float)) and stop < avg_p:
+        p["stopInicial"] = stop
+    else:
+        p.pop("stopInicial", None)
+
+
 def set_position(conn, t: str, stop=None, alvo=None, has_stop=False, has_alvo=False,
                   alvo_extensoes=None, user_id=None, preco_ref=None, gestao_auto=None,
                   manual=False, stop_inicial=None) -> None:
@@ -645,11 +658,7 @@ def set_position(conn, t: str, stop=None, alvo=None, has_stop=False, has_alvo=Fa
             if has_stop:
                 p["stop"] = novo_stop
                 if manual:
-                    avg_p = p.get("avg")
-                    if novo_stop is not None and isinstance(avg_p, (int, float)) and novo_stop < avg_p:
-                        p["stopInicial"] = novo_stop
-                    else:
-                        p.pop("stopInicial", None)
+                    _reancorar_stop_inicial(p)
             if has_alvo:
                 p["alvo"] = novo_alvo
             if stop_inicial is not None:
@@ -923,6 +932,10 @@ def buy(conn, t: str, qty: int, price: float, user_id=None, meta=None, origem: s
             existing["stopInicial"] = m_stop
             existing["gestaoAuto"] = True
             existing["marcosOrigem"] = "motor"
+        else:
+            # WR-03(c): o PM mudou e os marcos do motor não entraram — o 1R
+            # antigo (stopInicial) ficaria errado; reancora como na edição manual.
+            _reancorar_stop_inicial(existing)
     else:
         pos = {"t": t, "qty": qty, "avg": round(price, 2), "stop": m_stop, "alvo": m_alvo,
                "abertaEm": now_str()}

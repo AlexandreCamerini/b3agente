@@ -87,6 +87,28 @@ def test_lote_somado_sem_marcos_aplica_os_do_motor():
     assert p["gestaoAuto"] is True
 
 
+def test_lote_somado_sem_marcos_do_motor_reancora_stop_inicial():
+    # WR-03(c): o PM muda ao somar lote; o 1R antigo (stopInicial) ficaria errado.
+    conn = _fresh()
+    store.buy(conn, "PETR4", 100, 20.0)
+    store.set_position(conn, "PETR4", stop=19.0, alvo=25.0, has_stop=True, has_alvo=True, manual=True)
+    store.set_position(conn, "PETR4", stop=19.5, has_stop=True)  # ajuste do agente: não mexe no 1R
+    assert _pos(conn)["stopInicial"] == 19.0
+    store.buy(conn, "PETR4", 100, 21.0)  # sem marcos do motor; PM -> 20,5
+    p = _pos(conn)
+    assert p["avg"] == 20.5 and (p["stop"], p["alvo"]) == (19.5, 25.0)
+    assert p["stopInicial"] == 19.5
+
+
+def test_lote_somado_com_stop_acima_do_novo_pm_remove_stop_inicial():
+    conn = _fresh()
+    store.buy(conn, "PETR4", 100, 20.0)
+    store.set_position(conn, "PETR4", stop=19.0, has_stop=True, manual=True)
+    store.set_position(conn, "PETR4", stop=20.6, has_stop=True)  # trailing acima do PM
+    store.buy(conn, "PETR4", 100, 21.0)  # PM -> 20,5 ; stop 20,6 >= PM
+    assert "stopInicial" not in _pos(conn)
+
+
 def test_buy_marcos_invalidos_nao_debita_caixa():
     conn = _fresh()
     cash = store.get(conn, "cash")

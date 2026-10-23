@@ -39,6 +39,12 @@ import { hojeBRT, horaMinutoBRT } from "./evolucaoPosicao.js";
 
 // Normaliza a entrada do usuario igual ao servidor: sem espacos, MAIUSCULAS,
 // sem sufixo .SA, mantendo so A-Z0-9. Ex.: "petr4 " -> "PETR4".
+// Review WR-03 (espelho de store._reancorar_stop_inicial): reancora o 1R da gestão
+// no stop vigente; stop ausente ou ≥ PM remove a âncora.
+function reancorarStopInicial(p) {
+  if (typeof p.stop === "number" && typeof p.avg === "number" && p.stop < p.avg) p.stopInicial = p.stop;
+  else delete p.stopInicial;
+}
 function normTicker(s) {
   return String(s == null ? "" : s).toUpperCase().replace(/\s+/g, "").replace(/\.SA/g, "").replace(/[^A-Z0-9]/g, "");
 }
@@ -1888,6 +1894,9 @@ function deviceStore() {
         const temValido = (ex.stop || ex.alvo) && validarMarcos(ex.stop, ex.alvo, price, ex.avg) === null;
         if (mStop !== null && !temValido) {
           ex.stop = mStop; ex.alvo = mAlvo; ex.stopInicial = mStop; ex.gestaoAuto = true; ex.marcosOrigem = "motor";
+        } else {
+          // WR-03(c, espelho de store.buy): PM mudou sem marcos novos do motor — reancora o 1R.
+          reancorarStopInicial(ex);
         }
       } else {
         const pos = { t, qty, avg: +price.toFixed(2), stop: mStop, alvo: mAlvo, abertaEm: now() };
@@ -2024,8 +2033,7 @@ function deviceStore() {
           if (temStop) {
             pos.stop = nStop;
             // Review WR-03 (espelho de store.set_position manual=True): a edição do usuário reancora o 1R.
-            if (nStop !== null && typeof pos.avg === "number" && nStop < pos.avg) pos.stopInicial = nStop;
-            else delete pos.stopInicial;
+            reancorarStopInicial(pos);
           }
           if (temAlvo) pos.alvo = nAlvo;
         }

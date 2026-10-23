@@ -148,6 +148,18 @@ chamadas.length = 0;
 await st.buy("PETR4", 100);
 ok("buy sem setup não consulta o motor", !chamadas.some((c) => /\/api\/marcos\//.test(c)) && lerDoc().positions[0].stop === null);
 
+// WR-03(c): somar lote sem marcos do motor reancora o 1R (paridade com store.buy)
+st = await novoStore(base([{ t: "PETR4", qty: 100, avg: 20, stop: 19.5, alvo: 25, stopInicial: 19 }]));
+quotePrice = 21;
+await st.buy("PETR4", 100);
+let pw = lerDoc().positions[0];
+ok("WR-03(c): lote somado reancora stopInicial no stop vigente", pw.avg === 20.5 && pw.stopInicial === 19.5, JSON.stringify(pw));
+st = await novoStore(base([{ t: "PETR4", qty: 100, avg: 20, stop: 20.6, alvo: 25, stopInicial: 19 }]));
+await st.buy("PETR4", 100);
+pw = lerDoc().positions[0];
+ok("WR-03(c): stop >= novo PM remove stopInicial", pw.stopInicial === undefined, JSON.stringify(pw));
+quotePrice = 23.51;
+
 // ---- laço local: plano inválido ----
 quotePrice = 23.51;
 const inval = { t: "PETR4", qty: 100, avg: 23.01, stop: 23.36, alvo: 21.58 };
