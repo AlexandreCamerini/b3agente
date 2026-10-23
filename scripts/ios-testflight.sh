@@ -32,16 +32,10 @@ done
 [[ -f "$INFO" ]] || { echo "[X] Não achei $INFO. Rode antes: bash scripts/setup-ios.sh && cap sync"; exit 1; }
 [[ -f "$SRC_PRIVACY" ]] || { echo "[X] Faltou resources/ios/PrivacyInfo.xcprivacy no repo."; exit 1; }
 
-# 1) Manifesto de privacidade (obrigatório). Copia a fonte versionada.
-cp "$SRC_PRIVACY" "$APPDIR/PrivacyInfo.xcprivacy"
-echo "[OK] PrivacyInfo.xcprivacy copiado para o app."
-if [[ -f "$PBXPROJ" ]] && ! grep -q "PrivacyInfo.xcprivacy" "$PBXPROJ"; then
-  echo "[!] AÇÃO ÚNICA no Xcode: arraste web/ios/App/App/PrivacyInfo.xcprivacy para o"
-  echo "    grupo 'App' e MARQUE o target 'App' (Copy items if needed). Sem isso, o"
-  echo "    manifesto NÃO vai no bundle. (Persiste depois; só precisa uma vez.)"
-else
-  echo "[OK] PrivacyInfo.xcprivacy já referenciado no projeto."
-fi
+# 1) Manifesto de privacidade (obrigatorio): copia a fonte versionada e referencia
+# no projeto (grupo App + fase Resources) sozinho, sem passo manual no Xcode.
+bash "$REPO/scripts/ios-aplicar-projeto.sh" || exit 1
+echo "[OK] PrivacyInfo.xcprivacy copiado e referenciado no projeto."
 
 # 2) Export compliance: só HTTPS => sem criptografia não-isenta => pula o prompt.
 "$PB" -c "Set :ITSAppUsesNonExemptEncryption false" "$INFO" 2>/dev/null \

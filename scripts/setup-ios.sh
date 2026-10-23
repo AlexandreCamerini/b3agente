@@ -152,12 +152,19 @@ if [[ -f "$PLIST" ]]; then
   fi
 fi
 
+# Time, entitlements, versao e PrivacyInfo (o template do Capacitor nasce sem eles).
+# O aplicar aponta CODE_SIGN_ENTITLEMENTS para App.entitlements; sem o arquivo o build quebra.
+if [[ ! -f "$WEB/ios/App/App/App.entitlements" ]]; then
+  bash "$SCRIPT_DIR/ios-restaurar-entitlements.sh" || die "Nao consegui criar o App.entitlements."
+fi
+bash "$SCRIPT_DIR/ios-aplicar-projeto.sh" --ios-dir "$WEB/ios" || die "Falha ao aplicar time/versao/entitlements/PrivacyInfo no projeto iOS."
+
 if [[ "$OPEN_XCODE" -eq 1 ]]; then say "Abrindo no Xcode..."; "$CAP" open ios || warn "Nao consegui abrir o Xcode. Abra manualmente: web/ios/App/App.xcodeproj (projeto SPM, sem .xcworkspace)."; fi
 
 cat <<EOF
 
 ${GRN}${BOLD}Tudo pronto.${RST}
-No Xcode: selecione seu Time (Signing & Capabilities), escolha seu iPhone e clique Run.
+O Time de assinatura (LC65399YC9) ja vem aplicado. No Xcode: escolha seu iPhone e clique Run.
 Lembre de iniciar o backend (no Mac): ${BOLD}bash scripts/start.sh${RST} ou ${BOLD}(cd server && npm start)${RST}.
 Para Railway, use --api-base https://SEU_APP.up.railway.app. Para backend local, o iPhone e o Mac precisam estar na mesma rede, e o --api-base deve apontar para o IP do Mac.
 EOF

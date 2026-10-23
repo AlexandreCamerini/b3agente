@@ -125,7 +125,7 @@ try {
   }
 
   // ---- B/S: ios-bump-build.sh e ligacao dos scripts (preenchido na Task 2) ----
-  if (false) {
+  if (fs.existsSync(BUMP)) {
     const prep = () => {
       const d = novo();
       assert.equal(aplicar(d).status, 0);
@@ -168,6 +168,25 @@ try {
       assert.ok((r.stdout + r.stderr).includes('--recriar-ios'));
       assert.equal(fs.readFileSync(ve, 'utf8'), versaoReal);
     }
+  }
+  // S1/S2 estaticos: ligacao dos scripts ao novo fluxo
+  {
+    const ler = (n) => fs.readFileSync(path.join(REPO, 'scripts', n), 'utf8');
+    const vivo = (n) => ler(n).split('\n').filter((l) => !/^\s*#/.test(l));
+    const idx = (n, re) => vivo(n).findIndex((l) => re.test(l));
+    for (const n of ['instalar-iphone.sh', 'setup-ios.sh', 'ios-testflight.sh']) {
+      assert.ok(idx(n, /ios-aplicar-projeto\.sh/) >= 0, `S1 ${n} chama o aplicar`);
+    }
+    assert.ok(!/arraste/i.test(ler('ios-testflight.sh')), 'S1 sem instrucao manual');
+    assert.ok(ler('ios-bump-build.sh').includes('versao.env'), 'S1 bump usa versao.env');
+    assert.ok(!ler('ios-bump-build.sh').includes('|| echo 0'), 'S1 sem 0->1 silencioso');
+    // S2 ordem
+    const ap = idx('instalar-iphone.sh', /ios-aplicar-projeto\.sh/);
+    assert.ok(ap > idx('instalar-iphone.sh', /cap sync ios/), 'S2 depois do cap sync');
+    assert.ok(ap > idx('instalar-iphone.sh', /ios-patch-appdelegate\.sh/), 'S2 depois do patch-appdelegate');
+    const sa = idx('setup-ios.sh', /ios-aplicar-projeto\.sh/);
+    assert.ok(sa > idx('setup-ios.sh', /ios-restaurar-entitlements\.sh/), 'S2 setup: depois dos entitlements');
+    assert.ok(sa > idx('setup-ios.sh', /add ios/), 'S2 setup: depois do cap add');
   }
   // o teste nunca escreve no versao.env real
   assert.equal(fs.readFileSync(VERSAO, 'utf8'), versaoReal);

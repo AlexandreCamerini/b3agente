@@ -4,9 +4,9 @@
 #
 # POR QUE EXISTE (2026-09-07, achado ao vivo): `web/ios/` está no .gitignore,
 # então um clone/worktree novo não o tem. O `instalar-iphone.sh` roda
-# `npx cap add ios`, que gera o projeto JÁ apontando para
-# `CODE_SIGN_ENTITLEMENTS = App/App.entitlements` no pbxproj — mas NÃO cria o
-# arquivo. Resultado: build passa, app instala, e o Sign in with Apple falha
+# `npx cap add ios`, que NÃO cria o arquivo (e, no Capacitor 8, também NÃO
+# escreve CODE_SIGN_ENTITLEMENTS no pbxproj — medido em 2026-10-22 no template;
+# quem aponta o pbxproj é scripts/ios-aplicar-projeto.sh). Resultado: build passa, app instala, e o Sign in with Apple falha
 # no aparelho com "Login não pode ser completado" (authorization error), sem
 # nenhuma chamada chegar ao servidor. O push morre pela mesma ausência
 # (`aps-environment`), só que mais silenciosamente.
@@ -81,12 +81,11 @@ cat > "$PLIST" <<EOF
 EOF
 ok "App.entitlements criado (applesignin + aps-environment=$APS)"
 
-# O pbxproj do Capacitor já referencia o arquivo; se não referenciar, o Xcode
-# ignora o entitlements em silêncio e o bug volta idêntico.
+# Se o pbxproj não referenciar o arquivo, o Xcode ignora o entitlements em
+# silêncio e o bug volta idêntico.
 if [ -f "$PBX" ] && grep -q "CODE_SIGN_ENTITLEMENTS = App/App.entitlements" "$PBX"; then
   ok "pbxproj já aponta para App/App.entitlements"
 else
   warn "pbxproj NÃO referencia App/App.entitlements — o arquivo será ignorado."
-  warn "No Xcode: target App → Build Settings → Code Signing Entitlements"
-  warn "  = App/App.entitlements"
+  warn "Rode: bash scripts/ios-aplicar-projeto.sh (aponta CODE_SIGN_ENTITLEMENTS sozinho)"
 fi

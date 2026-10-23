@@ -152,13 +152,12 @@ grep -q "local-notifications" /tmp/capsync.log \
 bash "$ROOT/scripts/ios-patch-appdelegate.sh" \
   || die "falha ao reaplicar os callbacks do APNs no AppDelegate — o push daria timeout no aparelho"
 
-say "7) Identidade: nome sob o ícone = Boris+"
-PLIST="ios/App/App/Info.plist"
-if [ -f "$PLIST" ]; then
-  /usr/libexec/PlistBuddy -c "Set :CFBundleDisplayName Boris+" "$PLIST" 2>/dev/null \
-    || /usr/libexec/PlistBuddy -c "Add :CFBundleDisplayName string Boris+" "$PLIST"
-  ok "CFBundleDisplayName = Boris+"
-fi
+say "7) Projeto iOS: identidade, versao, time, entitlements, PrivacyInfo"
+# 2026-10-22: o template do Capacitor 8 nasce sem time, sem CODE_SIGN_ENTITLEMENTS
+# e sem PrivacyInfo, com build 1 / versao 1.0. Isto reaplica tudo (idempotente) a
+# partir de resources/ios/versao.env; tambem acusa projeto corrompido.
+bash "$ROOT/scripts/ios-aplicar-projeto.sh" \
+  || die "falha ao aplicar time/versao/entitlements/PrivacyInfo no projeto iOS — sem isso o archive falha ou sai com build/versão errados"
 
 if [ "$NO_OPEN" = "1" ]; then
   say "8) Xcode NÃO aberto (--no-open — quem chamou decide o próximo passo)"
