@@ -71,3 +71,13 @@ Suíte canônica: rc=0, 3785 pytest, todos os `.mjs` OK.
 - **IN-01:** a semântica de `rr` difere entre os ramos.
 - **IN-03:** `modo_txt` da entrada automática é código morto.
 - **IN-04:** dupla leitura de `positions`.
+
+## Decisões do Alex (2026-10-23) aplicadas
+
+**WR-06 (alvo com R:R ínfimo):** em posição aberta, o alvo é a primeira resistência que fecha R:R ≥ 1,5. Se nenhuma fecha, o alvo é uma projeção de exatamente 1,5R (origem `projecao_rr_min`, espelhada nos dois lados). Resistências que ficam no caminho viram parecer. A entrada não mudou.
+
+**WR-03 (iPhone sem conta):** fora de escopo. O login é a única porta desde 09/08/2026. Com sessão, o `deviceStore` delega toda mutação ao servidor e cada `getState()` adota a carteira dele. Os ramos locais sem sessão são legado sem usuário.
+
+**Publicação:** aguardando liberação do Alex.
+
+**Suíte canônica:** rc=0, 3786 pytest e todos os `.mjs` OK.
