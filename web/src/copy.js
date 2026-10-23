@@ -537,7 +537,6 @@ export const COPY = {
     confirmarVenda: "Confirmar venda",
     filtroAlta: "Estudar alta",
     filtroBaixa: "Estudar baixa",
-    notaStopAlvo: "Sugestão por perfil — conteúdo educacional, dinheiro simulado. Não é recomendação de compra ou venda.",
     vazioHistorico: "Suas compras e vendas simuladas aparecerão aqui.",
 
     // toasts/notificações
@@ -2005,7 +2004,6 @@ export const COPY = {
     confirmarVenda: "Confirmar saída",
     filtroAlta: "Compra",
     filtroBaixa: "Venda",
-    notaStopAlvo: "Plano da mesa por perfil de risco — stop na invalidação técnica, alvo com R:R explícito. A execução é sua, na corretora.",
     vazioHistorico: "Suas entradas e saídas registradas aparecerão aqui.",
 
     // toasts/notificações

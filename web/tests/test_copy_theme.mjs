@@ -207,7 +207,7 @@ ok("R3: chip do modo como linha (ponto accentTint + rótulo T.accent)", app.incl
 // R4: decisões da mesa no REC_STYLE + filtros/nota/histórico por modo
 ok("R4: REC_STYLE cobre COMPRAR/VENDER/AGUARDAR/NÃO OPERAR", app.includes('"COMPRAR": [T.positive') && app.includes('"NÃO OPERAR": [T.textMuted'));
 ok("R4: filtros da watchlist por modo", app.includes("cp.filtroAlta") && app.includes("cp.filtroBaixa"));
-// Fase 50 D-10: a nota "Sugestão por perfil" (cp.notaStopAlvo) saiu do modal — os números são do motor, não do perfil; a nota passa a ser marcosPlanoTxt "modal_ia_explica" (cp.notaStopAlvo fica no copy.js, sem uso na tela).
+// Fase 50 D-10: a nota "Sugestão por perfil" (cp.notaStopAlvo) saiu do modal — os números são do motor, não do perfil; a nota passa a ser marcosPlanoTxt "modal_ia_explica" (cp.notaStopAlvo foi REMOVIDO do copy.js na quick 261023-msp: não tinha leitor).
 ok("R4: nota do stop/alvo e histórico por modo", app.includes('"modal_ia_explica"') && app.includes("cp.vazioHistorico"));
 
 console.log(fails ? `\n${fails} falha(s)` : "\ntodos os testes passaram");
