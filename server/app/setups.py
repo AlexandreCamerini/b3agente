@@ -701,27 +701,28 @@ def _stop_motor(entrada, invalidacao, atr):
     return round(stop, 2), origem, None
 
 
-def _alvo_motor(entrada, stop, atr, resistencias):
+def _alvo_motor(entrada, stop, atr, resistencias, exigir_rr=True):
     """D-02. -> (alvo, origem, motivo_recusa). Alvo = primeira resistência
     relevante acima da entrada se o R:R fecha; senão recusa; sem resistência,
-    projeção de 2R."""
+    projeção de 2R. `exigir_rr=False` (posição JÁ aberta): R:R baixo não recusa
+    — vira parecer em `marcos_da_posicao` (D-12: parecer não é veto)."""
     risco = entrada - stop
     relevantes = sorted(r for r in (resistencias or []) if _num_ok(r) and r > entrada + MARCO_RESIST_DIST_MIN_ATR * atr)
     if relevantes:
         alvo = round(relevantes[0], 2)
         rr = rr_da_entrada(entrada, stop, alvo)
-        if rr is None or rr < RR_MINIMO:
+        if exigir_rr and (rr is None or rr < RR_MINIMO):
             return None, None, ("Teto próximo demais: a resistência em R$ %s dá R:R de %s:1, abaixo do mínimo de %s:1 — não operar."
                                 % (skill_ref.num_br(alvo), skill_ref.num_br((alvo - entrada) / risco), skill_ref.RR_MIN_TXT))
         return alvo, "resistencia", None
     return round(entrada + MARCO_ALVO_PROJECAO_R * risco, 2), "projecao_2r", None
 
 
-def _marcos_de(lado, entrada, tipo, stop_ref, atr, resistencias):
+def _marcos_de(lado, entrada, tipo, stop_ref, atr, resistencias, exigir_rr=True):
     stop, origem_stop, recusa = _stop_motor(entrada, stop_ref, atr)
     if recusa:
         return {**_marcos_vazio(recusa, lado), "atr": _rr2(atr)}
-    alvo, origem_alvo, recusa = _alvo_motor(entrada, stop, atr, resistencias)
+    alvo, origem_alvo, recusa = _alvo_motor(entrada, stop, atr, resistencias, exigir_rr=exigir_rr)
     if recusa:
         return {**_marcos_vazio(recusa, lado), "atr": _rr2(atr)}
     risco = entrada - stop
@@ -760,17 +761,26 @@ def _marcos_da_posicao_base(preco, niveis):
         return _marcos_vazio(MOTIVO_SEM_ATR, "alta")
     abaixo = [s for s in niveis.get("suportes") or [] if _num_ok(s) and 0 < s < preco]
     if abaixo:
-        m = _marcos_de("alta", float(preco), "a partir do preço atual", max(abaixo), atr, niveis.get("resistencias"))
+        m = _marcos_de("alta", float(preco), "a partir do preço atual", max(abaixo), atr, niveis.get("resistencias"),
+                       exigir_rr=False)
     else:
         # sem suporte: o piso de 1×ATR (invalidação fictícia 1×ATR + folga abaixo)
         stop = round(preco - MARCO_STOP_PISO_ATR * atr, 2)
-        alvo, origem_alvo, recusa = _alvo_motor(float(preco), stop, atr, niveis.get("resistencias")) if stop > 0 else (None, None, "Stop calculado não é positivo — não operar.")
+        alvo, origem_alvo, recusa = _alvo_motor(float(preco), stop, atr, niveis.get("resistencias"), exigir_rr=False) if stop > 0 else (None, None, "Stop calculado não é positivo — não operar.")
         if recusa:
             return {**_marcos_vazio(recusa, "alta"), "atr": _rr2(atr)}
         risco = preco - stop
         m = {"valido": True, "motivo": "", "lado": "alta", "entrada": _rr2(preco), "tipoEntrada": "a partir do preço atual",
              "stop": stop, "alvo": alvo, "rr": rr_da_entrada(preco, stop, alvo), "riscoPorAcao": _rr2(risco),
              "alvo1R": _rr2(preco + risco), "origemStop": "piso_1atr", "origemAlvo": origem_alvo, "atr": _rr2(atr)}
+    if m.get("valido") and (m.get("rr") is None or m["rr"] < RR_MINIMO):
+        # Debug 2026-10-23 ("compra não preenche stop/alvo"): antes este ramo
+        # RECUSAVA (teto próximo) — em produção 11 de 11 ativos líquidos caíam
+        # aqui e o modal pós-compra abria com "—". Para posição já aberta o
+        # R:R mínimo é parecer de ENTRADA, não veto da proteção (D-12).
+        m["parecer"] = ("R:R de %s:1 até a resistência mais próxima, abaixo do mínimo de %s:1 para abrir uma "
+                        "operação. A posição já existe: a proteção segue disponível, a decisão de aplicar é sua."
+                        % (skill_ref.num_br(m.get("rr") or 0), skill_ref.RR_MIN_TXT))
     return m
 
 
@@ -793,9 +803,9 @@ def marcos_da_posicao(preco, niveis=None, avg=None):
     if m2.get("valido") and m2.get("alvo") is not None and validar_marcos(m2.get("stop"), m2["alvo"], preco=preco, avg=avg) is None:
         return m2
     return {**_marcos_vazio(
-        "Nenhum alvo do motor fica acima do seu preço médio (R$ %s) com R:R de pelo menos %s:1 — "
+        "Nenhum alvo do motor fica acima do seu preço médio (R$ %s) — "
         "a posição está abaixo do preço médio; defina o alvo você mesmo ou espere a recuperação."
-        % (skill_ref.num_br(avg), skill_ref.RR_MIN_TXT), "alta"), "atr": _rr2(niveis.get("atr"))}
+        % skill_ref.num_br(avg), "alta"), "atr": _rr2(niveis.get("atr"))}
 
 
 def validar_marcos(stop, alvo, preco=None, avg=None):

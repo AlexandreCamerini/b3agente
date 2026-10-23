@@ -124,3 +124,29 @@ def test_wr01_sem_nivel_acima_do_pm_devolve_invalido_com_motivo():
 
 def test_wr01_pm_abaixo_do_alvo_nao_muda_nada():
     assert setups.marcos_da_posicao(23.0, _NIV, avg=20.0) == setups.marcos_da_posicao(23.0, _NIV)
+
+
+# ---------------------------------------------------------------------------
+# Debug 2026-10-23 — compra não preenchia stop/alvo: posição já aberta com
+# resistência próxima (R:R < 1,5) recebe os marcos + parecer, nunca recusa.
+# ---------------------------------------------------------------------------
+def test_posicao_com_teto_proximo_devolve_marcos_com_parecer():
+    niv = {"atr": 0.5, "suportes": [22.0], "resistencias": [23.8]}
+    m = setups.marcos_da_posicao(23.0, niv, avg=23.0)
+    assert m["valido"] is True
+    assert m["stop"] == 21.95 and m["alvo"] == 23.8 and m["origemAlvo"] == "resistencia"
+    assert m["rr"] < setups.RR_MINIMO
+    assert "abaixo do mínimo de 1,5:1" in m["parecer"]
+    assert setups.validar_marcos(m["stop"], m["alvo"], preco=23.0, avg=23.0) is None
+
+
+def test_posicao_com_rr_ok_nao_tem_parecer():
+    m = setups.marcos_da_posicao(23.0, _NIV)
+    assert m["valido"] and "parecer" not in m
+
+
+def test_plano_de_entrada_continua_recusando_teto_proximo():
+    # o relaxamento é só para posição aberta; a ENTRADA segue D-02.
+    niv = {"atr": 0.5, "suportes": [22.0], "resistencias": [23.8]}
+    m = setups.marcos_do_plano("alta", 23.0, 22.0, close=23.0, niveis=niv)
+    assert m["valido"] is False and "Teto próximo demais" in m["motivo"]
