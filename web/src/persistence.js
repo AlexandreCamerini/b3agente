@@ -1411,8 +1411,10 @@ function deviceStore() {
         // mensagem PT-BR do servidor); texto/boolean/NaN nunca vira stop/alvo.
         const num = (v) => {
           if (v === "" || v == null) return null;
-          const f = typeof v === "boolean" ? NaN : Number(v);
-          if (!Number.isFinite(f)) throw new Error("Stop e alvo precisam ser valores positivos.");
+          // paridade com float() do Python (review WR-07): " " e "0x10" não são número aqui
+          const ok = typeof v === "number" || (typeof v === "string" && /^\s*[+-]?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?\s*$/.test(v));
+          const f = ok ? Number(v) : NaN;
+          if (!Number.isFinite(f) || f <= 0) throw new Error("Stop e alvo precisam ser valores positivos.");
           return f;
         };
         const nStop = "stop" in b ? num(b.stop) : undefined;
@@ -2041,9 +2043,11 @@ function deviceStore() {
           const motivo = validarMarcos(nStop, nAlvo, undefined, pos.avg);
           if (motivo) throw new Error(motivo);
           if (temStop) {
+            const mudouStop = nStop !== pos.stop;
             pos.stop = nStop;
-            // Review WR-03 (espelho de store.set_position manual=True): a edição do usuário reancora o 1R.
-            reancorarStopInicial(pos);
+            // Review WR-03 (espelho de store.set_position manual=True): a edição do usuário reancora o 1R;
+            // reaplicar o MESMO stop (marco gravado, quick 261023-msp WR-01) não é edição.
+            if (mudouStop) reancorarStopInicial(pos);
           }
           if (temAlvo) pos.alvo = nAlvo;
         }

@@ -44,3 +44,28 @@ def test_sem_setup_de_compra_cai_no_suporte():
     m = marcos_servico.marcos_para_posicao(_snap(setups_list=[]), 65.16, avg=65.16)
     assert m["fonte"] == "posicao"
     assert m == {**setups.marcos_da_posicao(65.16, _NIV, avg=65.16), **marcos_servico._carimbo(_snap(), "posicao")}
+
+
+def test_gravado_invalido_avisa_no_parecer():
+    # review WR-05: alvo gravado abaixo do PM não some calado
+    pos = {"stop": 60.0, "alvo": 66.0}
+    m = marcos_servico.marcos_para_posicao(_snap(), 65.16, avg=70.0, pos=pos)
+    assert "marcos gravados na posição não valem mais" in m.get("parecer", "")
+
+
+def test_plano_superado_pelo_preco_avisa_e_cai_no_suporte():
+    # review WR-04: preço ao vivo acima do alvo do plano do card
+    m = marcos_servico.marcos_para_posicao(_snap(), 81.0, avg=81.0)
+    assert m["fonte"] == "posicao"
+    assert "não serve para esta posição agora" in m.get("parecer", "")
+
+
+def test_reaplicar_mesmo_stop_nao_reancora(tmp_path, monkeypatch):
+    # review WR-01: "Aplicar" do marco já gravado não mexe no 1R da gestão
+    from app import db, store
+    conn = db.connect(str(tmp_path / "t.db"))
+    store.buy(conn, "PETR3", 100, 65.16, user_id="u", marcos={"stop": 63.26, "alvo": 72.86})
+    store.set_position(conn, "PETR3", stop=64.0, has_stop=True, user_id="u")  # trailing do agente (manual=False)
+    store.set_position(conn, "PETR3", stop=64.0, alvo=72.86, has_stop=True, has_alvo=True, user_id="u", manual=True)
+    p = store.get(conn, "positions", user_id="u")[0]
+    assert p["stopInicial"] == 63.26

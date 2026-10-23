@@ -611,7 +611,7 @@ def _marco_num(v):
         f = float(v)
     except (TypeError, ValueError):
         raise ValueError("Stop e alvo precisam ser valores positivos.") from None
-    if f != f or f in (float("inf"), float("-inf")):
+    if f != f or f in (float("inf"), float("-inf")) or f <= 0:
         raise ValueError("Stop e alvo precisam ser valores positivos.")
     return f
 
@@ -656,8 +656,11 @@ def set_position(conn, t: str, stop=None, alvo=None, has_stop=False, has_alvo=Fa
                 if motivo:
                     raise ValueError(motivo)
             if has_stop:
+                mudou_stop = novo_stop != p.get("stop")
                 p["stop"] = novo_stop
-                if manual:
+                # quick 261023-msp (review WR-01): "Aplicar" do marco já gravado
+                # (modal lê o gravado primeiro) não é edição — o 1R fica intacto.
+                if manual and mudou_stop:
                     _reancorar_stop_inicial(p)
             if has_alvo:
                 p["alvo"] = novo_alvo

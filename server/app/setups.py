@@ -773,14 +773,14 @@ def _marcos_da_posicao_base(preco, niveis):
         m = {"valido": True, "motivo": "", "lado": "alta", "entrada": _rr2(preco), "tipoEntrada": "a partir do preço atual",
              "stop": stop, "alvo": alvo, "rr": rr_da_entrada(preco, stop, alvo), "riscoPorAcao": _rr2(risco),
              "alvo1R": _rr2(preco + risco), "origemStop": "piso_1atr", "origemAlvo": origem_alvo, "atr": _rr2(atr)}
-    if m.get("valido") and (m.get("rr") is None or m["rr"] < RR_MINIMO):
+    if m.get("valido") and m.get("rr") is not None and m["rr"] < RR_MINIMO:
         # Debug 2026-10-23 ("compra não preenche stop/alvo"): antes este ramo
         # RECUSAVA (teto próximo) — em produção 11 de 11 ativos líquidos caíam
         # aqui e o modal pós-compra abria com "—". Para posição já aberta o
         # R:R mínimo é parecer de ENTRADA, não veto da proteção (D-12).
         m["parecer"] = ("R:R de %s:1 até a resistência mais próxima, abaixo do mínimo de %s:1 para abrir uma "
                         "operação. A posição já existe: a proteção segue disponível, a decisão de aplicar é sua."
-                        % (skill_ref.num_br(m.get("rr") or 0), skill_ref.RR_MIN_TXT))
+                        % (skill_ref.num_br(m["rr"]), skill_ref.RR_MIN_TXT))
     return m
 
 
