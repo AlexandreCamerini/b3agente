@@ -131,13 +131,23 @@ def test_wr01_pm_abaixo_do_alvo_nao_muda_nada():
 # resistência próxima (R:R < 1,5) recebe os marcos + parecer, nunca recusa.
 # ---------------------------------------------------------------------------
 def test_posicao_com_teto_proximo_devolve_marcos_com_parecer():
+    # Atualizado (decisão do Alex, 2026-10-23, "buscar 1,5R"): antes o alvo era
+    # a resistência próxima com R:R < 1,5 + parecer; agora nenhuma resistência
+    # fecha 1,5R ⇒ projeção de exatamente 1,5R e a resistência vira parecer.
     niv = {"atr": 0.5, "suportes": [22.0], "resistencias": [23.8]}
     m = setups.marcos_da_posicao(23.0, niv, avg=23.0)
     assert m["valido"] is True
-    assert m["stop"] == 21.95 and m["alvo"] == 23.8 and m["origemAlvo"] == "resistencia"
-    assert m["rr"] < setups.RR_MINIMO
-    assert "abaixo do mínimo de 1,5:1" in m["parecer"]
+    assert m["stop"] == 21.95 and m["alvo"] == 24.58 and m["origemAlvo"] == "projecao_rr_min"
+    assert m["rr"] >= setups.RR_MINIMO
+    assert "R$ 23,80" in m["parecer"]
     assert setups.validar_marcos(m["stop"], m["alvo"], preco=23.0, avg=23.0) is None
+
+
+def test_posicao_pula_para_a_resistencia_que_fecha_1_5r():
+    niv = {"atr": 0.5, "suportes": [22.0], "resistencias": [23.8, 25.0, 27.0]}
+    m = setups.marcos_da_posicao(23.0, niv, avg=23.0)
+    assert m["alvo"] == 25.0 and m["origemAlvo"] == "resistencia" and m["rr"] >= setups.RR_MINIMO
+    assert "R$ 23,80" in m["parecer"] and "25,00" not in m["parecer"]
 
 
 def test_posicao_com_rr_ok_nao_tem_parecer():

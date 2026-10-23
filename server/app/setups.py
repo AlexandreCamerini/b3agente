@@ -704,10 +704,20 @@ def _stop_motor(entrada, invalidacao, atr):
 def _alvo_motor(entrada, stop, atr, resistencias, exigir_rr=True):
     """D-02. -> (alvo, origem, motivo_recusa). Alvo = primeira resistência
     relevante acima da entrada se o R:R fecha; senão recusa; sem resistência,
-    projeção de 2R. `exigir_rr=False` (posição JÁ aberta): R:R baixo não recusa
-    — vira parecer em `marcos_da_posicao` (D-12: parecer não é veto)."""
+    projeção de 2R. `exigir_rr=False` (posição JÁ aberta, decisão do Alex
+    2026-10-23): nunca recusa — alvo = primeira resistência que fecha R:R ≥ 1,5;
+    se nenhuma fecha, projeção de exatamente 1,5R (o mínimo aceitável), e as
+    resistências no caminho viram parecer em `marcos_da_posicao`."""
     risco = entrada - stop
     relevantes = sorted(r for r in (resistencias or []) if _num_ok(r) and r > entrada + MARCO_RESIST_DIST_MIN_ATR * atr)
+    if not exigir_rr:
+        for r in relevantes:
+            rr = rr_da_entrada(entrada, stop, round(r, 2))
+            if rr is not None and rr >= RR_MINIMO:
+                return round(r, 2), "resistencia", None
+        if relevantes:
+            return round(entrada + RR_MINIMO * risco, 2), "projecao_rr_min", None
+        return round(entrada + MARCO_ALVO_PROJECAO_R * risco, 2), "projecao_2r", None
     if relevantes:
         alvo = round(relevantes[0], 2)
         rr = rr_da_entrada(entrada, stop, alvo)
@@ -773,14 +783,18 @@ def _marcos_da_posicao_base(preco, niveis):
         m = {"valido": True, "motivo": "", "lado": "alta", "entrada": _rr2(preco), "tipoEntrada": "a partir do preço atual",
              "stop": stop, "alvo": alvo, "rr": rr_da_entrada(preco, stop, alvo), "riscoPorAcao": _rr2(risco),
              "alvo1R": _rr2(preco + risco), "origemStop": "piso_1atr", "origemAlvo": origem_alvo, "atr": _rr2(atr)}
-    if m.get("valido") and m.get("rr") is not None and m["rr"] < RR_MINIMO:
-        # Debug 2026-10-23 ("compra não preenche stop/alvo"): antes este ramo
-        # RECUSAVA (teto próximo) — em produção 11 de 11 ativos líquidos caíam
-        # aqui e o modal pós-compra abria com "—". Para posição já aberta o
-        # R:R mínimo é parecer de ENTRADA, não veto da proteção (D-12).
-        m["parecer"] = ("R:R de %s:1 até a resistência mais próxima, abaixo do mínimo de %s:1 para abrir uma "
-                        "operação. A posição já existe: a proteção segue disponível, a decisão de aplicar é sua."
-                        % (skill_ref.num_br(m["rr"]), skill_ref.RR_MIN_TXT))
+    if m.get("valido") and _num_ok(m.get("alvo")):
+        # Debug 2026-10-23 ("compra não preenche stop/alvo"): antes a resistência
+        # próxima RECUSAVA os marcos (11 de 11 ativos líquidos em produção) e o
+        # modal abria com "—". Agora o alvo pula para a 1ª resistência que fecha
+        # 1,5R (ou projeta 1,5R); o que ficou no caminho é dito, não escondido.
+        atr_m = niveis.get("atr")
+        no_caminho = sorted(round(r, 2) for r in niveis.get("resistencias") or []
+                            if _num_ok(r) and preco + MARCO_RESIST_DIST_MIN_ATR * atr_m < r < m["alvo"])
+        if no_caminho:
+            m["parecer"] = ("Há resistência no caminho até o alvo (R$ %s): o preço pode travar antes de chegar lá. "
+                            "O alvo fica onde o R:R alcança %s:1; a decisão de aplicar é sua."
+                            % (", R$ ".join(skill_ref.num_br(r) for r in no_caminho), skill_ref.RR_MIN_TXT))
     return m
 
 
