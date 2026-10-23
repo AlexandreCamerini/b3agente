@@ -3373,8 +3373,11 @@ async def sell_option(body: dict = Body(default={}), scope: Optional[str] = Depe
 
 @app.put("/api/options/position/{contract_id}")
 async def option_position(contract_id: str, body: dict = Body(default={}), scope: Optional[str] = Depends(current_scope)):
-    store.set_option_position(_conn, contract_id, stop=body.get("stop"), alvo=body.get("alvo"),
-                               has_stop=("stop" in body), has_alvo=("alvo" in body), user_id=scope)
+    try:
+        store.set_option_position(_conn, contract_id, stop=body.get("stop"), alvo=body.get("alvo"),
+                                   has_stop=("stop" in body), has_alvo=("alvo" in body), user_id=scope)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
     return store.public_state(_conn, user_id=scope)
 
 

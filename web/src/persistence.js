@@ -1407,8 +1407,18 @@ function deviceStore() {
       }
       const pos = (doc.optionPositions || []).find((p) => p.id === contractId);
       if (pos) {
-        if ("stop" in b) pos.stop = b.stop === "" || b.stop == null ? null : Number(b.stop);
-        if ("alvo" in b) pos.alvo = b.alvo === "" || b.alvo == null ? null : Number(b.alvo);
+        // Espelho de store.set_option_position: valida os dois ANTES de gravar (mesma
+        // mensagem PT-BR do servidor); texto/boolean/NaN nunca vira stop/alvo.
+        const num = (v) => {
+          if (v === "" || v == null) return null;
+          const f = typeof v === "boolean" ? NaN : Number(v);
+          if (!Number.isFinite(f)) throw new Error("Stop e alvo precisam ser valores positivos.");
+          return f;
+        };
+        const nStop = "stop" in b ? num(b.stop) : undefined;
+        const nAlvo = "alvo" in b ? num(b.alvo) : undefined;
+        if (nStop !== undefined) pos.stop = nStop;
+        if (nAlvo !== undefined) pos.alvo = nAlvo;
       }
       write();
       return pub();

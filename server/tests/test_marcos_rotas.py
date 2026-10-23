@@ -252,3 +252,18 @@ def test_in03_put_stop_nao_numerico_400_ptbr(monkeypatch):
     store.buy(m._conn, "PETR4", 100, 23.01, user_id=uid)
     r = c.put("/api/position/PETR4", json={"stop": "abc"}, headers=h)
     assert r.status_code == 400 and r.json()["detail"] == "Stop e alvo precisam ser valores positivos."
+
+
+def test_put_opcao_stop_nao_numerico_ou_bool_400_ptbr(monkeypatch):
+    from app import db
+    c, m, h, uid = _cliente(monkeypatch)
+    db.kv_set(m._conn, "optionPositions", [{"id": "PETRA100", "qty": 100, "avg": 1.0, "stop": 0.5, "alvo": 2.0}], user_id=uid)
+    for ruim in ("abc", True):
+        r = c.put("/api/options/position/PETRA100", json={"stop": ruim}, headers=h)
+        assert r.status_code == 400 and r.json()["detail"] == "Stop e alvo precisam ser valores positivos.", r.text
+    op = store.get(m._conn, "optionPositions", user_id=uid)[0]
+    assert (op["stop"], op["alvo"]) == (0.5, 2.0)  # kv inalterado
+    r = c.put("/api/options/position/PETRA100", json={"stop": "0,7".replace(",", "."), "alvo": ""}, headers=h)
+    assert r.status_code == 200, r.text
+    op = store.get(m._conn, "optionPositions", user_id=uid)[0]
+    assert (op["stop"], op["alvo"]) == (0.7, None)

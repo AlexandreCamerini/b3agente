@@ -1124,13 +1124,17 @@ def buy_option(conn, contract: dict, qty: int, price: float, user_id=None, meta=
 
 
 def set_option_position(conn, contract_id: str, stop=None, alvo=None, has_stop=False, has_alvo=False, user_id=None) -> None:
+    # Valida ANTES de mutar (kv inalterado): texto/bool/NaN -> ValueError PT-BR
+    # (a rota traduz em 400), nunca a mensagem crua do float().
+    novo_stop = _marco_num(stop) if has_stop else None
+    novo_alvo = _marco_num(alvo) if has_alvo else None
     opts = get(conn, "optionPositions", user_id=user_id)
     for p in opts:
         if p["id"] == contract_id:
             if has_stop:
-                p["stop"] = None if stop in (None, "") else float(stop)
+                p["stop"] = novo_stop
             if has_alvo:
-                p["alvo"] = None if alvo in (None, "") else float(alvo)
+                p["alvo"] = novo_alvo
     db.kv_set(conn, "optionPositions", opts, user_id=user_id)
 
 

@@ -160,6 +160,16 @@ pw = lerDoc().positions[0];
 ok("WR-03(c): stop >= novo PM remove stopInicial", pw.stopInicial === undefined, JSON.stringify(pw));
 quotePrice = 23.51;
 
+// putOptionPosition local valida stop/alvo (paridade com store.set_option_position)
+st = await novoStore(base([], { optionPositions: [{ id: "PETRA100", qty: 100, avg: 1, stop: 0.5, alvo: 2 }] }));
+for (const ruim of ["abc", true]) {
+  const eo = await erro(() => st.putOptionPosition("PETRA100", { stop: ruim }));
+  ok("putOptionPosition local recusa " + JSON.stringify(ruim), eo && eo.message === "Stop e alvo precisam ser valores positivos.", eo && eo.message);
+}
+ok("putOptionPosition recusado não grava", lerDoc().optionPositions[0].stop === 0.5);
+await st.putOptionPosition("PETRA100", { stop: "0.7", alvo: "" });
+ok("putOptionPosition válido grava e limpa", lerDoc().optionPositions[0].stop === 0.7 && lerDoc().optionPositions[0].alvo === null);
+
 // ---- laço local: plano inválido ----
 quotePrice = 23.51;
 const inval = { t: "PETR4", qty: 100, avg: 23.01, stop: 23.36, alvo: 21.58 };
