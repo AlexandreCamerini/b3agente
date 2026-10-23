@@ -4251,6 +4251,12 @@ function StopAlvoModal({ ctx }) {
           <div style={{ marginTop: "10px", fontSize: "12px", color: T.textSecondary, lineHeight: 1.55 }}>
             <span style={{ fontFamily: MONO, fontWeight: 700 }}>{cartaoPosicaoTxt(modo, "rr_plano")}: {rrTxt}</span>
           </div>
+          {m && m.valido && m.parecer && (
+            /* Parecer do motor (R:R de entrada abaixo do mínimo): aviso, não veto (D-12). */
+            <div style={{ marginTop: "8px", padding: "10px 12px", borderRadius: "10px", background: T.bgBase, border: `1px dashed ${T.borderSubtle}`, fontSize: "12px", color: T.textSecondary, lineHeight: 1.55 }}>
+              {m.parecer}
+            </div>
+          )}
           {m && !m.valido && m.motivo && <div style={{ marginTop: "8px", fontSize: "12px", color: T.textMuted, lineHeight: 1.5 }}>{m.motivo}</div>}
           {!m && busca.error && <div style={{ marginTop: "8px", fontSize: "12px", color: T.textMuted, lineHeight: 1.5 }}>{busca.error}</div>}
           {gestaoVisivel && (
