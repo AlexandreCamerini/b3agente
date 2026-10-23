@@ -550,6 +550,13 @@ MARCOS_PLANO = {
         "bloco_rr": "Risco:retorno (da entrada)",
         "regua_alvo": "ALVO DO PLANO",
         "modal_recusa_titulo": "O motor recusou estes marcos:",
+        "modal_calculando": "CALCULANDO…",
+        "modal_calculo_motor": "CÁLCULO DO MOTOR",
+        "modal_parecer_aguardar": "PARECER: AGUARDAR",
+        "modal_ia_gauge": "Explicação com IA",
+        "modal_marcos_calculando": "Os marcos do motor ainda estão sendo calculados.",
+        "modal_marcos_indisponiveis": "Os marcos do motor estão indisponíveis agora.",
+        "modal_decisao_sua": "A decisão é sua — isto não é recomendação de investimento.",
     },
     "educacional": {
         "plano_invalido_diario": "{ticker}: o plano está inválido — {motivo} Por isso o simulador ignora o marco inválido (o outro, se válido, segue valendo). Stop e alvo precisam ser definidos de novo; os marcos que o motor calculou aparecem no card como sugestão. Este aviso aparece uma vez por dia.",
@@ -576,6 +583,13 @@ MARCOS_PLANO = {
         "bloco_rr": "Risco:retorno (a partir da entrada)",
         "regua_alvo": "ALVO DO PLANO",
         "modal_recusa_titulo": "O motor não aceitou estes marcos:",
+        "modal_calculando": "CALCULANDO…",
+        "modal_calculo_motor": "CÁLCULO DO MOTOR",
+        "modal_parecer_aguardar": "PARECER: AGUARDAR",
+        "modal_ia_gauge": "Explicação com IA",
+        "modal_marcos_calculando": "Os marcos do motor ainda estão sendo calculados.",
+        "modal_marcos_indisponiveis": "Os marcos do motor estão indisponíveis agora.",
+        "modal_decisao_sua": "A decisão é sua — isto não é recomendação de investimento.",
     },
 }
 

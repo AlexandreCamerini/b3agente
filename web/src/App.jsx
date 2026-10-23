@@ -4203,8 +4203,8 @@ function StopAlvoModal({ ctx }) {
   const gestaoLigada = !!(pos && pos.gestaoAuto !== false);
   const apply = () => {
     setRecusa(null);
-    if (busca.loading && !m) { setRecusa("Os marcos do motor ainda estão sendo calculados."); return; }
-    if (!m) { setRecusa(busca.error || "Os marcos do motor estão indisponíveis agora."); return; }
+    if (busca.loading && !m) { setRecusa(marcosPlanoTxt(modo, "modal_marcos_calculando")); return; }
+    if (!m) { setRecusa(busca.error || marcosPlanoTxt(modo, "modal_marcos_indisponiveis")); return; }
     if (!m.valido) { setRecusa(m.motivo || "O motor não conseguiu calcular marcos válidos agora."); return; }
     A.applyStopAlvoFor(t, m.stop, m.alvo, setRecusa);
   };
@@ -4216,7 +4216,7 @@ function StopAlvoModal({ ctx }) {
         <div style={{ padding: "16px 18px", borderBottom: `1px solid ${T.borderSubtle}` }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "10px" }}>
             <div style={{ fontSize: "16px", fontWeight: 700, fontFamily: MONO }}>{t} · {marcosPlanoTxt(modo, "modal_titulo")}</div>
-            {loading && <SweepGauge compact label="Explicação com IA" steps={["ATR, suportes e resistências", "leitura dos marcos do motor", "explicação"]} />}
+            {loading && <SweepGauge compact label={marcosPlanoTxt(modo, "modal_ia_gauge")} steps={["ATR, suportes e resistências", "leitura dos marcos do motor", "explicação"]} />}
           </div>
           <div style={{ fontSize: "13px", color: T.textMuted, marginTop: "4px", lineHeight: 1.5 }}>{marcosPlanoTxt(modo, "modal_ia_explica")}</div>
           {/* qa/35 (P1): o hash saiu; a data dos dados é o que importa pro usuário. */}
@@ -4225,7 +4225,7 @@ function StopAlvoModal({ ctx }) {
         <div style={{ padding: "16px 18px", overflowY: "auto" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "10px", marginBottom: "10px" }}>
             <span style={{ fontSize: "11px", fontWeight: 700, letterSpacing: "0.04em", color: busca.loading ? T.textMuted : aguardar ? T.textSecondary : T.accent }}>
-              {busca.loading ? "CALCULANDO…" : aguardar ? "PARECER: AGUARDAR" : "CÁLCULO DO MOTOR"}
+              {busca.loading ? marcosPlanoTxt(modo, "modal_calculando") : aguardar ? marcosPlanoTxt(modo, "modal_parecer_aguardar") : marcosPlanoTxt(modo, "modal_calculo_motor")}
             </span>
             {q.price != null && <span style={{ fontFamily: MONO, fontSize: "12px", color: T.textMuted }}>atual R$ {price(q.price)}</span>}
           </div>
@@ -4269,7 +4269,7 @@ function StopAlvoModal({ ctx }) {
           {Array.isArray(r.riscos) && r.riscos.length > 0 && <ul style={{ margin: "8px 0 0", paddingLeft: "18px", fontSize: "12px", color: T.textMuted, lineHeight: 1.5 }}>{r.riscos.map((x, i) => <li key={i}>{x}</li>)}</ul>}
           {r.quandoRevisar && <div style={{ marginTop: "8px", fontSize: "12px", color: T.textMuted, lineHeight: 1.5 }}>{r.quandoRevisar}</div>}
           {r.error && <div style={{ marginTop: "10px", fontSize: "12px", color: T.textFaint, lineHeight: 1.5 }}>IA indisponível ({r.error}) — os marcos acima são do motor e valem sem a explicação.</div>}
-          <div style={{ marginTop: "13px", fontSize: "11px", color: T.textFaint, lineHeight: 1.5 }}>A decisão é sua — isto não é recomendação de investimento.</div>
+          <div style={{ marginTop: "13px", fontSize: "11px", color: T.textFaint, lineHeight: 1.5 }}>{marcosPlanoTxt(modo, "modal_decisao_sua")}</div>
           {recusa && (
             <div role="alert" style={{ marginTop: "12px", padding: "10px 12px", borderRadius: "10px", background: T.bgBase, border: `1px solid ${T.negative}`, fontSize: "12px", color: T.textPrimary, lineHeight: 1.55 }}>
               <b>{marcosPlanoTxt(modo, "modal_recusa_titulo")}</b> {recusa}

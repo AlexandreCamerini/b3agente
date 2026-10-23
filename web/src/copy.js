@@ -632,6 +632,13 @@ export const COPY = {
       bloco_rr: "Risco:retorno (a partir da entrada)",
       regua_alvo: "ALVO DO PLANO",
       modal_recusa_titulo: "O motor não aceitou estes marcos:",
+      modal_calculando: "CALCULANDO…",
+      modal_calculo_motor: "CÁLCULO DO MOTOR",
+      modal_parecer_aguardar: "PARECER: AGUARDAR",
+      modal_ia_gauge: "Explicação com IA",
+      modal_marcos_calculando: "Os marcos do motor ainda estão sendo calculados.",
+      modal_marcos_indisponiveis: "Os marcos do motor estão indisponíveis agora.",
+      modal_decisao_sua: "A decisão é sua — isto não é recomendação de investimento.",
     },
     // Quick 261013-vai (2026-10-13): espelho byte a byte de skill_ref.EXECUCAO_FORA_PREGAO.
     execucaoForaPregao: {
@@ -2080,6 +2087,13 @@ export const COPY = {
       bloco_rr: "Risco:retorno (da entrada)",
       regua_alvo: "ALVO DO PLANO",
       modal_recusa_titulo: "O motor recusou estes marcos:",
+      modal_calculando: "CALCULANDO…",
+      modal_calculo_motor: "CÁLCULO DO MOTOR",
+      modal_parecer_aguardar: "PARECER: AGUARDAR",
+      modal_ia_gauge: "Explicação com IA",
+      modal_marcos_calculando: "Os marcos do motor ainda estão sendo calculados.",
+      modal_marcos_indisponiveis: "Os marcos do motor estão indisponíveis agora.",
+      modal_decisao_sua: "A decisão é sua — isto não é recomendação de investimento.",
     },
     // Quick 261013-vai (2026-10-13): espelho byte a byte de skill_ref.EXECUCAO_FORA_PREGAO.
     execucaoForaPregao: {
