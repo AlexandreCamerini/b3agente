@@ -156,6 +156,12 @@ say "7) Projeto iOS: identidade, versao, time, entitlements, PrivacyInfo"
 # 2026-10-22: o template do Capacitor 8 nasce sem time, sem CODE_SIGN_ENTITLEMENTS
 # e sem PrivacyInfo, com build 1 / versao 1.0. Isto reaplica tudo (idempotente) a
 # partir de resources/ios/versao.env; tambem acusa projeto corrompido.
+# 2026-10-22 (quick 261022-rht): o passo 3 gera icone/splash ANTES do `cap add ios`;
+# num projeto recem-criado eles nao tinham onde cair e o build 35 subiu com o icone
+# padrao do Capacitor. Regera aqui, com o ios/ ja existente (idempotente).
+if [ -f "$ROOT/resources/icon-1024.png" ]; then
+  bash "$ROOT/scripts/gen-assets.sh" || die "geração de assets falhou (pós-cap add)"
+fi
 bash "$ROOT/scripts/ios-aplicar-projeto.sh" \
   || die "falha ao aplicar time/versao/entitlements/PrivacyInfo no projeto iOS — sem isso o archive falha ou sai com build/versão errados"
 

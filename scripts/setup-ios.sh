@@ -157,6 +157,10 @@ fi
 if [[ ! -f "$WEB/ios/App/App/App.entitlements" ]]; then
   bash "$SCRIPT_DIR/ios-restaurar-entitlements.sh" || die "Nao consegui criar o App.entitlements."
 fi
+# quick 261022-rht: icone/splash precisam do ios/ ja criado (cap add apaga os da Boris+).
+if [[ -f "$SCRIPT_DIR/../resources/icon-1024.png" ]]; then
+  bash "$SCRIPT_DIR/gen-assets.sh" || warn "Nao consegui gerar icone/splash; rode: bash scripts/gen-assets.sh"
+fi
 bash "$SCRIPT_DIR/ios-aplicar-projeto.sh" --ios-dir "$WEB/ios" || die "Falha ao aplicar time/versao/entitlements/PrivacyInfo no projeto iOS."
 
 if [[ "$OPEN_XCODE" -eq 1 ]]; then say "Abrindo no Xcode..."; "$CAP" open ios || warn "Nao consegui abrir o Xcode. Abra manualmente: web/ios/App/App.xcodeproj (projeto SPM, sem .xcworkspace)."; fi

@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url';
 // Guardiao de scripts/ios-aplicar-projeto.sh (e, abaixo, do ios-bump-build.sh).
 //
 // POR QUE EXISTE (incidente de 2026-10-22): web/ios/ e gitignored; o template do
@@ -18,7 +19,8 @@ if (process.platform !== 'darwin' || !fs.existsSync('/usr/libexec/PlistBuddy')) 
   process.exit(0);
 }
 
-const WEB = process.cwd();
+// Raiz pelo próprio arquivo, não pelo cwd: a suíte canônica roda da raiz do repo.
+const WEB = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const REPO = path.resolve(WEB, '..');
 const FIX = path.join(WEB, 'tests', 'fixtures', 'ios-projeto');
 const APLICAR = path.join(REPO, 'scripts', 'ios-aplicar-projeto.sh');
