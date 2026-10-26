@@ -104,3 +104,41 @@ def _com_avisos(m, avisos):
         return m
     texto = "; ".join(avisos) + "."
     return {**m, "parecer": (texto + " " + m["parecer"]) if m.get("parecer") else texto}
+
+
+def marcos_para_compra(snap, setup_nome, preco):
+    """Fonte única dos marcos de uma COMPRA manual (quick 261026-epr).
+
+    A prévia do BuyModal (`/api/marcos` com `compra`) e a gravação em
+    `/api/buy` (`protecao: "motor"`) chamam ESTA função — mesmo snapshot,
+    mesmos números. Precedência: (1) plano do setup escolhido, julgado no preço
+    executado (`revalidar_na_execucao` com gatilho/invalidação do servidor);
+    (2) proteção por suporte/plano do card (`marcos_para_posicao`, sem posição
+    gravada, `avg=preco`), também revalidada. Nada serviu -> `valido: False`
+    com o motivo; a compra manual nunca é recusada por isso (D-06).
+    """
+    motivo_setup = None
+    if isinstance(setup_nome, str) and setup_nome.strip():
+        ps = marcos_de_setup(snap, setup_nome.strip(), preco)
+        if ps.get("valido"):
+            rv = setups.revalidar_na_execucao(ps["stop"], ps["alvo"], preco,
+                                              gatilho=ps.get("gatilho"), invalidacao=ps.get("invalidacao"))
+            if rv["ok"]:
+                return {**ps, "rr": rv["rr"]}
+            motivo_setup = rv["motivo"]
+        else:
+            motivo_setup = ps.get("motivo")
+    pp = marcos_para_posicao(snap, preco, avg=preco, pos=None)
+    motivo_pos = pp.get("motivo")
+    if pp.get("valido"):
+        rv = setups.revalidar_na_execucao(pp["stop"], pp["alvo"], preco)
+        if rv["ok"]:
+            if motivo_setup:
+                aviso = "O plano do setup não serviu (%s)." % motivo_setup.rstrip(".")
+                pp = {**pp, "parecer": aviso + (" " + pp["parecer"] if pp.get("parecer") else "")}
+            return {**pp, "rr": rv["rr"]}
+        motivo_pos = rv["motivo"]
+    motivo = motivo_setup or motivo_pos or "O motor não traçou proteção agora."
+    base = pp if not pp.get("valido") else {**setups._marcos_vazio(motivo, "alta")}
+    return {**base, "valido": False, "motivo": motivo, "stop": None, "alvo": None,
+            "rr": None, **_carimbo(snap, "compra")}

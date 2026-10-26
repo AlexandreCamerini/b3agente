@@ -2912,7 +2912,35 @@ async def buy(body: dict = Body(default={}), scope: Optional[str] = Depends(curr
     marcos_texto = None
     meta_cli = body.get("meta")
     setup_nome = meta_cli.get("setup") if isinstance(meta_cli, dict) else None
-    if isinstance(setup_nome, str) and setup_nome.strip() and (meta_cli or {}).get("lado") != "baixa":
+    # quick 261026-epr: `protecao` explícita do cliente. "sem" = autorização do
+    # usuário para entrar sem stop/alvo (nada é calculado); "motor" = marcos da
+    # fonte única `marcos_para_compra` (a MESMA da prévia); ausente/outro valor =
+    # comportamento antigo (só caminho de setup), por compatibilidade com builds
+    # antigos do app. O cliente nunca manda número (T-50-13).
+    protecao = body.get("protecao")
+    if protecao == "sem":
+        modo_marcos = (store.get(_conn, "config", user_id=scope) or {}).get("appMode")
+        marcos_texto = skill_ref.marcos_plano_txt(modo_marcos, "compra_sem_marcos_autorizada", ticker=t)
+    elif protecao == "motor":
+        modo_marcos = (store.get(_conn, "config", user_id=scope) or {}).get("appMode")
+        lado_baixa = isinstance(meta_cli, dict) and meta_cli.get("lado") == "baixa"
+        snap_m = await marcos_servico.snapshot_canonico(t)
+        if not snap_m:
+            marcos_motivo = "Sem dados técnicos para calcular os marcos agora."
+        else:
+            pc = marcos_servico.marcos_para_compra(
+                snap_m, None if lado_baixa else (setup_nome if isinstance(setup_nome, str) else None), price)
+            if pc.get("valido"):
+                marcos = {"stop": pc["stop"], "alvo": pc["alvo"],
+                          "gatilho": pc.get("gatilho"), "invalidacao": pc.get("invalidacao")}
+                marcos_texto = skill_ref.marcos_plano_txt(
+                    modo_marcos, "compra_com_marcos", ticker=t, stop=skill_ref.num_br(pc["stop"]),
+                    alvo=skill_ref.num_br(pc["alvo"]), rr=skill_ref.num_br(pc["rr"]))
+            else:
+                marcos_motivo = pc.get("motivo") or "O motor não traçou proteção agora."
+        if marcos is None:
+            marcos_texto = skill_ref.marcos_plano_txt(modo_marcos, "compra_sem_marcos", ticker=t, motivo=marcos_motivo)
+    elif isinstance(setup_nome, str) and setup_nome.strip() and (meta_cli or {}).get("lado") != "baixa":
         modo_marcos = (store.get(_conn, "config", user_id=scope) or {}).get("appMode")
         snap_m = await marcos_servico.snapshot_canonico(t)
         if not snap_m:
@@ -3191,8 +3219,14 @@ async def marcos_da_rota(ticker: str, body: dict = Body(default={}), scope: Opti
     if preco is None:
         preco = snap.get("close")
     setup = body.get("setup")
-    if isinstance(setup, str) and setup.strip():
+    if body.get("compra") is True:
+        # quick 261026-epr: prévia do BuyModal = mesma fonte da gravação em /api/buy
+        m = marcos_servico.marcos_para_compra(snap, setup if isinstance(setup, str) else None, preco)
+    elif isinstance(setup, str) and setup.strip():
         m = marcos_servico.marcos_de_setup(snap, setup.strip(), preco)
+    elif body.get("recalcular") is True:
+        # "rever no preço atual": ignora o gravado, mantém o avg do servidor
+        m = marcos_servico.marcos_para_posicao(snap, preco, avg=_avg_da_posicao(scope, t), pos=None)
     else:
         m = marcos_servico.marcos_para_posicao(snap, preco, avg=_avg_da_posicao(scope, t),
                                                   pos=_posicao_aberta(scope, t))
