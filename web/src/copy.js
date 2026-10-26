@@ -645,7 +645,7 @@ export const COPY = {
       compra_previa_titulo: "PROTEÇÃO QUE O MOTOR TRAÇA PARA ESTA ENTRADA",
       compra_previa_recalcular: "Recalcular com o preço atual",
       compra_gravar_protecao: "Gravar este stop e alvo junto com a compra",
-      compra_sem_protecao_check: "Quero entrar sem stop e alvo. Entendo que a posição fica sem saída automática por perda ou ganho até eu definir esses níveis, e que o prejuízo não tem limite automático até lá.",
+      compra_sem_protecao_check: "Quero entrar sem stop e alvo. Entendo que, até eu definir esses níveis, nenhuma venda automática protege a posição de uma queda nem realiza o ganho.",
       compra_sem_protecao_motivo: "O motor não traçou proteção agora:",
       compra_sem_marcos_autorizada: "{ticker} foi comprado sem stop e alvo, por escolha sua. A posição não tem saída automática até você definir a proteção no card.",
       modal_recalcular: "Recalcular com o preço atual",
