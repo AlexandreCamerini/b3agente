@@ -200,7 +200,7 @@ function isolarHandler(nomeInicio, marcadorFim) {
   return app.slice(inicio, fim);
 }
 
-const confirmBuy = isolarHandler("confirmBuy: async () => {", "sell: async (t) => {");
+const confirmBuy = isolarHandler("confirmBuy: async (protecao, previa) => {", "sell: async (t) => {"); // quick 261026-epr: assinatura nova (protecao, previa); localizador atualizado, asserções semânticas mantidas
 const confirmSell = isolarHandler("confirmSell: async () => {", "refreshWlScan: async () => {");
 const buyModal = isolarFuncao("BuyModal");
 const sellModal = isolarFuncao("SellModal");
@@ -324,7 +324,8 @@ ok(
 );
 ok(
   "MOTION-02: BuyModal desabilita Confirmar com `disabled={!ok || !!buyModal.confirmado}`",
-  buyModal.includes("disabled={!ok || !!buyModal.confirmado}")
+  // quick 261026-epr: termos de prévia/autorização foram acrescentados depois dos dois originais
+  buyModal.includes("disabled={!ok || !!buyModal.confirmado")
 );
 
 // 13) SellModal: idem, do lado da venda.

@@ -26,21 +26,37 @@ ok("BuyModal usa as chaves do vocabulário (prévia, recalcular, gravar, autoriz
 ok("checkbox de autorização nasce desmarcado", /useState\(false\)/.test(buy) && /setAutoriza/.test(buy));
 ok("Confirmar desabilitado sem autorização (faltaAutorizacao)", /faltaAutorizacao = exigeAutorizacao && !autoriza/.test(buy) && /disabled=\{[^}]*faltaAutorizacao/.test(buy));
 ok("prévia inválida/erro exige autorização", /exigeAutorizacao = previaFalhou/.test(buy));
-ok("desmarcar gravar vira protecao \"sem\"", /protecaoEscolhida = previaOk && gravar \? "motor" : "sem"/.test(buy));
+ok("desmarcar gravar vira protecao \"sem\"", /protecaoEscolhida = \(previaOk && gravar\) \|\| previa\.status === "mantem" \? "motor" : "sem"/.test(buy));
 ok("labels clicáveis com alvo de 44px", (buy.match(/minHeight: 44[^}]*alignItems: "flex-start"/g) || []).length >= 2);
-ok("BuyModal confirma passando a escolha", /A\.confirmBuy\(protecaoEscolhida\)/.test(buy));
-ok("BuyModal não envia stop/alvo ao confirmar", !/confirmBuy\([^)]*(stop|alvo)/.test(buy));
+ok("BuyModal confirma passando a escolha", /A\.confirmBuy\(protecaoEscolhida, previaEnviada\)/.test(buy));
+ok("BuyModal não envia stop/alvo ao confirmar (só a previa, para comparar)", !/confirmBuy\([^)]*(\.stop|\.alvo)/.test(buy));
 
-ok("confirmBuy recebe protecao e repassa ao store.buy", /confirmBuy: async \(protecao\)/.test(app) && /store\.buy\(bm\.t, bm\.qty, bm\.meta \|\| undefined, protecao/.test(app));
-ok("confirmBuy não abre o StopAlvoModal com protecao \"sem\"", /if \(protecao !== "sem"\) \{\s*setStopAlvoFor\(bm\.t\);\s*A\.runStopAlvoFor\(bm\.t\);/.test(confirm));
+ok("confirmBuy recebe protecao e repassa ao store.buy", /confirmBuy: async \(protecao, previa\)/.test(app) && /store\.buy\(bm\.t, bm\.qty, bm\.meta \|\| undefined, protecao/.test(app));
+ok("confirmBuy não abre o StopAlvoModal com protecao \"sem\"", /if \(protecao !== "sem" && !s\.marcos\) \{\s*setStopAlvoFor\(bm\.t\);\s*A\.runStopAlvoFor\(bm\.t\);/.test(confirm));
 
 ok("StopAlvoModal envia recalcular: true", /recalcular: true/.test(stopAlvo));
 ok("StopAlvoModal prefere busca.data depois de recalcular", /!recalculado && r\.marcos/.test(stopAlvo));
 ok("StopAlvoModal usa modal_recalcular", /"modal_recalcular"/.test(stopAlvo));
 
-ok("api.buy envia protecao só quando definido", /buy: \(t, qty, meta, protecao\)/.test(api) && /protecao \? \{ protecao \}/.test(api));
-ok("serverStore e deviceStore repassam protecao", /buy: \(t, qty, meta, protecao\) => api\.buy\(t, qty, meta, protecao\)/.test(pers) && /async buy\(t, qty, meta, protecao\)/.test(pers) && /api\.buy\(t, qty, meta, protecao\)/.test(pers));
+ok("api.buy envia protecao só quando definido", /buy: \(t, qty, meta, protecao, previa\)/.test(api) && /protecao \? \{ protecao \}/.test(api) && /protecao === "motor" \? \{ previa: previa \|\| null \}/.test(api));
+ok("serverStore e deviceStore repassam protecao", /buy: \(t, qty, meta, protecao, previa\) => api\.buy\(t, qty, meta, protecao, previa\)/.test(pers) && /async buy\(t, qty, meta, protecao, previa\)/.test(pers));
 ok("deviceStore legado: \"sem\" não pede marcos; senão compra: true", /protecao === "sem"/.test(pers) && /compra: true/.test(pers));
+
+// ---- Plano 02 (R1-R7) ----
+ok("R2: o efeito da prévia depende do preço arredondado, com debounce de 800 ms", /precoPrevia = precoBruto != null \? Math\.round\(precoBruto \* 100\) \/ 100/.test(buy) && /\[t, setupPrevia, recalcTick, precoPrevia, mantemMarcos\]/.test(buy) && /: 800/.test(buy) && /setTimeout\(/.test(buy));
+ok("R2: sem preço a prévia está loading, não error", /precoPrevia == null\) \{ setPrevia\(\{ status: "loading"/.test(buy));
+ok("R2: autorização zera quando status ou par stop/alvo mudam", /setAutoriza\(false\); \}, \[previa\.status, parPrevia\]/.test(buy));
+ok("R1: 409 previa_mudou mantém o modal aberto com prévia nova e aviso", /e\.status === 409 && e\.detail && e\.detail\.code === "previa_mudou"/.test(app) && /reprevia: \{ marcos: e\.detail\.marcos/.test(app) && /setBuyModal\(null\)/.test(confirm) && /setAviso\(reprevia\.mensagem/.test(buy));
+ok("R1: o 409 não fecha o modal nem comprou (retorna antes do refresh/flash)", /previa_mudou"\) \{[\s\S]*?\n\s*return;\s*\}\s*\/\/ FIX-C02/.test(confirm));
+ok("R1: a previa enviada vem só dos números exibidos e só com gravar marcado", /previaEnviada = previaOk && gravar \? \{ stop: previa\.m\.stop, alvo: previa\.m\.alvo \} : null/.test(buy));
+ok("R1: carimbo preço/hora da prévia (princípio 3)", /"compra_previa_carimbo"/.test(buy));
+ok("R3: posição com stop e alvo mostra compra_previa_mantem_marcos em vez do checkbox", /compra_previa_mantem_marcos/.test(buy) && /mantemMarcos = !!\(posAtual && posAtual\.stop && posAtual\.alvo\)/.test(buy));
+ok("R6: deviceStore sem sessão: protecao ausente segue o caminho antigo (sem compra: true)", /if \(protecao === "motor"\) corpo\.compra = true;/.test(pers) && /protecao == null && meta && meta\.setup/.test(pers));
+ok("R3/R1: deviceStore espelha marcos mantidos e o 409 previa_mudou", /compra_marcos_mantidos/.test(pers) && /e\.code = "previa_mudou"/.test(pers) && /e\.status = 409/.test(pers));
+ok("R7: a11y — aria-live só no texto de status, não no painel", !/<div aria-live="polite" style=\{\{ marginTop: "12px"/.test(buy) && /<span aria-live="polite"/.test(buy));
+ok("R7: motivo visível quando Confirmar está desabilitado por falta de autorização", /"compra_falta_autorizacao"/.test(buy) && /aria-describedby=\{faltaAutorizacao/.test(buy));
+ok("R7: guarda de duplo toque ANTES do await store.buy e liberada no catch", /if \(buyEnvioRef\.current\) return;\s*buyEnvioRef\.current = true;[\s\S]*?await store\.buy/.test(confirm) && /catch \(e\) \{\s*buyEnvioRef\.current = false;/.test(confirm));
+ok("R7: confirmBuy não abre o StopAlvoModal quando s.marcos veio gravado", /protecao !== "sem" && !s\.marcos/.test(confirm));
 
 if (fails) { console.error("\n" + fails + " falha(s)"); process.exit(1); }
 console.log("\ntodos os testes passaram");

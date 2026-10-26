@@ -81,7 +81,7 @@ ok("entrada sem status (legada) resulta em rejeitada=false (=== \"rejeitada\", n
 // abort explícito se qualquer marcador sumir. As asserções abaixo NÃO
 // mudam — só a ferramenta de recorte.
 const iConfirmSell = app.indexOf("confirmSell: async () => {");
-const iConfirmBuy = app.indexOf("confirmBuy: async () => {");
+const iConfirmBuy = app.indexOf("confirmBuy: async (protecao, previa) => {"); // quick 261026-epr: assinatura nova (protecao, previa); localizador atualizado, asserções semânticas mantidas
 if (iConfirmSell < 0 || iConfirmBuy < 0) {
   console.error("FALHOU: confirmSell/confirmBuy não encontrados em App.jsx — guardião não pode isolar os handlers");
   process.exit(1);

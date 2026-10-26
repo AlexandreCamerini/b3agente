@@ -97,7 +97,9 @@ ok("SellModal: status indisponível mostra mercadoStatusFalhouNaOrdem com botão
 // `statusIndisponivel` não entra na expressão do `disabled` em nenhum dos
 // dois termos.
 ok("BuyModal: o botão Confirmar continua controlado por `ok`/`confirmado` (custo/caixa + duplo envio) — status indisponível não desabilita",
-  /disabled=\{!ok \|\| !!buyModal\.confirmado\}/.test(buyModal) && !/disabled=\{[^}]*statusIndisponivel/.test(buyModal));
+  // quick 261026-epr: o disabled ganhou termos de prévia/autorização (previa loading, faltaAutorizacao) depois de
+  // `!ok || !!buyModal.confirmado`; os dois termos originais e a ausência de statusIndisponivel continuam exigidos.
+  /disabled=\{!ok \|\| !!buyModal\.confirmado( \|\| [^}]*)?\}/.test(buyModal) && !/disabled=\{[^}]*statusIndisponivel/.test(buyModal));
 // rótulo do botão de confirmar não muda em nenhum caso (mesma chave de sempre)
 ok("BuyModal/SellModal: rótulo do CTA continua vindo de confirmarCompra/confirmarVenda, sem ramificação",
   buyModal.includes("{ctx.cp.confirmarCompra}") && sellModal.includes("{ctx.cp.confirmarVenda}"));
@@ -135,7 +137,7 @@ ok("SellModal: frase de execução tudo-ou-nada continua presente (não foi perd
   sellModal.includes("Esta simulação executa por completo ou não executa"));
 
 // --------------------------------------------- Task 1: confirmBuy/confirmSell
-const confirmBuy = app.slice(app.indexOf("confirmBuy: async () => {"), app.indexOf("sell: async (t) => {"));
+const confirmBuy = app.slice(app.indexOf("confirmBuy: async (protecao, previa) => {"), app.indexOf("sell: async (t) => {")); // quick 261026-epr: assinatura nova (protecao, previa); localizador atualizado, asserções semânticas mantidas
 const confirmSell = app.slice(app.indexOf("confirmSell: async () => {"), app.indexOf("refreshWlScan: async () => {"));
 ok("confirmBuy existe e usa store.buy",
   confirmBuy.includes("store.buy("));
@@ -155,7 +157,7 @@ ok("confirmSell: track() também marca pendente:true/false",
 // pendente (a resposta crua do backend não é adotada por _adotarCarteiraDoServidor,
 // que só cobre o que persiste no doc; `pendente` é um flag da RESPOSTA).
 ok("deviation (Rule 1): deviceStore.buy propaga r.pendente pra fora (paridade com serverStore)",
-  /async buy\(t, qty, meta\) \{[\s\S]*?out\.pendente = !!\(r && r\.pendente\);/.test(persistenceSrc));
+  /async buy\(t, qty, meta(, protecao, previa)?\) \{[\s\S]*?out\.pendente = !!\(r && r\.pendente\);/.test(persistenceSrc));
 ok("deviation (Rule 1): deviceStore.sell propaga r.pendente pra fora (paridade com serverStore)",
   /async sell\(t, qty\) \{[\s\S]*?out\.pendente = !!\(r && r\.pendente\);/.test(persistenceSrc));
 
