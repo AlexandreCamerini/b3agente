@@ -1912,7 +1912,10 @@ function deviceStore() {
         } catch { marcosMotivo = "Sem dados técnicos para calcular os marcos agora."; }
         // R1 (espelho do 409 `previa_mudou` do servidor): `previa` só COMPARA, nunca é gravada (T-50-13).
         if (protecao === "motor") {
-          const confere = rvOk && previa && +previa.stop === mStop && +previa.alvo === mAlvo;
+          // espelho de main._tolerancia_previa: até 1% (mín. R$ 0,01) grava o número do motor
+          const toleranciaPrevia = (v) => Math.max(0.01, Math.abs(v) * 0.01);
+          const confere = rvOk && previa && Math.abs(+previa.stop - mStop) <= toleranciaPrevia(mStop)
+            && Math.abs(+previa.alvo - mAlvo) <= toleranciaPrevia(mAlvo);
           if (!confere) {
             const e = new Error(marcosPlanoTxt(modoM, "compra_previa_mudou"));
             e.status = 409;

@@ -172,3 +172,22 @@ def test_pendente_com_sem_usa_texto_de_ordem(monkeypatch):
     r = c.post("/api/buy", json={"t": "PETR4", "qty": 100, "protecao": "sem"}, headers=h)
     assert r.status_code == 200, r.text
     assert r.json()["marcosTexto"] == skill_ref.marcos_plano_txt(None, "ordem_sem_marcos_autorizada", ticker="PETR4")
+
+
+def test_previa_dentro_da_tolerancia_compra_e_grava_o_numero_do_servidor(monkeypatch):
+    # alvo projetado anda com o preço: diferença de centavos não pode virar 409 em loop
+    c, m, h, uid = _cliente(monkeypatch)
+    pv = _previa_do_motor(c, h, setup="Rompimento de máxima")
+    r = c.post("/api/buy", json={"t": "PETR4", "qty": 100, "meta": {"setup": "Rompimento de máxima"}, "protecao": "motor",
+                                 "previa": {"stop": pv["stop"], "alvo": round(pv["alvo"] * 1.009, 2)}}, headers=h)
+    assert r.status_code == 200, r.text
+    p = _pos(m, uid)
+    assert (p["stop"], p["alvo"]) == (pv["stop"], pv["alvo"])
+
+
+def test_previa_acima_da_tolerancia_da_409(monkeypatch):
+    c, m, h, uid = _cliente(monkeypatch)
+    pv = _previa_do_motor(c, h, setup="Rompimento de máxima")
+    r = c.post("/api/buy", json={"t": "PETR4", "qty": 100, "meta": {"setup": "Rompimento de máxima"}, "protecao": "motor",
+                                 "previa": {"stop": pv["stop"], "alvo": round(pv["alvo"] * 1.02, 2)}}, headers=h)
+    assert r.status_code == 409 and _pos(m, uid) is None

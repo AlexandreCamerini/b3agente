@@ -2839,10 +2839,21 @@ def _previa_confere(pc, previa):
     if not pc.get("valido") or not isinstance(previa, dict):
         return False
     try:
-        return (round(float(previa.get("stop")), 2) == round(float(pc["stop"]), 2)
-                and round(float(previa.get("alvo")), 2) == round(float(pc["alvo"]), 2))
+        return all(abs(float(previa.get(k)) - float(pc[k])) <= _tolerancia_previa(float(pc[k]))
+                   for k in ("stop", "alvo"))
     except (TypeError, ValueError):
         return False
+
+
+def _tolerancia_previa(v):
+    """Igualdade exata disparava 409 a cada centavo: o alvo projetado (1,5R) anda
+    com o preço entre a cotação da tela e a do servidor. Até 1% (mín. R$ 0,01)
+    a compra segue e grava o número DO SERVIDOR, que o toast mostra; acima disso
+    o usuário revê. Espelho: `toleranciaPrevia` em web/src/persistence.js."""
+    return max(0.01, abs(v) * PREVIA_TOLERANCIA_PCT)
+
+
+PREVIA_TOLERANCIA_PCT = 0.01
 
 
 def _exigir_reconfirmacao(pc, modo, price):
