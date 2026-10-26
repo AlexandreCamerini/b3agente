@@ -394,7 +394,7 @@ function serverStore() {
     optionsCuradoriaAbrirCollar: (body) => api.optionsCuradoriaAbrirCollar(body),
     optionsFecharLastreada: (body) => api.optionsFecharLastreada(body),
     cachedTechnicals: (_t, _period) => null,
-    buy: (t, qty, meta, protecao) => api.buy(t, qty, meta, protecao),  // FASE 2 (2.4): mesma interface do deviceStore
+    buy: (t, qty, meta, protecao, previa) => api.buy(t, qty, meta, protecao, previa),  // FASE 2 (2.4): mesma interface do deviceStore
     sell: (t, qty) => api.sell(t, qty),
     // Fase 50 (D-04/D-09): marcos de stop/alvo/entrada vêm SÓ do motor do servidor;
     // delegação pura nos DOIS stores (o aparelho não duplica o motor, mesma regra de
@@ -1841,10 +1841,10 @@ function deviceStore() {
     // putAgent: nunca fingir sucesso local quando o servidor recusou.
     // Fase 50: delegação pura (paridade com serverStore.marcos).
     async marcos(t, b) { return api.marcos(t, b); },
-    async buy(t, qty, meta, protecao) {
+    async buy(t, qty, meta, protecao, previa) {
       ensure();
       if (sync.hasSession()) {
-        const r = await api.buy(t, qty, meta, protecao);
+        const r = await api.buy(t, qty, meta, protecao, previa);
         _adotarCarteiraDoServidor(r);
         write();
         _agendarSyncPrefs();
@@ -1882,12 +1882,26 @@ function deviceStore() {
       // quick 261026-epr: `protecao` "sem" = autorização explícita do usuário — não pede marcos;
       // "motor" (ou ausente com setup) pede ao servidor a MESMA fonte da prévia (`compra: true`).
       const modoM = doc.config && doc.config.appMode === "operador" ? "operador" : "estudo";
+      // R3 (espelho de main.py): soma de lote em posição com stop/alvo válidos — não troca nem promete marcos.
+      const exAntes = doc.positions.find((p) => p.t === t);
+      let mantemMarcos = false;
+      if (protecao === "motor" && exAntes) {
+        const totP = exAntes.qty + qty;
+        const avgProj = +(((exAntes.avg * exAntes.qty) + price * qty) / totP).toFixed(2);
+        mantemMarcos = !!((exAntes.stop || exAntes.alvo) && validarMarcos(exAntes.stop, exAntes.alvo, price, avgProj) === null);
+      }
       if (protecao === "sem") {
         marcosTexto = marcosPlanoTxt(modoM, "compra_sem_marcos_autorizada", { ticker: t });
-      } else if (protecao === "motor" || (meta && meta.setup && meta.lado !== "baixa")) {
+      } else if (mantemMarcos) {
+        marcosTexto = marcosPlanoTxt(modoM, "compra_marcos_mantidos", { ticker: t });
+      } else if (protecao === "motor" || (protecao == null && meta && meta.setup && meta.lado !== "baixa")) {
+        // R6: `protecao` ausente segue o caminho ANTIGO (sem `compra: true`); só "motor" usa a fonte da prévia.
         let rvOk = null;
+        let r = null;
         try {
-          const r = await api.marcos(t, { setup: (meta && meta.lado !== "baixa") ? meta.setup : undefined, preco: price, compra: true });
+          const corpo = { setup: (meta && meta.lado !== "baixa") ? meta.setup : undefined, preco: price };
+          if (protecao === "motor") corpo.compra = true;
+          r = await api.marcos(t, corpo);
           if (r && r.valido && typeof r.stop === "number" && typeof r.alvo === "number") {
             const rv = revalidarNaExecucao(r.stop, r.alvo, price, r.gatilho, r.invalidacao);
             if (rv.ok) {
@@ -1896,6 +1910,18 @@ function deviceStore() {
             } else marcosMotivo = rv.motivo;
           } else marcosMotivo = (r && r.motivo) || "Sem marcos do motor para este setup agora.";
         } catch { marcosMotivo = "Sem dados técnicos para calcular os marcos agora."; }
+        // R1 (espelho do 409 `previa_mudou` do servidor): `previa` só COMPARA, nunca é gravada (T-50-13).
+        if (protecao === "motor") {
+          const confere = rvOk && previa && +previa.stop === mStop && +previa.alvo === mAlvo;
+          if (!confere) {
+            const e = new Error(marcosPlanoTxt(modoM, "compra_previa_mudou"));
+            e.status = 409;
+            e.code = "previa_mudou";
+            e.detail = { code: "previa_mudou", mensagem: e.message,
+                         marcos: r && typeof r === "object" ? r : { valido: false, motivo: marcosMotivo, stop: null, alvo: null } };
+            throw e;
+          }
+        }
         marcosTexto = rvOk
           ? marcosPlanoTxt(modoM, "compra_com_marcos", { ticker: t, stop: numBR(mStop), alvo: numBR(mAlvo), rr: numBR(rvOk.rr) })
           : marcosPlanoTxt(modoM, "compra_sem_marcos", { ticker: t, motivo: marcosMotivo });
