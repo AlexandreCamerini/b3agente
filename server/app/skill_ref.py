@@ -561,6 +561,13 @@ MARCOS_PLANO = {
         "modal_marcos_indisponiveis": "Os marcos do motor estão indisponíveis agora.",
         "modal_decisao_sua": "A decisão é sua — isto não é recomendação de investimento.",
         "bloco_stop_legado": "Stop do plano (nível do setup, sem folga de ATR)",
+        "compra_previa_titulo": "PROTEÇÃO DO MOTOR NESTA ENTRADA",
+        "compra_previa_recalcular": "Recalcular com o preço atual",
+        "compra_gravar_protecao": "Gravar este stop e alvo na compra",
+        "compra_sem_protecao_check": "Entrar sem stop e alvo — a posição fica sem proteção automática até eu definir.",
+        "compra_sem_protecao_motivo": "O motor não traçou proteção agora:",
+        "compra_sem_marcos_autorizada": "{ticker} comprado sem stop e alvo, por sua escolha. Defina a proteção quando quiser no card.",
+        "modal_recalcular": "Recalcular com o preço atual",
     },
     "educacional": {
         "plano_invalido_diario": "{ticker}: o plano está inválido — {motivo} Por isso o simulador ignora o marco inválido (o outro, se válido, segue valendo). Stop e alvo precisam ser definidos de novo; os marcos que o motor calculou aparecem no card como sugestão. Este aviso aparece uma vez por dia.",
@@ -598,6 +605,13 @@ MARCOS_PLANO = {
         "modal_marcos_indisponiveis": "Os marcos do motor estão indisponíveis agora.",
         "modal_decisao_sua": "A decisão é sua — isto não é recomendação de investimento.",
         "bloco_stop_legado": "Stop do plano (nível onde a ideia deixa de valer)",
+        "compra_previa_titulo": "PROTEÇÃO QUE O MOTOR TRAÇA PARA ESTA ENTRADA",
+        "compra_previa_recalcular": "Recalcular com o preço atual",
+        "compra_gravar_protecao": "Gravar este stop e alvo junto com a compra",
+        "compra_sem_protecao_check": "Quero entrar sem stop e alvo. Entendo que a posição fica sem saída automática por perda ou ganho até eu definir esses níveis, e que o prejuízo não tem limite automático até lá.",
+        "compra_sem_protecao_motivo": "O motor não traçou proteção agora:",
+        "compra_sem_marcos_autorizada": "{ticker} foi comprado sem stop e alvo, por escolha sua. A posição não tem saída automática até você definir a proteção no card.",
+        "modal_recalcular": "Recalcular com o preço atual",
     },
 }
 
