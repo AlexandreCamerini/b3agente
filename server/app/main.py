@@ -2833,6 +2833,26 @@ async def carteira_stopalvo(ticker: str, body: dict = Body(default={}), scope: O
 # (scheduler, plano 02-03). O booleano "mercado fechado" NUNCA vem do corpo
 # da requisição (T-02-10) — é sempre `pregao.in_market_hours()`, a autoridade
 # do servidor, porque é ela que decide se a ordem escapa do preço do momento.
+def _previa_confere(pc, previa):
+    """R1 (quick 261026-epr): a `previa` do corpo é só para COMPARAR com o que o
+    servidor calculou no preço executado (T-50-13: nunca gravada)."""
+    if not pc.get("valido") or not isinstance(previa, dict):
+        return False
+    try:
+        return (round(float(previa.get("stop")), 2) == round(float(pc["stop"]), 2)
+                and round(float(previa.get("alvo")), 2) == round(float(pc["alvo"]), 2))
+    except (TypeError, ValueError):
+        return False
+
+
+def _exigir_reconfirmacao(pc, modo, price):
+    """409 `previa_mudou`: devolve os marcos NOVOS (válidos ou não, com motivo)
+    para o usuário rever. Não é ordem recusada: não entra no histórico."""
+    marcos = {**pc, "precoRef": round(price, 2), "calculadoEm": store.now_str()}
+    raise HTTPException(409, detail={"code": "previa_mudou", "marcos": marcos,
+                                     "mensagem": skill_ref.marcos_plano_txt(modo, "compra_previa_mudou")})
+
+
 @app.post("/api/buy")
 async def buy(body: dict = Body(default={}), scope: Optional[str] = Depends(current_scope)):
     from . import pregao  # import local: sem ciclo (mesmo padrão de agent.py:216)
@@ -2924,12 +2944,33 @@ async def buy(body: dict = Body(default={}), scope: Optional[str] = Depends(curr
     elif protecao == "motor":
         modo_marcos = (store.get(_conn, "config", user_id=scope) or {}).get("appMode")
         lado_baixa = isinstance(meta_cli, dict) and meta_cli.get("lado") == "baixa"
-        snap_m = await marcos_servico.snapshot_canonico(t)
-        if not snap_m:
+        # R3: soma de lote em posição que já tem stop/alvo válidos — o motor não
+        # troca os marcos do usuário (store.buy já protege), então não há o que
+        # prometer nem comparar com a prévia: pula o cálculo e a reconfirmação.
+        pos_atual = _posicao_aberta(scope, t)
+        mantem_marcos = False
+        if pos_atual and isinstance(qty, int) and qty > 0:
+            q_n = max(100, round(qty / 100) * 100)
+            avg_proj = round((pos_atual["avg"] * pos_atual["qty"] + price * q_n) / (pos_atual["qty"] + q_n), 2)
+            mantem_marcos = bool((pos_atual.get("stop") or pos_atual.get("alvo")) and not setups.validar_marcos(
+                pos_atual.get("stop"), pos_atual.get("alvo"), preco=price, avg=avg_proj))
+        snap_m = None if mantem_marcos else await marcos_servico.snapshot_canonico(t)
+        if mantem_marcos:
+            marcos_texto = skill_ref.marcos_plano_txt(modo_marcos, "compra_marcos_mantidos", ticker=t)
+        elif not snap_m:
             marcos_motivo = "Sem dados técnicos para calcular os marcos agora."
+            # R1: sem snapshot não há número para o usuário rever — pede reconfirmação
+            _exigir_reconfirmacao({"valido": False, "motivo": marcos_motivo, "stop": None, "alvo": None},
+                                  modo_marcos, price)
         else:
             pc = marcos_servico.marcos_para_compra(
                 snap_m, None if lado_baixa else (setup_nome if isinstance(setup_nome, str) else None), price)
+            # R1: `previa` do corpo serve SÓ PARA COMPARAR com o que o servidor
+            # calculou no preço executado; nunca é gravada (T-50-13). Divergência
+            # ou motor inválido -> 409 `previa_mudou`, nada é comprado nem entra
+            # no histórico (não é ordem recusada, é pedido de reconfirmação).
+            if not _previa_confere(pc, body.get("previa")):
+                _exigir_reconfirmacao(pc, modo_marcos, price)
             if pc.get("valido"):
                 marcos = {"stop": pc["stop"], "alvo": pc["alvo"],
                           "gatilho": pc.get("gatilho"), "invalidacao": pc.get("invalidacao")}
@@ -2938,7 +2979,7 @@ async def buy(body: dict = Body(default={}), scope: Optional[str] = Depends(curr
                     alvo=skill_ref.num_br(pc["alvo"]), rr=skill_ref.num_br(pc["rr"]))
             else:
                 marcos_motivo = pc.get("motivo") or "O motor não traçou proteção agora."
-        if marcos is None:
+        if marcos is None and not mantem_marcos:
             marcos_texto = skill_ref.marcos_plano_txt(modo_marcos, "compra_sem_marcos", ticker=t, motivo=marcos_motivo)
     elif isinstance(setup_nome, str) and setup_nome.strip() and (meta_cli or {}).get("lado") != "baixa":
         modo_marcos = (store.get(_conn, "config", user_id=scope) or {}).get("appMode")
@@ -2985,11 +3026,16 @@ async def buy(body: dict = Body(default={}), scope: Optional[str] = Depends(curr
                         f"Caixa insuficiente para {qty} {t} a R$ {price} — disponível: R$ {cash_disp}.",
                         user_id=scope, origem="manual")
                 raise HTTPException(400, "Caixa insuficiente.")
-            store.buy(_conn, t, qty, price, user_id=scope, meta=body.get("meta"),  # FASE 2 (2.4)
-                      marcos=({"stop": marcos["stop"], "alvo": marcos["alvo"]} if marcos else None))
+            marcos_aplicados = store.buy(_conn, t, qty, price, user_id=scope, meta=body.get("meta"),  # FASE 2 (2.4)
+                                         marcos=({"stop": marcos["stop"], "alvo": marcos["alvo"]} if marcos else None))
         _disparar_ciclo_imediato(scope)  # 2026-08-07: reavalia na hora, não espera o próximo tick
         out = store.public_state(_conn, user_id=scope)
         out["priceUsed"] = round(price, 2)
+        if marcos and not marcos_aplicados:
+            # R3: lote somado a posição com marcos próprios — não prometer números novos
+            marcos = None
+            marcos_texto = skill_ref.marcos_plano_txt(
+                (store.get(_conn, "config", user_id=scope) or {}).get("appMode"), "compra_marcos_mantidos", ticker=t)
         out["marcos"] = {"stop": marcos["stop"], "alvo": marcos["alvo"]} if marcos else None
         out["marcosMotivo"] = marcos_motivo
         out["marcosTexto"] = marcos_texto
@@ -3022,6 +3068,12 @@ async def buy(body: dict = Body(default={}), scope: Optional[str] = Depends(curr
     out["precoReferencia"] = round(price, 2)
     out["marcos"] = marcos
     out["marcosMotivo"] = marcos_motivo
+    if protecao == "sem":
+        # R7: ordem PENDENTE ainda não comprou nada — o texto fala de ordem registrada
+        marcos_texto = skill_ref.marcos_plano_txt(
+            (store.get(_conn, "config", user_id=scope) or {}).get("appMode"), "ordem_sem_marcos_autorizada", ticker=t)
+    elif protecao == "motor" and marcos is None and marcos_motivo is None:
+        marcos_texto = None  # posição com marcos próprios: nada a prometer numa ordem futura
     out["marcosTexto"] = marcos_texto
     return out
 
@@ -3222,15 +3274,19 @@ async def marcos_da_rota(ticker: str, body: dict = Body(default={}), scope: Opti
     if body.get("compra") is True:
         # quick 261026-epr: prévia do BuyModal = mesma fonte da gravação em /api/buy
         m = marcos_servico.marcos_para_compra(snap, setup if isinstance(setup, str) else None, preco)
+    elif body.get("recalcular") is True:
+        # R4: "rever no preço atual" calcula DIRETO por suporte no preço de hoje —
+        # não passa pelo plano do card nem pelo gravado; mantém o avg do servidor.
+        m = {**setups.marcos_da_posicao(preco, marcos_servico._niveis(snap), avg=_avg_da_posicao(scope, t)),
+             **marcos_servico._carimbo(snap, "recalculo")}
     elif isinstance(setup, str) and setup.strip():
         m = marcos_servico.marcos_de_setup(snap, setup.strip(), preco)
-    elif body.get("recalcular") is True:
-        # "rever no preço atual": ignora o gravado, mantém o avg do servidor
-        m = marcos_servico.marcos_para_posicao(snap, preco, avg=_avg_da_posicao(scope, t), pos=None)
     else:
         m = marcos_servico.marcos_para_posicao(snap, preco, avg=_avg_da_posicao(scope, t),
                                                   pos=_posicao_aberta(scope, t))
-    return {**m, "t": t}
+    # R1: preço usado no cálculo e hora (princípio 3: dado exibe quando foi calculado)
+    return {**m, "t": t, "precoRef": round(preco, 2) if isinstance(preco, (int, float)) else None,
+            "calculadoEm": store.now_str()}
 
 
 # ---- Carteira: opções (v2 — ADR-003/004/005) ----

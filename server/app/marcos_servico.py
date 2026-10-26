@@ -138,6 +138,17 @@ def marcos_para_compra(snap, setup_nome, preco):
                 pp = {**pp, "parecer": aviso + (" " + pp["parecer"] if pp.get("parecer") else "")}
             return {**pp, "rr": rv["rr"]}
         motivo_pos = rv["motivo"]
+        # quick 261026-epr R5: o plano do card (fonte "setup") foi reprovado na
+        # execução; a proteção por suporte pode servir — tenta antes de desistir.
+        if pp.get("fonte") == "setup":
+            ps2 = setups.marcos_da_posicao(preco, _niveis(snap), avg=preco)
+            if ps2.get("valido"):
+                rv2 = setups.revalidar_na_execucao(ps2["stop"], ps2["alvo"], preco)
+                if rv2["ok"]:
+                    avisos = [m for m in (motivo_setup and "O plano do setup não serviu (%s)" % motivo_setup.rstrip("."),
+                                          "o plano do card não serviu na execução (%s)" % motivo_pos.rstrip(".")) if m]
+                    out = _com_avisos({**ps2, **_carimbo(snap, "posicao"), "rr": rv2["rr"]}, avisos)
+                    return out
     motivo = motivo_setup or motivo_pos or "O motor não traçou proteção agora."
     base = pp if not pp.get("valido") else {**setups._marcos_vazio(motivo, "alta")}
     return {**base, "valido": False, "motivo": motivo, "stop": None, "alvo": None,

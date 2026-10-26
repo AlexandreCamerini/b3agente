@@ -898,7 +898,10 @@ def _sanitize_trade_meta(meta) -> dict:
 
 
 def buy(conn, t: str, qty: int, price: float, user_id=None, meta=None, origem: str = "manual",
-        marcos=None) -> None:
+        marcos=None) -> bool:
+    """Devolve True quando os marcos do motor foram APLICADOS à posição; False
+    quando não vieram ou não entraram (soma de lote em posição com marcos
+    próprios válidos) — quick 261026-epr R3. Quem ignora o retorno segue igual."""
     # Normalização manual preservada (guardião F10-20260819): quem dimensiona
     # por risco (agente, sizing_por_risco) já entrega múltiplo de 100, então
     # a Fase 50 não muda esta linha (divergência 3 do 50-PATTERNS).
@@ -920,6 +923,7 @@ def buy(conn, t: str, qty: int, price: float, user_id=None, meta=None, origem: s
     history = get(conn, "history", user_id=user_id)
     m = _sanitize_trade_meta(meta)
     existing = next((p for p in positions if p["t"] == t), None)
+    aplicou = False
     if existing:
         total = existing["qty"] + qty
         existing["avg"] = round((existing["avg"] * existing["qty"] + price * qty) / total, 2)
@@ -935,6 +939,7 @@ def buy(conn, t: str, qty: int, price: float, user_id=None, meta=None, origem: s
             existing["stopInicial"] = m_stop
             existing["gestaoAuto"] = True
             existing["marcosOrigem"] = "motor"
+            aplicou = True
         else:
             # WR-03(c): o PM mudou e os marcos do motor não entraram — o 1R
             # antigo (stopInicial) ficaria errado; reancora como na edição manual.
@@ -946,6 +951,7 @@ def buy(conn, t: str, qty: int, price: float, user_id=None, meta=None, origem: s
             pos["stopInicial"] = m_stop
             pos["gestaoAuto"] = True
             pos["marcosOrigem"] = "motor"
+            aplicou = True
         if m:
             pos["setupEntrada"] = m
         positions.append(pos)
@@ -964,6 +970,7 @@ def buy(conn, t: str, qty: int, price: float, user_id=None, meta=None, origem: s
     db.kv_set(conn, "positions", positions, user_id=user_id)
     db.kv_set(conn, "cash", cash, user_id=user_id)
     db.kv_set(conn, "history", history, user_id=user_id)
+    return aplicou
 
 
 def sell(conn, t: str, price: float, user_id=None, qty=None, motivo: str = "manual", origem: str = "manual"):
