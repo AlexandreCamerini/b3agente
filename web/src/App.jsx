@@ -4174,6 +4174,7 @@ function StopAlvoModal({ ctx }) {
   const modo = ctx.operador ? "operador" : "estudo";
   const [busca, setBusca] = useState({ loading: true, data: null, error: null });
   const [recusa, setRecusa] = useState(null);
+  const [recalculado, setRecalculado] = useState(false);
   const pos = t ? (data.positions || []).find((p) => p.t === t) : null;
   const q = t ? (quotes[t] || {}) : {};
   const precoRef = q.price != null ? q.price : null;
@@ -4183,6 +4184,7 @@ function StopAlvoModal({ ctx }) {
     let vivo = true;
     setBusca({ loading: true, data: null, error: null });
     setRecusa(null);
+    setRecalculado(false);
     store.marcos(t, { preco: precoRef != null ? precoRef : undefined, avg: avgRef != null ? avgRef : undefined })
       .then((m) => { if (vivo) setBusca({ loading: false, data: m, error: null }); })
       .catch((e) => { if (vivo) setBusca({ loading: false, data: null, error: (e && e.message) || String(e) }); });
@@ -4196,7 +4198,14 @@ function StopAlvoModal({ ctx }) {
   // proteção. `operar === false` é parecer exibido como aviso; o Aplicar segue.
   const aguardar = r.operar === false;
   // marcos do N3 (mesmos números do motor) têm precedência; senão a busca gratuita.
-  const m = (r.marcos && r.marcos.valido !== undefined) ? r.marcos : busca.data;
+  // quick 261026-epr: depois de recalcular no preço atual vale o que o usuário acabou de pedir.
+  const m = (!recalculado && r.marcos && r.marcos.valido !== undefined) ? r.marcos : busca.data;
+  const recalcular = () => {
+    setRecusa(null); setBusca({ loading: true, data: null, error: null }); setRecalculado(true);
+    store.marcos(t, { preco: precoRef != null ? precoRef : undefined, avg: avgRef != null ? avgRef : undefined, recalcular: true })
+      .then((d) => setBusca({ loading: false, data: d, error: null }))
+      .catch((e) => setBusca({ loading: false, data: null, error: (e && e.message) || String(e) }));
+  };
   const stop = m && m.valido ? m.stop : null;
   const alvo = m && m.valido ? m.alvo : null;
   const rrTxt = m && m.valido && m.rr != null ? m.rr + ":1" : "—";
@@ -4233,6 +4242,7 @@ function StopAlvoModal({ ctx }) {
             </span>
             {q.price != null && <span style={{ fontFamily: MONO, fontSize: "12px", color: T.textMuted }}>atual R$ {price(q.price)}</span>}
           </div>
+          <button type="button" onClick={recalcular} disabled={busca.loading} style={{ minHeight: 44, marginBottom: "10px", padding: "8px 12px", borderRadius: "8px", border: `1px solid ${T.borderSubtle}`, background: T.bgPanel, color: T.textSecondary, fontWeight: 600, fontSize: "12px" }}>{marcosPlanoTxt(modo, "modal_recalcular")}</button>
           {aguardar && (
             /* O parecer vira AVISO — os números ficam. Proteger posição nunca
                é proibido; a decisão de aplicar segue sendo da pessoa. */
@@ -9349,6 +9359,33 @@ function BuyModal({ ctx }) {
   // nunca trava por dado ausente).
   const fechado = ctx.mercado && ctx.mercado.aberto === false;
   const statusIndisponivel = !!(ctx.mercado && ctx.mercado.erro);
+  // quick 261026-epr: prévia da proteção do MOTOR antes de comprar (fonte única
+  // com a gravação em /api/buy). Números só do servidor; o usuário escolhe
+  // gravar ou entrar sem stop/alvo (autorização explícita quando o motor não traçou).
+  const modoP = ctx.operador ? "operador" : "estudo";
+  const [previa, setPrevia] = useState({ status: "loading", m: null, motivo: null });
+  const [recalcTick, setRecalcTick] = useState(0);
+  const [gravar, setGravar] = useState(true);
+  const [autoriza, setAutoriza] = useState(false);
+  const precoPrevia = q.price != null ? q.price : null;
+  const setupPrevia = (buyModal.meta && buyModal.meta.lado !== "baixa" && buyModal.meta.setup) || undefined;
+  useEffect(() => {
+    if (precoPrevia == null) { setPrevia({ status: "error", m: null, motivo: null }); return undefined; }
+    let vivo = true;
+    setPrevia({ status: "loading", m: null, motivo: null });
+    store.marcos(t, { compra: true, setup: setupPrevia, preco: precoPrevia })
+      .then((m) => { if (vivo) setPrevia(m && m.valido ? { status: "ok", m, motivo: null } : { status: "invalid", m: null, motivo: (m && m.motivo) || null }); })
+      .catch((e) => { if (vivo) setPrevia({ status: "error", m: null, motivo: (e && e.message) || null }); });
+    return () => { vivo = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [t, setupPrevia, recalcTick]);
+  const previaOk = previa.status === "ok";
+  const previaFalhou = previa.status === "invalid" || previa.status === "error";
+  // "ok" + gravar marcado -> motor; "ok" desmarcado -> sem; falha -> sem (exige autorização).
+  const protecaoEscolhida = previaOk && gravar ? "motor" : "sem";
+  const exigeAutorizacao = previaFalhou || (previaOk && !gravar);
+  const faltaAutorizacao = exigeAutorizacao && !autoriza;
+  const mp = (k) => marcosPlanoTxt(modoP, k);
   return (
     <div onClick={A.closeBuy} style={{ position: "fixed", inset: 0, zIndex: 50, background: T.scrim, display: "flex", alignItems: "center", justifyContent: "center", padding: "18px" }}>
       <div onClick={(e) => e.stopPropagation()} ref={painelRef} tabIndex={-1} className={REDUCE_MOTION ? undefined : "sheet-enter"} role="dialog" aria-modal="true" aria-label={"Compra simulada de " + t} style={{ outline: "none", width: "100%", maxWidth: "420px", ...card, borderRadius: "14px", padding: "20px" }}>
@@ -9400,10 +9437,37 @@ function BuyModal({ ctx }) {
             <button type="button" onClick={ctx.recarregarMercado} style={{ flex: "none", padding: "6px 10px", borderRadius: "7px", border: `1px solid ${T.warn}`, background: "transparent", color: T.warn, fontWeight: 700, fontSize: "12px" }}>↻ Tentar de novo</button>
           </div>
         )}
+        <div aria-live="polite" style={{ marginTop: "12px", padding: "11px 12px", borderRadius: "9px", background: T.bgBase, border: `1px solid ${T.borderSubtle}` }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px" }}>
+            <span style={{ fontSize: "11px", fontWeight: 700, letterSpacing: "0.04em", color: T.textMuted }}>{previa.status === "loading" ? mp("modal_calculando") : mp("compra_previa_titulo")}</span>
+            <button type="button" onClick={() => { setAutoriza(false); setRecalcTick((n) => n + 1); }} disabled={previa.status === "loading" || buyModal.confirmado} style={{ minHeight: 44, padding: "6px 10px", borderRadius: "8px", border: `1px solid ${T.borderSubtle}`, background: T.bgPanel, color: T.textSecondary, fontWeight: 600, fontSize: "12px" }}>{mp("compra_previa_recalcular")}</button>
+          </div>
+          {previaOk && (
+            <>
+              <div style={{ display: "flex", gap: "10px", marginTop: "8px", fontFamily: MONO }}>
+                <div style={{ flex: 1 }}><div style={{ fontSize: "10px", color: T.textFaint }}>STOP</div><div style={{ fontWeight: 700, color: T.negative }}>R$ {price(previa.m.stop)}</div></div>
+                <div style={{ flex: 1 }}><div style={{ fontSize: "10px", color: T.textFaint }}>ALVO</div><div style={{ fontWeight: 700, color: T.positive }}>R$ {price(previa.m.alvo)}</div></div>
+                <div style={{ flex: 1 }}><div style={{ fontSize: "10px", color: T.textFaint }}>R:R</div><div style={{ fontWeight: 700 }}>{previa.m.rr != null ? String(previa.m.rr).replace(".", ",") + ":1" : "—"}</div></div>
+              </div>
+              {previa.m.parecer && <div style={{ marginTop: "8px", fontSize: "12px", color: T.textSecondary, lineHeight: 1.5 }}>{previa.m.parecer}</div>}
+              <label style={{ marginTop: "8px", minHeight: 44, display: "flex", alignItems: "flex-start", gap: "10px", fontSize: "12px", color: T.textSecondary, lineHeight: 1.5, cursor: "pointer" }}>
+                <input type="checkbox" checked={gravar} onChange={(e) => { setGravar(e.target.checked); setAutoriza(false); }} style={{ width: 22, height: 22, flex: "0 0 auto", marginTop: 1 }} />
+                <span>{mp("compra_gravar_protecao")}</span>
+              </label>
+            </>
+          )}
+          {previaFalhou && <div style={{ marginTop: "8px", fontSize: "12px", color: T.textSecondary, lineHeight: 1.5 }}>{mp("compra_sem_protecao_motivo")}{previa.motivo ? " " + previa.motivo : ""}</div>}
+          {exigeAutorizacao && (
+            <label style={{ marginTop: "8px", minHeight: 44, display: "flex", alignItems: "flex-start", gap: "10px", fontSize: "12px", color: T.textSecondary, lineHeight: 1.5, cursor: "pointer" }}>
+              <input type="checkbox" checked={autoriza} onChange={(e) => setAutoriza(e.target.checked)} style={{ width: 22, height: 22, flex: "0 0 auto", marginTop: 1 }} />
+              <span>{mp("compra_sem_protecao_check")}</span>
+            </label>
+          )}
+        </div>
         <div style={{ fontSize: "11px", color: T.textFaint, lineHeight: 1.4, marginTop: "10px" }}>{DISCLAIMERS.trade}</div>
         <div style={{ display: "flex", gap: "8px", marginTop: "16px" }}>
           <button onClick={A.closeBuy} style={{ flex: 1, padding: "11px", borderRadius: "9px", border: `1px solid ${T.borderSubtle}`, background: T.bgPanel, color: T.textSecondary, fontWeight: 600, fontSize: "14px" }}>Cancelar</button>
-          <button onClick={A.confirmBuy} disabled={!ok || !!buyModal.confirmado} style={{ flex: 1.4, padding: "11px", borderRadius: "9px", border: `1px solid ${ok ? T.positive : T.borderSubtle}`, background: ok ? T.positive : T.knob, color: ok ? T.confirmOkText : T.textFaint, fontWeight: 800, fontSize: "14px" }}>{ctx.cp.confirmarCompra}</button>
+          <button onClick={() => A.confirmBuy(protecaoEscolhida)} disabled={!ok || !!buyModal.confirmado || previa.status === "loading" || faltaAutorizacao} style={{ flex: 1.4, padding: "11px", borderRadius: "9px", border: `1px solid ${ok && !faltaAutorizacao ? T.positive : T.borderSubtle}`, background: ok && !faltaAutorizacao ? T.positive : T.knob, color: ok && !faltaAutorizacao ? T.confirmOkText : T.textFaint, fontWeight: 800, fontSize: "14px" }}>{ctx.cp.confirmarCompra}</button>
         </div>
       </div>
     </div>
@@ -10216,13 +10280,13 @@ export default function App() {
     },
     openTech: (t) => setTechFor(t),
     closeTech: () => setTechFor(null),
-    confirmBuy: async () => {
+    confirmBuy: async (protecao) => {
       // Fase 23 (MOTION-02): o modal fica montado por mais ~120ms para o
       // valor pulsar; sem esta guarda, dois toques na janela virariam DUAS
       // ordens — antes o desmonte imediato impedia isso por acidente.
       const bm = buyModal; if (!bm || bm.confirmado) return;
       try {
-        const s = await store.buy(bm.t, bm.qty, bm.meta || undefined); // FASE 2 (2.4): setup de entrada
+        const s = await store.buy(bm.t, bm.qty, bm.meta || undefined, protecao === "sem" || protecao === "motor" ? protecao : undefined); // FASE 2 (2.4): setup de entrada; quick 261026-epr: escolha de proteção
         // `setData` entra AQUI, não antes: com o estado já comitado, o
         // BuyModal recalcula `ok` com o caixa debitado e o SellModal (gêmeo)
         // chega a desmontar (`if (!pos) return null`) — o pulso nunca
@@ -10242,8 +10306,12 @@ export default function App() {
             flash(cp.toastCompra(bm.qty, bm.t) + (s.marcosTexto ? " " + s.marcosTexto : "")); // FASE 8B (B1): voz do modo; Fase 50: + marcos do motor (ou o motivo de não ter)
             // FASE 2 (2.3): oferta IMEDIATA do N3 — modal com cenários; nada é
             // aplicado sem o toque do usuário (Fechar cancela sem efeito).
-            setStopAlvoFor(bm.t);
-            A.runStopAlvoFor(bm.t);
+            // quick 261026-epr: com protecao "sem" o usuário já decidiu entrar sem
+            // stop/alvo — não reabre o modal nem gasta IA; só o toast acima.
+            if (protecao !== "sem") {
+              setStopAlvoFor(bm.t);
+              A.runStopAlvoFor(bm.t);
+            }
           }
         };
         // Portões, nesta ordem: PENDENTE primeiro (ordem aceita e NÃO

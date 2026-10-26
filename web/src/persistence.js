@@ -394,7 +394,7 @@ function serverStore() {
     optionsCuradoriaAbrirCollar: (body) => api.optionsCuradoriaAbrirCollar(body),
     optionsFecharLastreada: (body) => api.optionsFecharLastreada(body),
     cachedTechnicals: (_t, _period) => null,
-    buy: (t, qty, meta) => api.buy(t, qty, meta),  // FASE 2 (2.4): mesma interface do deviceStore
+    buy: (t, qty, meta, protecao) => api.buy(t, qty, meta, protecao),  // FASE 2 (2.4): mesma interface do deviceStore
     sell: (t, qty) => api.sell(t, qty),
     // Fase 50 (D-04/D-09): marcos de stop/alvo/entrada vêm SÓ do motor do servidor;
     // delegação pura nos DOIS stores (o aparelho não duplica o motor, mesma regra de
@@ -1841,10 +1841,10 @@ function deviceStore() {
     // putAgent: nunca fingir sucesso local quando o servidor recusou.
     // Fase 50: delegação pura (paridade com serverStore.marcos).
     async marcos(t, b) { return api.marcos(t, b); },
-    async buy(t, qty, meta) {
+    async buy(t, qty, meta, protecao) {
       ensure();
       if (sync.hasSession()) {
-        const r = await api.buy(t, qty, meta);
+        const r = await api.buy(t, qty, meta, protecao);
         _adotarCarteiraDoServidor(r);
         write();
         _agendarSyncPrefs();
@@ -1879,11 +1879,15 @@ function deviceStore() {
       // mínimo, geometria), devolve `marcos`/`marcosMotivo`/`marcosTexto` e, na falha de rede,
       // um motivo explícito (princípio 9: nunca "compra sem marcos" calada).
       let mStop = null, mAlvo = null, marcosMotivo = null, marcosTexto = null, marcosOut = null;
-      if (meta && meta.setup && meta.lado !== "baixa") {
-        const modoM = doc.config && doc.config.appMode === "operador" ? "operador" : "estudo";
+      // quick 261026-epr: `protecao` "sem" = autorização explícita do usuário — não pede marcos;
+      // "motor" (ou ausente com setup) pede ao servidor a MESMA fonte da prévia (`compra: true`).
+      const modoM = doc.config && doc.config.appMode === "operador" ? "operador" : "estudo";
+      if (protecao === "sem") {
+        marcosTexto = marcosPlanoTxt(modoM, "compra_sem_marcos_autorizada", { ticker: t });
+      } else if (protecao === "motor" || (meta && meta.setup && meta.lado !== "baixa")) {
         let rvOk = null;
         try {
-          const r = await api.marcos(t, { setup: meta.setup, preco: price });
+          const r = await api.marcos(t, { setup: (meta && meta.lado !== "baixa") ? meta.setup : undefined, preco: price, compra: true });
           if (r && r.valido && typeof r.stop === "number" && typeof r.alvo === "number") {
             const rv = revalidarNaExecucao(r.stop, r.alvo, price, r.gatilho, r.invalidacao);
             if (rv.ok) {

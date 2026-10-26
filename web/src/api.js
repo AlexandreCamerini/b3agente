@@ -444,7 +444,9 @@ export const api = {
     if (!j || j._raw !== undefined || typeof j.build !== "string") return null;
     return j.build;
   },
-  buy: (t, qty, meta) => req("POST", "/api/buy", meta ? { t, qty, meta } : { t, qty }),   // FASE 2 (2.4): setup de entrada
+  // FASE 2 (2.4): setup de entrada. quick 261026-epr: `protecao` ("motor"|"sem") só vai no corpo
+  // quando definido — o cliente manda a ESCOLHA, nunca stop/alvo (T-50-13).
+  buy: (t, qty, meta, protecao) => req("POST", "/api/buy", { t, qty, ...(meta ? { meta } : {}), ...(protecao ? { protecao } : {}) }),
   sell: (t, qty) => req("POST", "/api/sell", qty ? { t, qty } : { t }),                    // FASE 2 (2.4): venda parcial
   putPosition: (t, b) => req("PUT", "/api/position/" + t, b),
   // Fase 50 (D-04/D-09): marcos de stop/alvo/entrada do motor deterministico.
