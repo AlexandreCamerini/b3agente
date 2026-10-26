@@ -568,6 +568,12 @@ MARCOS_PLANO = {
         "compra_sem_protecao_motivo": "O motor não traçou proteção agora:",
         "compra_sem_marcos_autorizada": "{ticker} comprado sem stop e alvo, por sua escolha. Defina a proteção quando quiser no card.",
         "modal_recalcular": "Recalcular com o preço atual",
+        "compra_previa_mudou": "O preço mudou e o motor recalculou a proteção. Revise os valores antes de confirmar.",
+        "compra_previa_carimbo": "calculado a R$ {preco} às {hora}",
+        "compra_marcos_mantidos": "{ticker}: lote somado; o stop e o alvo que você já tinha foram mantidos.",
+        "compra_previa_mantem_marcos": "Você já tem stop e alvo nesta posição; eles serão mantidos.",
+        "ordem_sem_marcos_autorizada": "{ticker}: ordem registrada sem stop e alvo, por sua escolha.",
+        "compra_falta_autorizacao": "Marque a opção acima para entrar sem stop e alvo.",
     },
     "educacional": {
         "plano_invalido_diario": "{ticker}: o plano está inválido — {motivo} Por isso o simulador ignora o marco inválido (o outro, se válido, segue valendo). Stop e alvo precisam ser definidos de novo; os marcos que o motor calculou aparecem no card como sugestão. Este aviso aparece uma vez por dia.",
@@ -612,6 +618,12 @@ MARCOS_PLANO = {
         "compra_sem_protecao_motivo": "O motor não traçou proteção agora:",
         "compra_sem_marcos_autorizada": "{ticker} foi comprado sem stop e alvo, por escolha sua. A posição não tem saída automática até você definir a proteção no card.",
         "modal_recalcular": "Recalcular com o preço atual",
+        "compra_previa_mudou": "O preço mudou e o motor recalculou a proteção. Revise os valores antes de confirmar.",
+        "compra_previa_carimbo": "calculado a R$ {preco} às {hora}",
+        "compra_marcos_mantidos": "{ticker}: o lote foi somado à posição; o stop e o alvo que você já tinha foram mantidos, sem trocar pelos do motor.",
+        "compra_previa_mantem_marcos": "Você já tem stop e alvo nesta posição; eles serão mantidos.",
+        "ordem_sem_marcos_autorizada": "{ticker}: ordem registrada sem stop e alvo, por sua escolha. Quando ela executar, a posição não terá saída automática até você definir a proteção.",
+        "compra_falta_autorizacao": "Marque a opção acima para entrar sem stop e alvo.",
     },
 }
 
