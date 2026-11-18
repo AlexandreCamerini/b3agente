@@ -117,6 +117,10 @@ def _coletar_metricas_diarias(conn) -> dict:
         "cache_candles_series": len(candle_cache.stats() or {}),
         "push_automatico_falhas_dia": PUSH_FAIL_TODAY.get("falhas", 0),
         "radar_diario_duracao_s": radar_daily.LAST_DAILY.get("duracaoS"),
+        # Fase 51 (ENG-12): o WAU exige o banco de analytics, que esta função
+        # não recebe; _maybe_registrar_metricas_diarias preenche o valor real.
+        # null (nunca 0) quando o cálculo não roda ou falha.
+        "wau_7d": None,
     }
 
 

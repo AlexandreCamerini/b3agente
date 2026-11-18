@@ -10995,16 +10995,16 @@ export default function App() {
     document.addEventListener("visibilitychange", onVis);
     return () => document.removeEventListener("visibilitychange", onVis);
   }, [temDataRef, carregarDiaNaBolsa]);
-  // Vistos (D-03): watchlist e carteira, 1x por dia BRT por sessão.
+  // Vistos (D-03): watchlist e carteira, 1x por montagem e por escopo (o ref
+  // volta a false em _resetScopeState). Sem gate em storage local: o servidor
+  // já deduplica por (ticker, setup, dataBase), e o guardião MOTION-01 trava a
+  // contagem de storage local neste arquivo (orquestrador da Fase 51).
   const vistosDiaRef = useRef(false);
   useEffect(() => {
     if (!data || vistosDiaRef.current) return;
     vistosDiaRef.current = true;
-    const hoje = hojeBRT();
-    try { if (localStorage.getItem("b3-dnb-vistos-dia") === hoje) return; } catch { /* sem storage: envia */ }
     store.registrarVistos(data.watchlist || [], "watchlist").catch(() => {});
     store.registrarVistos((data.positions || []).map((p) => p.t), "carteira").catch(() => {});
-    try { localStorage.setItem("b3-dnb-vistos-dia", hoje); } catch { /* ignora */ }
   }, [data]);
 
   // FASE 8 (A3): fonte única do reset de estados derivados na TROCA de escopo
@@ -11013,6 +11013,7 @@ export default function App() {
     setAnalysis({}); setExpanded({}); setQuotes({}); setWlScan(null); setDestaque({ stage: "idle" });
     _proativoDono.t = null;   // conta nova recomeça elegível à via proativa
     notifRef.current = {};
+    vistosDiaRef.current = false;   // Fase 51: a conta nova registra os próprios vistos
     // Fase 40 (ESTADO-01, D-04/SC#4): nenhum ticker/aba lembrado de uma
     // conta pode aparecer para outra (cenário C). setOpcoesMemoria(null)
     // limpa o valor lido pelo próximo mount; setEscopoOpcoes incrementa a

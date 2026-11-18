@@ -45,7 +45,10 @@ ok("radar_result_opened leva setup", /track\("radar_result_opened", \{ ticker: t
 ok("registrarVistos radar", /registrarVistos\(\[t\], "radar"\)/.test(app));
 ok("registrarVistos watchlist", /registrarVistos\([^)]*"watchlist"\)/.test(app));
 ok("registrarVistos carteira", /registrarVistos\([^\n]*"carteira"\)/.test(app));
-ok("vistos diários 1x por dia BRT (chave b3-dnb-vistos-dia)", app.includes("b3-dnb-vistos-dia"));
+// Orquestrador da Fase 51 (2026-11-18): o gate em storage local saiu. Ele
+// estourava a contagem travada pelo MOTION-01 e não separava conta. O
+// servidor já deduplica por (ticker, setup, dataBase); o ref zera na troca de escopo.
+ok("vistos de watchlist/carteira 1x por montagem, ref zerado na troca de escopo", app.includes("vistosDiaRef.current = false") && !app.includes("b3-dnb-vistos-dia"));
 
 // (g) convite/config pela rota única; fechamento nunca em notif
 ok("decidirFechamento( presente (>=2)", (app.match(/decidirFechamento\(/g) || []).length >= 2);

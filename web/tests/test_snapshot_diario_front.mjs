@@ -48,7 +48,11 @@ ok("App: todayYmd = hojeBRT()", app.includes("const todayYmd = hojeBRT();"));
 ok("App: hoje = hojeBRT() no contexto evolucao", /const hoje = hojeBRT\(\);\s*\n\s*const ec = equityCurve/.test(app));
 ok("App: equityCurve(...) com hojeBRT() no 4o argumento", /equityCurve\(data\.equitySnapshots, [^\n]*m\.patr, hojeBRT\(\)\)/.test(app));
 ok("App: nenhuma equityCurve( com toISOString no argumento", !/equityCurve\([^\n]*toISOString/.test(app));
-ok("App: streak segue com toISOString", app.includes("const ymd = (d) => d.toISOString()"));
+// Fase 51 (2026-11-18, D-17/ENG-11): o streak por abertura (que usava a data em
+// UTC via toISOString) foi REMOVIDO; o hábito passou a ser "dia de decisão" em
+// BRT (hojeBRT). Reversão deliberada: o guardião agora exige que o helper antigo
+// não volte.
+ok("App: streak por abertura em UTC removido (Fase 51)", !app.includes("const ymd = (d) => d.toISOString()"));
 
 const adm = rd("..", "..", "web-admin", "src", "App.jsx");
 ok("admin: linhas leem data.snapshotDiario", adm.includes("data.snapshotDiario?.atLabel") && adm.includes("data.snapshotDiario?.perdidasNaJanela") && adm.includes("data.snapshotDiario?.perdido"));
