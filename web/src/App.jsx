@@ -2411,7 +2411,7 @@ function EvolucaoScreen({ ctx }) {
       </div>
 
       {/* Onda K (2026-10-10, quick 261010-f51): atalho — mesmo componente do Portfólio; nada novo calculado. */}
-      {/* Fase 51 (P-2): "Seu dia na bolsa" — entre a saudação/status e o OperadorIACard, nos dois modos; some quando não há card. */}
+      {/* Fase 51 (P-2): card do fechamento — entre a saudação/status e o OperadorIACard, nos dois modos; some quando não há card. */}
       <DiaNaBolsaCard
         estado={dnb.estado} payload={dnb.payload} mode={operador ? "operador" : "estudo"} ui={uiDnb}
         podeConvidar={isNative && !!(data.config && data.config.notif && data.config.notif.enabled)}
@@ -10975,7 +10975,7 @@ export default function App() {
   }, [data, quotes]);
   // Fase 51: o streak deixa de contar aberturas; o dia entra por decisão (D-16),
   // com data em BRT (D-17). `config.streak` legado fica gravado, intocado.
-  // Payload do card "Seu dia na bolsa": carrega com `data`, ao trocar de modo
+  // Payload do card do fechamento: carrega com `data`, ao trocar de modo
   // e ao voltar ao primeiro plano (via `loadState`, que já roda na retomada).
   const [diaNaBolsa, setDiaNaBolsa] = useState({ estado: "carregando", payload: null });
   const carregarDiaNaBolsa = useCallback(async () => {
