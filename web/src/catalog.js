@@ -292,7 +292,7 @@ Enquadramento (não copie este parágrafo para o JSON): Esta análise possui fin
 
 export function defaultState() {
   return {
-    config: { provider: "anthropic", model: "", keySource: "env", apiKey: "", baseUrl: "", serverUrl: "", initialBudget: 10000.0, theme: "dark", userName: "", onboarded: false, candlePeriod: "1y", streak: { days: 0, last: "" }, notif: { enabled: false, stop: true, alvo: true, agente: true, variacao: true }, appMode: "estudo", operadorTermo: null, risco: { pctPorTrade: 1.0, capital: null } },
+    config: { provider: "anthropic", model: "", keySource: "env", apiKey: "", baseUrl: "", serverUrl: "", initialBudget: 10000.0, theme: "dark", userName: "", onboarded: false, candlePeriod: "1y", streak: { days: 0, last: "" }, diasDecisao: [], notif: { enabled: false, stop: true, alvo: true, agente: true, variacao: true }, appMode: "estudo", operadorTermo: null, risco: { pctPorTrade: 1.0, capital: null } },
     llmPrompts: defaultLlmPrompts(),
     skill: { name: "Mesa B3 - Educacional v1", text: defaultSkillText() },
     skillOperador: { name: "Mesa B3 - Operador v1", text: defaultSkillTextOperador() },

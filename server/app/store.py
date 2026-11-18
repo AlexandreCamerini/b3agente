@@ -1,6 +1,7 @@
 """Operacoes de estado sobre o kv store. Funcoes recebem a conexao para
 ficarem testaveis (o pytest cria a sua propria conexao em arquivo temporario).
 """
+import re
 import math
 import threading
 from datetime import datetime, timedelta, timezone
@@ -87,12 +88,13 @@ def ensure_defaults(conn, user_id=None) -> None:
         cfg["initialBudget"] = float(cur_cash) if isinstance(cur_cash, (int, float)) else d["config"]["initialBudget"]
         db.kv_set(conn, "config", cfg, user_id=user_id)
     cfg = db.kv_get(conn, "config", None, user_id=user_id)
-    if isinstance(cfg, dict) and ("theme" not in cfg or "userName" not in cfg or "notif" not in cfg or "onboarded" not in cfg or "streak" not in cfg or "candlePeriod" not in cfg or "appMode" not in cfg or "vozAtiva" not in cfg):
+    if isinstance(cfg, dict) and ("theme" not in cfg or "userName" not in cfg or "notif" not in cfg or "onboarded" not in cfg or "streak" not in cfg or "diasDecisao" not in cfg or "candlePeriod" not in cfg or "appMode" not in cfg or "vozAtiva" not in cfg):
         cfg.setdefault("theme", d["config"]["theme"])
         cfg.setdefault("userName", d["config"]["userName"])
         cfg.setdefault("notif", dict(d["config"]["notif"]))
         cfg.setdefault("onboarded", d["config"]["onboarded"])
         cfg.setdefault("streak", dict(d["config"]["streak"]))
+        cfg.setdefault("diasDecisao", [])  # Fase 51: dias de decisao (data BRT)
         cfg.setdefault("candlePeriod", d["config"].get("candlePeriod", "1y"))
         # FASE 7 (F7.1): modo de trabalho + risco (backfill de docs antigos)
         cfg.setdefault("appMode", "estudo")
@@ -195,6 +197,10 @@ def now_str() -> str:
 
 
 # ---------- mutadores ----------
+DIAS_DECISAO_MAX = 60
+_DATA_ISO_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+
+
 def set_config(conn, patch: dict, user_id=None) -> dict:
     cfg = get(conn, "config", user_id=user_id)
     for k in ("provider", "model", "baseUrl"):
@@ -246,6 +252,16 @@ def set_config(conn, patch: dict, user_id=None) -> dict:
         st = patch["streak"]
         days = st.get("days"); last = st.get("last")
         cfg["streak"] = {"days": int(days) if isinstance(days, (int, float)) else 0, "last": str(last or "")}
+    # Fase 51 (D-16, ENG-11): dias de decisao (datas BRT AAAA-MM-DD) por UNIAO,
+    # mesmo motivo de `conceitosVistos` — dois aparelhos nao se apagam. Espelho:
+    # `deviceStore.putConfig` (persistence.js). `streak` legado fica intocado.
+    if isinstance(patch.get("diasDecisao"), list):
+        atual = cfg.get("diasDecisao") if isinstance(cfg.get("diasDecisao"), list) else []
+        todos = {d for d in atual if isinstance(d, str) and _DATA_ISO_RE.match(d)}
+        for d in patch["diasDecisao"]:
+            if isinstance(d, str) and _DATA_ISO_RE.match(d):
+                todos.add(d)
+        cfg["diasDecisao"] = sorted(todos)[-DIAS_DECISAO_MAX:]
     if isinstance(patch.get("notif"), dict):
         base = cfg.get("notif") if isinstance(cfg.get("notif"), dict) else {}
         # 260824-kc2: as três classes de push do SERVIDOR entram na mesma

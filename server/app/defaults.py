@@ -249,6 +249,7 @@ def default_state() -> dict:
             "borisIntroVisto": False,  # F6: apresentacao do Boris ja vista? (1x, na aba Mercado)
             "candlePeriod": "1y",      # Objetivo 4: janela de candles (1mo|3mo|6mo|1y|2y)
             "streak": {"days": 0, "last": ""},  # consistencia (dias seguidos abrindo)
+            "diasDecisao": [],         # Fase 51: datas BRT (AAAA-MM-DD) com decisao; uniao, teto 60
             "notif": {                 # notificacoes LOCAIS de movimentos da carteira
                 "enabled": False,      # mestre (pede permissao quando ligado)
                 "stop": True, "alvo": True, "agente": True, "variacao": True,
