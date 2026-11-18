@@ -351,7 +351,261 @@ PUSH_RADAR = {
     "titulo": "Prévia do Radar · pré-abertura 📡",
     "corpo_destaques": "Prévia pré-abertura: maior confluência em {itens}. O pregão ainda não abriu — a abertura pode mudar estes preços. Abra para ver o plano e o risco ({n} ativos analisados).",
     "corpo_vazio": "Prévia pré-abertura: varredura concluída, {n} ativo(s) analisados, nenhum setup em destaque hoje. O pregão ainda não abriu. Abra o Radar para estudar.",
+    # Fase 51 (D-14): linha extra ao final do corpo com o "e se" de ontem. Alvo
+    # e stop com a MESMA construção e comprimento próximo; sem R no push.
+    # PUSH_RADAR continua SEM espelho em copy.js (o push não é renderizado no
+    # front); a trava destas duas chaves é test_dia_na_bolsa_vocab.py.
+    "corpo_ontem_alvo": "Ontem: {T} chegaria ao alvo.",
+    "corpo_ontem_stop": "Ontem: {T} teve o stop atingido.",
 }
+
+
+# --- Fase 51: card "Seu dia na bolsa" (ENG-07, D-02/D-04/D-10) --------------
+# Fonte única de TODO texto do card, do push de fechamento, do convite e do
+# streak. O front só espelha (copy.js `diaNaBolsa`, byte a byte, travado por
+# test_vocabulario_espelho.mjs) e nunca compõe frase. Uma string literal por
+# linha, sem aspas ASCII internas. Chaves IDÊNTICAS nos dois modos; convite,
+# erro, atrasado, config e streak são iguais nos dois (P-10: configuração, não
+# conteúdo didático). Regras com variantes `_1.._N` (3-4); escolha do índice
+# pelo servidor (sha256 usuário+dia). Alvo e stop têm o MESMO número de
+# variantes e o mesmo formato (D-04); nenhum template fala em perda (D-02) —
+# guardião: test_dia_na_bolsa_vocab.py. Estudo sem verbo de ordem; Operador sem
+# convite a operar. Placeholders vêm do motor, já formatados (pt-BR), e sem
+# valor viram "—", nunca "0". Convenções: {pct} sempre SEM sinal (a direção
+# vai em {direcao}: "subiu"/"caiu" no IBOV, "subiram"/"caíram" na amplitude,
+# "acima"/"abaixo" no gap); {R} no formato "+1,8R"; {multiplo} ex. "3,1".
+# Operador sem pergunta na família 3 ("" em `f3_pergunta_*`).
+DIA_NA_BOLSA = {
+    "educacional": {
+        "titulo": "Seu dia na bolsa",
+        "kicker": "SEU DIA NA BOLSA · {data}",
+        "carimbo": "Fechamento de {data} · calculado às {hora} · {fonte}",
+        "label_f1": "O “E SE” DO QUE VOCÊ VIU",
+        "label_f2": "O QUE O MOTOR FEZ NA SUA CARTEIRA",
+        "label_f3": "UM FATO RARO DO MERCADO",
+        "chip_alvo": "▲ chegaria ao alvo",
+        "chip_stop": "■ stop atingido — não entrar foi o acerto",
+        "chip_expirou": "○ expirou sem gatilho",
+        "chip_sem_gatilho": "○ sem gatilho no horizonte",
+        "placar_semana": "Semana: {X} vistos · {Y} chegariam ao alvo · {Z} ao stop · {W} abertos ou expirados",
+        "mais_n": "+{n}",
+        "f2_carteira_ibov": "Carteira {carteira} × IBOV {ibov} no dia",
+        "f2_ibov_indisponivel": "IBOV indisponível hoje",
+        "ver_conceito": "Ver {conceito} →",
+        "selo_p95": "raro: percentil 95 em 12 meses",
+        "selo_atr": "acima de 2×ATR(14) do ativo",
+        "convite_pergunta": "Quer receber este resumo às 17:15, nos dias de pregão?",
+        "convite_aceitar": "Quero receber",
+        "convite_recusar": "Agora não",
+        "convite_ok_aceite": "Combinado. Você recebe o resumo no fechamento de dias de pregão.",
+        "convite_ok_recusa": "Tudo bem. Você ainda vê o resumo aqui no Acompanhar.",
+        "erro_carregar": "Não consegui carregar o resumo do dia. Seus dados e saldo não mudaram.",
+        "erro_tentar": "Tentar novamente",
+        "atrasado": "Este é o resumo de {data}. O de hoje ainda não foi gerado.",
+        "sr_carregando": "Carregando o resumo do dia",
+        "config_rotulo": "Resumo do fechamento (17:15)",
+        "decisao_4sem": "{X} dias de decisão nas últimas 4 semanas",
+        "decisao_4sem_um": "1 dia de decisão nas últimas 4 semanas",
+        "decisao_4sem_zero": "Nenhum dia de decisão nas últimas 4 semanas ainda. Explorar o resumo do dia conta.",
+        "chamada_f1_1": "Os planos que você viu: o que o mercado respondeu?",
+        "chamada_f1_2": "Lembra dos setups que você olhou? Veja o desfecho.",
+        "chamada_f1_3": "O que aconteceu com os planos que você viu?",
+        "chamada_f2_1": "O que o motor fez na sua carteira hoje?",
+        "chamada_f2_2": "Seu motor trabalhou hoje. O que ele mexeu?",
+        "chamada_f2_3": "O que mudou na sua carteira sem você mexer?",
+        "chamada_f3_1": "Hoje o mercado fez algo raro. Você notou?",
+        "chamada_f3_2": "Um dia fora do comum na bolsa. O que ele ensina?",
+        "chamada_f3_3": "Um fato raro no pregão de hoje. Vale entender?",
+        "f1_alvo_1": "{T} chegou ao alvo do plano que você viu ({R}). O que fez o plano funcionar?",
+        "f1_alvo_2": "O plano de {T} que você viu chegaria ao alvo ({R}). Que sinal já mostrava isso?",
+        "f1_alvo_3": "{T}: o alvo do plano foi alcançado ({R}). O que o preço fez até lá?",
+        "f1_alvo_4": "Alvo de {T} alcançado no plano que você viu ({R}). Qual era o risco do plano?",
+        "f1_stop_1": "{T} atingiu o stop do plano que você viu ({R}). Não entrar foi o acerto aqui. Por quê?",
+        "f1_stop_2": "O plano de {T} que você viu teve o stop atingido ({R}). Que sinal avisava do risco?",
+        "f1_stop_3": "{T}: o stop do plano foi alcançado ({R}). O que o preço fez até lá?",
+        "f1_stop_4": "Stop de {T} alcançado no plano que você viu ({R}). Qual era o risco do plano?",
+        "f1_expirou_1": "{T} não chegou ao gatilho dentro de {N} pregões. Sem entrada, sem resultado.",
+        "f1_expirou_2": "O plano de {T} expirou: o gatilho não veio em {N} pregões. Sem entrada, sem resultado.",
+        "f1_expirou_3": "{T} ficou {N} pregões sem acionar o gatilho. Esperar também é uma decisão.",
+        "f1_sem_gatilho_1": "{T} não acionou o gatilho no horizonte do plano ({N} pregões). Sem entrada, sem resultado.",
+        "f1_sem_gatilho_2": "No horizonte de {N} pregões, o gatilho de {T} não foi acionado. Sem entrada, sem resultado.",
+        "f1_sem_gatilho_3": "O gatilho de {T} não apareceu em {N} pregões. Sem entrada, nada a medir.",
+        "f2_stop_subiu_1": "O motor subiu o stop de {T} para R$ {stop}, acompanhando o preço.",
+        "f2_stop_subiu_2": "O stop de {T} subiu para R$ {stop}: o motor o seguiu para cima.",
+        "f2_stop_subiu_3": "Stop de {T} ajustado pelo motor para R$ {stop}, mais perto do preço.",
+        "f2_breakeven_1": "O stop de {T} subiu para R$ {stop}, o preço de entrada (breakeven): a posição andou 1R a favor.",
+        "f2_breakeven_2": "O motor levou o stop de {T} ao breakeven, R$ {stop}: o preço de entrada.",
+        "f2_breakeven_3": "Stop de {T} em R$ {stop}, no breakeven: protege o preço de entrada.",
+        "f2_stop_executado_1": "O stop de {T} foi atingido e a posição foi encerrada em R$ {stop}.",
+        "f2_stop_executado_2": "O motor encerrou {T} no stop, em R$ {stop}.",
+        "f2_stop_executado_3": "Stop de {T} executado em R$ {stop}: o plano de risco funcionou como desenhado.",
+        "f2_alvo_executado_1": "O alvo de {T} foi atingido e a posição foi encerrada pelo motor.",
+        "f2_alvo_executado_2": "O motor encerrou {T} no alvo do plano.",
+        "f2_alvo_executado_3": "Alvo de {T} executado: o plano chegou ao fim previsto.",
+        "f2_pendente_executada_1": "A ordem pendente de {T} foi executada quando o preço chegou ao nível definido.",
+        "f2_pendente_executada_2": "Ordem pendente de {T} executada: o preço atingiu o nível que você definiu.",
+        "f2_pendente_executada_3": "O motor executou a ordem pendente de {T} no nível definido.",
+        "f2_entrada_auto_1": "O motor fez a entrada automática em {T} conforme o plano.",
+        "f2_entrada_auto_2": "Entrada automática em {T}: o motor cumpriu o gatilho do plano.",
+        "f2_entrada_auto_3": "O gatilho de {T} foi atingido e o motor entrou conforme as regras.",
+        "f3_ibov_raro_1": "O IBOV {direcao} {pct} hoje, um dia raro.",
+        "f3_ibov_raro_2": "Hoje o IBOV {direcao} {pct}, um movimento fora do comum.",
+        "f3_ibov_raro_3": "O IBOV {direcao} {pct} no dia, variação rara no último ano.",
+        "f3_ibov_raro_4": "Dia raro na bolsa: o IBOV {direcao} {pct}.",
+        "f3_amplitude_1": "{fracao} dos ativos {direcao} juntos hoje, algo raro.",
+        "f3_amplitude_2": "Hoje, {fracao} dos ativos acompanhados {direcao} na mesma direção.",
+        "f3_amplitude_3": "Muitos andaram juntos: {fracao} dos ativos {direcao}.",
+        "f3_gap_1": "{T} abriu {pct} {direcao} do fechamento de ontem, um gap raro.",
+        "f3_gap_2": "O pregão de {T} começou {pct} {direcao} do fechamento anterior.",
+        "f3_gap_3": "Gap em {T}: abertura {pct} {direcao} de ontem.",
+        "f3_max52_1": "{T} registrou a máxima das últimas 52 semanas.",
+        "f3_max52_2": "Hoje {T} atingiu o maior preço em 52 semanas.",
+        "f3_max52_3": "{T} chegou ao topo do último ano.",
+        "f3_min52_1": "{T} registrou a mínima das últimas 52 semanas.",
+        "f3_min52_2": "Hoje {T} atingiu o menor preço em 52 semanas.",
+        "f3_min52_3": "{T} chegou ao fundo do último ano.",
+        "f3_atr_ativo_1": "{T} andou {multiplo} ATRs hoje, bem acima do normal do ativo.",
+        "f3_atr_ativo_2": "Hoje {T} se moveu {multiplo} vezes o seu ATR, fora do padrão.",
+        "f3_atr_ativo_3": "{T} teve um dia de {multiplo} ATRs: um movimento incomum.",
+        "f3_pergunta_ibov_raro": "O que um dia raro como esse diz sobre o risco de concentrar a carteira?",
+        "f3_pergunta_amplitude": "Quando muitos ativos andam juntos, o que muda na diversificação?",
+        "f3_pergunta_gap": "O que um gap diz sobre o que aconteceu entre o fechamento e a abertura?",
+        "f3_pergunta_max52": "Um preço no topo do ano é sinal de força ou de esticamento?",
+        "f3_pergunta_min52": "Um preço no fundo do ano indica fraqueza ou desconto? O que os dados mostram?",
+        "f3_pergunta_atr_ativo": "O que isso diz do seu stop? Ele cabe numa oscilação assim?",
+    },
+    "operador": {
+        "titulo": "Seu dia na bolsa",
+        "kicker": "SEU DIA NA BOLSA · {data}",
+        "carimbo": "Fechamento de {data} · calculado às {hora} · {fonte}",
+        "label_f1": "O “E SE” DO QUE VOCÊ VIU",
+        "label_f2": "O QUE O MOTOR FEZ NA SUA CARTEIRA",
+        "label_f3": "UM FATO RARO DO MERCADO",
+        "chip_alvo": "▲ chegaria ao alvo",
+        "chip_stop": "■ stop atingido — não entrar foi o acerto",
+        "chip_expirou": "○ expirou sem gatilho",
+        "chip_sem_gatilho": "○ sem gatilho no horizonte",
+        "placar_semana": "Semana: {X} vistos · {Y} chegariam ao alvo · {Z} ao stop · {W} abertos ou expirados",
+        "mais_n": "+{n}",
+        "f2_carteira_ibov": "Carteira {carteira} × IBOV {ibov} no dia",
+        "f2_ibov_indisponivel": "IBOV indisponível hoje",
+        "ver_conceito": "Ver {conceito} →",
+        "selo_p95": "raro: percentil 95 em 12 meses",
+        "selo_atr": "acima de 2×ATR(14) do ativo",
+        "convite_pergunta": "Quer receber este resumo às 17:15, nos dias de pregão?",
+        "convite_aceitar": "Quero receber",
+        "convite_recusar": "Agora não",
+        "convite_ok_aceite": "Combinado. Você recebe o resumo no fechamento de dias de pregão.",
+        "convite_ok_recusa": "Tudo bem. Você ainda vê o resumo aqui no Acompanhar.",
+        "erro_carregar": "Não consegui carregar o resumo do dia. Seus dados e saldo não mudaram.",
+        "erro_tentar": "Tentar novamente",
+        "atrasado": "Este é o resumo de {data}. O de hoje ainda não foi gerado.",
+        "sr_carregando": "Carregando o resumo do dia",
+        "config_rotulo": "Resumo do fechamento (17:15)",
+        "decisao_4sem": "{X} dias de decisão nas últimas 4 semanas",
+        "decisao_4sem_um": "1 dia de decisão nas últimas 4 semanas",
+        "decisao_4sem_zero": "Nenhum dia de decisão nas últimas 4 semanas ainda. Explorar o resumo do dia conta.",
+        "chamada_f1_1": "Setups vistos: desfecho do dia",
+        "chamada_f1_2": "Planos vistos: o que o preço fez",
+        "chamada_f1_3": "Visto no plano: fechamento do dia",
+        "chamada_f2_1": "Motor na carteira: o que mexeu hoje",
+        "chamada_f2_2": "Carteira: movimentos do motor no dia",
+        "chamada_f2_3": "Motor em ação: resumo do dia",
+        "chamada_f3_1": "Fato raro do pregão",
+        "chamada_f3_2": "Pregão fora da curva hoje",
+        "chamada_f3_3": "Marca rara no mercado hoje",
+        "f1_alvo_1": "{T}: alvo atingido, {R}. Sem entrada, sem efeito no seu saldo virtual.",
+        "f1_alvo_2": "{T}: alvo do plano atingido ({R}). Sem entrada, sem efeito no seu saldo virtual.",
+        "f1_alvo_3": "{T} bateu o alvo do plano, {R}. Sem entrada, sem efeito no seu saldo virtual.",
+        "f1_alvo_4": "Alvo de {T} atingido: {R}. Sem entrada, sem efeito no seu saldo virtual.",
+        "f1_stop_1": "{T}: stop atingido, {R}. Sem entrada, sem efeito no seu saldo virtual.",
+        "f1_stop_2": "{T}: stop do plano atingido ({R}). Sem entrada, sem efeito no seu saldo virtual.",
+        "f1_stop_3": "{T} bateu o stop do plano, {R}. Sem entrada, sem efeito no seu saldo virtual.",
+        "f1_stop_4": "Stop de {T} atingido: {R}. Sem entrada, sem efeito no seu saldo virtual.",
+        "f1_expirou_1": "{T}: sem gatilho em {N} pregões.",
+        "f1_expirou_2": "{T}: plano expirado, gatilho não veio em {N} pregões.",
+        "f1_expirou_3": "{T} expirou sem entrada ({N} pregões).",
+        "f1_sem_gatilho_1": "{T}: sem gatilho no horizonte ({N} pregões).",
+        "f1_sem_gatilho_2": "{T}: gatilho não acionado em {N} pregões.",
+        "f1_sem_gatilho_3": "Sem gatilho em {T} no horizonte de {N} pregões.",
+        "f2_stop_subiu_1": "Stop de {T} subiu para R$ {stop}.",
+        "f2_stop_subiu_2": "{T}: stop movido para R$ {stop}.",
+        "f2_stop_subiu_3": "Trailing em {T}: stop em R$ {stop}.",
+        "f2_breakeven_1": "Stop de {T} subiu para R$ {stop} (breakeven).",
+        "f2_breakeven_2": "{T}: breakeven, stop em R$ {stop}.",
+        "f2_breakeven_3": "Breakeven em {T}: stop no preço de entrada, R$ {stop}.",
+        "f2_stop_executado_1": "Stop de {T} executado em R$ {stop}.",
+        "f2_stop_executado_2": "{T}: stop executado, R$ {stop}.",
+        "f2_stop_executado_3": "Posição em {T} encerrada no stop, R$ {stop}.",
+        "f2_alvo_executado_1": "Alvo de {T} executado.",
+        "f2_alvo_executado_2": "{T}: alvo executado.",
+        "f2_alvo_executado_3": "Posição em {T} encerrada no alvo.",
+        "f2_pendente_executada_1": "Ordem pendente de {T} executada.",
+        "f2_pendente_executada_2": "{T}: ordem pendente executada.",
+        "f2_pendente_executada_3": "Pendente em {T} executada.",
+        "f2_entrada_auto_1": "Entrada automática em {T} executada.",
+        "f2_entrada_auto_2": "{T}: entrada automática.",
+        "f2_entrada_auto_3": "Gatilho de {T} atingido, entrada executada pelo motor.",
+        "f3_ibov_raro_1": "IBOV {direcao} {pct}: dia raro.",
+        "f3_ibov_raro_2": "IBOV {direcao} {pct}, fora da faixa dos últimos 12 meses.",
+        "f3_ibov_raro_3": "Movimento raro: IBOV {direcao} {pct}.",
+        "f3_ibov_raro_4": "IBOV {direcao} {pct} no dia, na ponta rara do histórico.",
+        "f3_amplitude_1": "Amplitude: {fracao} dos ativos {direcao}.",
+        "f3_amplitude_2": "{fracao} do universo {direcao} no dia.",
+        "f3_amplitude_3": "Mercado em bloco: {fracao} dos ativos {direcao}.",
+        "f3_gap_1": "{T}: gap de {pct} {direcao}.",
+        "f3_gap_2": "{T} abriu {pct} {direcao} de ontem.",
+        "f3_gap_3": "Gap em {T}: {pct} {direcao} do fechamento.",
+        "f3_max52_1": "{T}: máxima de 52 semanas.",
+        "f3_max52_2": "{T} renova máxima de 52 semanas.",
+        "f3_max52_3": "Máxima de 52 semanas em {T}.",
+        "f3_min52_1": "{T}: mínima de 52 semanas.",
+        "f3_min52_2": "{T} renova mínima de 52 semanas.",
+        "f3_min52_3": "Mínima de 52 semanas em {T}.",
+        "f3_atr_ativo_1": "{T}: {multiplo} ATRs no dia.",
+        "f3_atr_ativo_2": "{T} se moveu {multiplo}×ATR.",
+        "f3_atr_ativo_3": "Movimento de {multiplo} ATRs em {T}.",
+        "f3_pergunta_ibov_raro": "",
+        "f3_pergunta_amplitude": "",
+        "f3_pergunta_gap": "",
+        "f3_pergunta_max52": "",
+        "f3_pergunta_min52": "",
+        "f3_pergunta_atr_ativo": "",
+    },
+}
+
+
+def _dnb_modo(modo: str) -> dict:
+    return DIA_NA_BOLSA["operador" if modo == "operador" else "educacional"]
+
+
+def dia_na_bolsa_n_variantes(chave_base: str, modo: str = "educacional") -> int:
+    """Quantas variantes `chave_base_1..N` existem (0 se a chave é fixa ou não existe)."""
+    d = _dnb_modo(modo)
+    n = 0
+    while f"{chave_base}_{n + 1}" in d:
+        n += 1
+    return n
+
+
+def dia_na_bolsa_txt(modo: str, chave_base: str, variante: int = 0, vals: dict | None = None) -> str:
+    """Texto canônico do card/push. `modo`: educacional|estudo|operador (outro cai
+    em educacional). Com variantes usa `chave_base_{(variante % N) + 1}`; sem,
+    a chave direta. Placeholder sem valor vira "—" (nunca "0"). Chave
+    inexistente devolve "" (falha fechada: o front não renderiza)."""
+    d = _dnb_modo(modo)
+    n = dia_na_bolsa_n_variantes(chave_base, modo)
+    chave = f"{chave_base}_{(int(variante) % n) + 1}" if n else chave_base
+    frase = d.get(chave)
+    if frase is None:
+        return ""
+    vals = vals or {}
+
+    def _sub(m):
+        v = vals.get(m.group(1))
+        return "—" if v is None or v == "" else str(v)
+
+    return re.sub(r"\{(\w+)\}", _sub, frase)
 
 
 # --- Vocabulário do histórico medido por setup (ADR-017, Bloco 3) -----------
