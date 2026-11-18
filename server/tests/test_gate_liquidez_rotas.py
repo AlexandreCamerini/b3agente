@@ -30,7 +30,9 @@ def _pregao_aberto(monkeypatch):
     # pregão (quarta 14:00 BRT). Teste que monkeypatcha o relógio sobrepõe.
     _abrir_pregao_vai(monkeypatch)
 
-_EXP = "2026-10-30"  # dentro da janela elegível de `opcoes_lastreadas.propor` a partir de qualquer `_HOJE` de teste
+# Relativo a hoje (era "2026-10-30" fixo e virou bomba-relógio em 2026-11-18:
+# o contrato vencia e o fechamento respondia "Sem posição").
+_EXP = (dt.date.today() + dt.timedelta(days=45)).isoformat()  # dentro da janela elegível de `opcoes_lastreadas.propor` a partir de qualquer `_HOJE` de teste
 
 
 def _contrato(symbol, kind, strike, price=1.0, volume=5000, oi=None, bid=None, ask=None):

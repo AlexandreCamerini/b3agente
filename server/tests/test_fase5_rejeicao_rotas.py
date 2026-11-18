@@ -396,7 +396,9 @@ def test_buy_qty_ausente_continua_comprando_lote_minimo_contrato_preservado(monk
 # numérico que a quick 260910-mqs pôs em `/api/buy`.
 # ===========================================================================
 
-_EXP_OPCAO = "2026-10-30"
+# Relativo a hoje (era "2026-10-30" fixo e virou bomba-relógio em 2026-11-18).
+import datetime as _dt_exp
+_EXP_OPCAO = (_dt_exp.date.today() + _dt_exp.timedelta(days=45)).isoformat()
 
 
 def _liberar_descoberto(m, uid=None):
