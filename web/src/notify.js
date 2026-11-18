@@ -379,6 +379,9 @@ export async function onPushTap(handler) {
     await mod.PushNotifications.addListener("pushNotificationActionPerformed", (acao) => {
       const d = (acao && acao.notification && acao.notification.data) || {};
       const t = String(d.t || "").trim().toUpperCase().slice(0, 12);
+      // Fase 51: o resumo do fechamento não traz ticker; só o `kind` EXATO
+      // "fechamento" é aceito sem ele (dado, não instrução — T-51-30).
+      if (String(d.kind || "") === "fechamento") { handler(null, "fechamento"); return; }
       if (/^[A-Z]{4}\d{1,2}$/.test(t)) handler(t, String(d.kind || ""));
     });
     return true;

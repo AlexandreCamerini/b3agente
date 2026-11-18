@@ -6,7 +6,7 @@ import { testServer, describeRuntimeConfig, getApiBase, PROD_BASE } from "./api.
 import { createChart, ColorType, CrosshairMode, LineStyle } from "lightweight-charts";
 import { sampleTechnicals } from "./demo.js";
 import { DISCLAIMERS, TERMO_OPERADOR_VERSAO, TERMO_DESCOBERTO_VERSAO } from "./disclaimers.js";
-import { copyFor, marcosPlanoTxt, retornoAcumuladoTxt, curvaEvolucaoTxt, historicoTxt, entradaAutoTxt, reconciliacaoTxt, reconciliacaoPorQueImporta, reconciliacaoPorQueImportaRotulo, estruturaCardTxt, cartaoPosicaoTxt, cartaoDidaticaTxt, execucaoForaPregaoTxt } from "./copy.js";
+import { diaNaBolsaTxt, copyFor, marcosPlanoTxt, retornoAcumuladoTxt, curvaEvolucaoTxt, historicoTxt, entradaAutoTxt, reconciliacaoTxt, reconciliacaoPorQueImporta, reconciliacaoPorQueImportaRotulo, estruturaCardTxt, cartaoPosicaoTxt, cartaoDidaticaTxt, execucaoForaPregaoTxt } from "./copy.js";
 import { tickersComPernas, tickersSoComPernas, assinaturaEstrutura, estadoLeitura, mostraAvisoSemStop, mostraRR, valorRR, criarFilaLeituras, tipoPillTravada, chipVencimento, ddmmDeIso, tomDoEstado, dominioRegua, posRegua, sinalResultado, kickerResultadoSoAcoes, ancoraRotulo, estadoPrincipalV6, linhasResultadoV6, chipsMetaV6, rsSinalNbsp, fonteValorCabecalho, pctCapitalTexto, flipDuracaoMs, prefereMovimentoReduzido, faceInicial, pontoDoIndice, indiceNomeado, zonaVisual, rotulosSemColisao, colunasDaGrade, rsNbsp, nomeEmpresaCard, sigPosicaoLeitura, situacaoLeituraPlano } from "./estruturaCard.js";
 import { varsCartaoV6, ALFA_ZONA_V6, ALFA_ZONA_MEIO_V6 } from "./cartaoV6Cores.js"; // 2026-10-01: cores do design v6 ESCOPADAS ao card (CSS vars no wrapper); não toca T/PALETTE
 // Fase 41 (TELAS-01): registro único das 8 telas que o assistente conhece —
@@ -76,6 +76,7 @@ import { falarTexto, calarVoz, setVozConfig, listarVozes } from "./pet/vozBoris.
 // Fase 38 (38-02): camada de entendimento extraída para módulo terceiro —
 // importável também por opcoes/OpcoesScreen.jsx sem ciclo.
 import { AiNote, SUBLINHADO, SetorAlvo, ConceitoSheet } from "./entendimento.jsx";
+import { DiaNaBolsaCard, FaixaDecisao } from "./diaNaBolsa.jsx";
 import { estadoOperadorIA } from "./operadorIA.js";
 // Fase 38 (38-03): ponte kb×conceito — helper puro que valida o catálogo da
 // KB buscado abaixo (ConceitoSheet importa o outro helper, verbeteDoCatalogo).
@@ -2351,7 +2352,8 @@ function EvolucaoScreen({ ctx }) {
   const { data, quotes, A, wlScan, destaque, cp, mercado } = ctx;   // FASE 8B (B1)
   const operador = ctx.operador; // qa/40: pill de decisão por modo — FIX-C21: lê a fonte única
   const name = ((data.config && data.config.userName) || "").trim().split(/\s+/)[0] || "";
-  const streak = (data.config && data.config.streak && data.config.streak.days) || 0;
+  const dnb = ctx.diaNaBolsa || { estado: "carregando", payload: null };
+  const uiDnb = { T, MONO, DISPLAY, SUBLINHADO };
   const [deepOpen, setDeepOpen] = useState(false);
   useEffect(() => {
     A.refreshWlScan();
@@ -2409,6 +2411,18 @@ function EvolucaoScreen({ ctx }) {
       </div>
 
       {/* Onda K (2026-10-10, quick 261010-f51): atalho — mesmo componente do Portfólio; nada novo calculado. */}
+      {/* Fase 51 (P-2): "Seu dia na bolsa" — entre a saudação/status e o OperadorIACard, nos dois modos; some quando não há card. */}
+      <DiaNaBolsaCard
+        estado={dnb.estado} payload={dnb.payload} mode={operador ? "operador" : "estudo"} ui={uiDnb}
+        podeConvidar={isNative && !!(data.config && data.config.notif && data.config.notif.enabled)}
+        onRetry={ctx.recarregarDiaNaBolsa}
+        onConvite={async (aceite) => { await store.decidirFechamento(aceite); await ctx.recarregarDiaNaBolsa(); }}
+        onAbrirPlano={(tk) => ctx.openAvaliar(tk)}
+        onAbrirAtivo={(tk) => ctx.openAvaliar(tk)}
+        onAbrirConceito={(c) => (c.fonte === "kb" ? A.abrirVerbeteKb(c.id) : A.abrirVerbete(c.id, c.dados))}
+        onDecisao={A.registrarDecisao}
+      />
+
       <OperadorIACard ctx={ctx} />
 
       {/* qa/mock v2: HERO-CARROSSEL das oportunidades — os setups da watchlist
@@ -2509,13 +2523,9 @@ function EvolucaoScreen({ ctx }) {
 
       <CapitalCurve ctx={ctx} />
 
-      {/* Streak de consistência (intrínseco, sem push) */}
-      <div style={{ ...card, padding: `16px ${CARD_PAD_X}px`, display: "flex", alignItems: "center", gap: "14px" }}>
-        <div style={{ width: 46, height: 46, borderRadius: "12px", background: T.accentTint, color: T.accent, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: MONO, fontWeight: 800, fontSize: "20px", flex: "none" }}>{streak}</div>
-        <div>
-          <div style={{ fontSize: "14px", fontWeight: 700 }}>{streak <= 0 ? "Comece sua sequência hoje" : streak === 1 ? "1 dia de consistência" : streak + " dias de consistência"}</div>
-          <div style={{ fontSize: "12px", color: T.textMuted, marginTop: "2px", lineHeight: 1.5 }}>Abrir o app e revisar sua carteira cria o hábito. O hábito é o que faz você melhorar.</div>
-        </div>
+      {/* Fase 51 (D-16/D-17): dias de decisão, sem zerar — o dia entra por decisão, não por abertura. */}
+      <div style={{ ...card, padding: `16px ${CARD_PAD_X}px` }}>
+        <FaixaDecisao diasDecisao={(data.config && data.config.diasDecisao) || []} ultimas4Semanas={(dnb.payload || {}).ultimas4Semanas || []} mode={operador ? "operador" : "estudo"} ui={uiDnb} />
       </div>
 
       {/* Card do Coach (insight do dia — determinístico na Fase A) */}
@@ -7109,6 +7119,13 @@ function NotifSection({ ctx }) {
               "Ordem executada ou cancelada pelo Operador no servidor — sempre simulada.")}
             {rowPushClasse("protecao", "Proteção",
               "Stop ou alvo acionado numa posição sua, inclusive de opção — sempre simulada.")}
+            {isNative && ctx.diaNaBolsa && ctx.diaNaBolsa.payload && ctx.diaNaBolsa.payload.fechamento && (
+              /* Fase 51 (D-13): grava só pela rota de convite, nunca por putConfig({notif}) */
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px", padding: "10px 0" }}>
+                <div style={{ fontSize: "13px", fontWeight: 600 }}>{diaNaBolsaTxt("estudo", "config_rotulo")}</div>
+                <Toggle on={!!ctx.diaNaBolsa.payload.fechamento.ligado} onClick={async () => { try { await store.decidirFechamento(!ctx.diaNaBolsa.payload.fechamento.ligado); await ctx.recarregarDiaNaBolsa(); } catch { /* o toggle volta ao estado do servidor */ } }} label={diaNaBolsaTxt("estudo", "config_rotulo")} />
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -8586,7 +8603,10 @@ function RadarScreen({ ctx }) {
   const [batch, setBatch] = useState({ stage: "idle", busy: false, est: null, error: "" });
   const runDeep = useCallback(async (t) => {
     setDeepFor(t);
-    track("radar_result_opened", { ticker: t }); // qa/47 (Fase 2): "Aprofundar" — abrir a leitura completa do resultado
+    const itemRadar = ((st.res && st.res.results) || []).find((x) => x.ticker === t);
+    const setupRadar = (itemRadar && (itemRadar.melhorSetup || (itemRadar.plano && itemRadar.plano.setup))) || null;
+    store.registrarVistos([t], "radar").catch(() => {});
+    track("radar_result_opened", { ticker: t, setup: setupRadar }); // qa/47 (Fase 2): "Aprofundar" — abrir a leitura completa do resultado
     setDeep((d) => (d[t] && (d[t].res || d[t].loading)) ? d : ({ ...d, [t]: { loading: true } }));
     try {
       const cur = deep[t];
@@ -8598,7 +8618,7 @@ function RadarScreen({ ctx }) {
     } catch (e) {
       setDeep((d) => ({ ...d, [t]: { loading: false, error: (e && e.message) || String(e) } }));
     }
-  }, [period, deep, operador]);
+  }, [period, deep, operador, st.res]);
   // BLOCO B1/B2: enquanto o scan roda, sonda /api/scan/progress p/ o gauge
   const [prog, setProg] = useState(null);
   useEffect(() => {
@@ -9794,6 +9814,7 @@ export default function App() {
   // var(--x) trocam a identidade inteira (verde-mercado × âmbar/azul) e o
   // theme-color/status bar acompanham.
   const appMode = (data && data.config && data.config.appMode) === "operador" ? "operador" : "estudo";
+  const carregarDiaNaBolsaRef = useRef(null); // Fase 51: o handler do toque no push (registrado 1x no boot) lê a versão atual
   // FASE 8B (B1): fraseologia por modo — definida ANTES do useMemo(A), que a
   // usa em toasts (recriado junto, pois deriva de `data`, que está nas deps).
   const cp = copyFor(appMode);
@@ -9959,6 +9980,13 @@ export default function App() {
   // que a interrompeu — e não do primeiro card que a rede devolver.
   useEffect(() => {
     notify.onPushTap(async (t, kind) => {
+      if (kind === "fechamento") {
+        // Fase 51: resumo das 17:15 — abre o Acompanhar (sem ticker).
+        track("notification_tapped", { kind });
+        setTab("evolucao");
+        if (carregarDiaNaBolsaRef.current) carregarDiaNaBolsaRef.current();
+        return;
+      }
       track("notification_tapped", { ticker: t, kind }); // qa/47 (Fase 2)
       // O universo do push é watchlist ∪ POSIÇÕES, mas a tela lista só a
       // watchlist — e "tem posição, não está na watchlist" é estado normal
@@ -10384,8 +10412,18 @@ export default function App() {
       }
       catch (e) { flash("Venda: " + (e.message || e)); }
     },
-    setStop: async (t, v) => { try { const s = await store.putPosition(t, { stop: v }); setData(s); } catch (e) { flash("Erro: " + (e.message || e)); } },
-    setAlvo: async (t, v) => { try { const s = await store.putPosition(t, { alvo: v }); setData(s); } catch (e) { flash("Erro: " + (e.message || e)); } },
+    // Fase 51 (D-16/D-17): dia de decisão em BRT, 1x por dia; origens só card|plano|stop.
+    registrarDecisao: (origem) => {
+      if (origem !== "card" && origem !== "plano" && origem !== "stop") return;
+      const hoje = hojeBRT();
+      const ja = ((data && data.config && data.config.diasDecisao) || []);
+      if (ja.includes(hoje)) return;
+      setData((d) => (d ? { ...d, config: { ...d.config, diasDecisao: [...new Set([...((d.config && d.config.diasDecisao) || []), hoje])].sort() } } : d));
+      store.putConfig({ diasDecisao: [hoje] }).catch(() => { /* silencioso */ });
+      track("decision_day", { modo: appMode, origem });
+    },
+    setStop: async (t, v) => { try { const s = await store.putPosition(t, { stop: v }); setData(s); A.registrarDecisao("stop"); } catch (e) { flash("Erro: " + (e.message || e)); } },
+    setAlvo: async (t, v) => { try { const s = await store.putPosition(t, { alvo: v }); setData(s); A.registrarDecisao("stop"); } catch (e) { flash("Erro: " + (e.message || e)); } },
     // Fase 2 (MERC-04, D-03/T-02-29): cancela uma ordem pendente — adota o
     // ESTADO DEVOLVIDO pelo servidor (nunca um palpite local de "caixa
     // voltou"); erro (404/401/rede) vira flash, nunca finge sucesso.
@@ -10935,19 +10973,38 @@ export default function App() {
       .then((s) => s && setData(s))
       .catch(() => { /* offline-first: silencioso */ });
   }, [data, quotes]);
-  const streakRanRef = useRef(false);
+  // Fase 51: o streak deixa de contar aberturas; o dia entra por decisão (D-16),
+  // com data em BRT (D-17). `config.streak` legado fica gravado, intocado.
+  // Payload do card "Seu dia na bolsa": carrega com `data`, ao trocar de modo
+  // e ao voltar ao primeiro plano (via `loadState`, que já roda na retomada).
+  const [diaNaBolsa, setDiaNaBolsa] = useState({ estado: "carregando", payload: null });
+  const carregarDiaNaBolsa = useCallback(async () => {
+    try {
+      const payload = await store.getDiaNaBolsa(appMode);
+      setDiaNaBolsa({ estado: "ok", payload: payload || null });
+    } catch {
+      setDiaNaBolsa((d) => ({ estado: "erro", payload: d.payload })); // falha isolada: o resto da tela segue
+    }
+  }, [appMode]);
+  carregarDiaNaBolsaRef.current = carregarDiaNaBolsa;
+  const temDataRef = !!data;
+  useEffect(() => { if (temDataRef) carregarDiaNaBolsa(); }, [temDataRef, carregarDiaNaBolsa]);
   useEffect(() => {
-    if (!data || !data.config || streakRanRef.current) return;
-    streakRanRef.current = true;
-    const ymd = (d) => d.toISOString().slice(0, 10);
-    const st = data.config.streak || { days: 0, last: "" };
-    const today = ymd(new Date());
-    if (st.last === today) return; // já contou hoje
-    const y = new Date(); y.setDate(y.getDate() - 1);
-    const next = st.last === ymd(y) ? (st.days || 0) + 1 : 1;
-    const ns = { days: next, last: today };
-    setData((d) => (d ? { ...d, config: { ...d.config, streak: ns } } : d));
-    store.putConfig({ streak: ns }).catch(() => { /* silencioso */ });
+    if (typeof document === "undefined") return undefined;
+    const onVis = () => { if (document.visibilityState === "visible" && temDataRef) carregarDiaNaBolsa(); };
+    document.addEventListener("visibilitychange", onVis);
+    return () => document.removeEventListener("visibilitychange", onVis);
+  }, [temDataRef, carregarDiaNaBolsa]);
+  // Vistos (D-03): watchlist e carteira, 1x por dia BRT por sessão.
+  const vistosDiaRef = useRef(false);
+  useEffect(() => {
+    if (!data || vistosDiaRef.current) return;
+    vistosDiaRef.current = true;
+    const hoje = hojeBRT();
+    try { if (localStorage.getItem("b3-dnb-vistos-dia") === hoje) return; } catch { /* sem storage: envia */ }
+    store.registrarVistos(data.watchlist || [], "watchlist").catch(() => {});
+    store.registrarVistos((data.positions || []).map((p) => p.t), "carteira").catch(() => {});
+    try { localStorage.setItem("b3-dnb-vistos-dia", hoje); } catch { /* ignora */ }
   }, [data]);
 
   // FASE 8 (A3): fonte única do reset de estados derivados na TROCA de escopo
@@ -11144,6 +11201,8 @@ export default function App() {
     // `data` pode ser null no boot (antes do 1º getState resolver) — `appMode`
     // (linha acima) já cobre esse guard, então a derivação abaixo é segura.
     operador: appMode === "operador",
+    diaNaBolsa,
+    recarregarDiaNaBolsa: carregarDiaNaBolsa,
     // Fase 2 (MERC-01, D-08): mesmo canal de sempre — WelcomeAuthScreen e o
     // resto da árvore leem `ctx.mercado`, nunca recalculam o status em outro
     // lugar. Ver o useEffect de boot do estado `mercado`, acima.
