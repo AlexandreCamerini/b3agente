@@ -125,7 +125,14 @@ def _maybe_registrar_metricas_diarias(conn, analytics_conn) -> None:
     if LAST_METRICAS_DIARIAS["date"] == hoje:
         return
     from . import analytics as analytics_mod  # import local: sem ciclo de import
-    analytics_mod.registrar_metricas_diarias(analytics_conn, hoje, _coletar_metricas_diarias(conn))
+    metricas = _coletar_metricas_diarias(conn)
+    # _coletar_metricas_diarias não recebe o banco de analytics; o WAU exato
+    # vem do bruto de eventos (Fase 51, ENG-12).
+    try:
+        metricas["wau_7d"] = analytics_mod.wau(analytics_conn)
+    except Exception:
+        pass
+    analytics_mod.registrar_metricas_diarias(analytics_conn, hoje, metricas)
     LAST_METRICAS_DIARIAS["date"] = hoje
 
 

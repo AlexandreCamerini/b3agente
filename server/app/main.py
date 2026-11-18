@@ -1119,6 +1119,25 @@ async def analytics_tendencias(dias: int = 30, user: dict = Depends(require_perm
     return analytics.series_metricas(_analytics_conn, dias=dias)
 
 
+# Fase 51 (ENG-12, D-19/D-20): engajamento do card "Seu dia na bolsa" — só
+# agregados, sem meta/alerta. Cache curto no admin_cache (padrão vizinho).
+@app.get("/api/analytics/engajamento")
+async def analytics_engajamento(dias: int = 28, user: dict = Depends(require_permission("observabilidade.ver"))):
+    dias = max(7, min(90, dias))
+    key = f"engajamento_fechamento_{dias}"
+    cached = analytics.get_cache(_analytics_conn, key)
+    if cached is not None:
+        try:
+            idade = (datetime.now(timezone.utc) - datetime.fromisoformat(cached["computedAt"])).total_seconds()
+        except Exception:
+            idade = None
+        if idade is not None and idade < 600:
+            return {**cached["value"], "computedAt": cached["computedAt"]}
+    analytics.set_cache(_analytics_conn, key, analytics.engajamento_fechamento(_analytics_conn, dias=dias))
+    cached = analytics.get_cache(_analytics_conn, key)
+    return {**cached["value"], "computedAt": cached["computedAt"]}
+
+
 # F5 (2026-08-02, decisão do Alex: v1 SÓ VER — sem ação nenhuma). Painel que
 # junta o que já existia espalhado (uso de IA, usuários cadastrados, saúde
 # do agente) num lugar só.

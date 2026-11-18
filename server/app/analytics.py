@@ -234,6 +234,9 @@ METRICAS_CONHECIDAS = (
     "custo_ia_tokens_dia", "ia_analises_gerenciadas_dia",
     "brapi_requisicoes_janela3d", "brapi_erros_janela3d",
     "cache_candles_series", "push_automatico_falhas_dia", "radar_diario_duracao_s",
+    # Fase 51 (ENG-12): WAU exato (COUNT DISTINCT de session_start em 7 dias),
+    # persistido por dia para a série sobreviver à purga de 90 dias do bruto.
+    "wau_7d",
 )
 
 
@@ -379,6 +382,150 @@ def funil(conn, passos: Optional[list] = None, dias: int = 30, _now: Optional[fl
             ativos = {uid for uid in ativos if uid in atual and atual[uid] >= anterior[uid]}
         resultado.append({"passo": p, "usuarios": len(ativos)})
     return {"passos": resultado}
+
+
+def wau(conn, dias: int = 7, _now: Optional[float] = None) -> int:
+    """WAU exato: usuários distintos com `session_start` nos últimos `dias`
+    dias corridos (hoje incluído). Sobre o bruto, como `funil`: COUNT
+    DISTINCT não é somável a partir de analytics_daily."""
+    now = _now if _now is not None else time.time()
+    desde = (datetime.fromtimestamp(now, tz=BRT).date() - timedelta(days=dias - 1)).isoformat()
+    row = conn.execute(
+        "SELECT COUNT(DISTINCT user_id) FROM analytics_events "
+        "WHERE event = 'session_start' AND user_id IS NOT NULL AND day >= ?", (desde,),
+    ).fetchone()
+    return int(row[0] or 0)
+
+
+def _props(raw) -> dict:
+    try:
+        v = json.loads(raw) if isinstance(raw, str) else raw
+    except (TypeError, ValueError):
+        return {}
+    return v if isinstance(v, dict) else {}
+
+
+def _semana(day: str) -> str:
+    """Segunda-feira da semana de `day` (AAAA-MM-DD)."""
+    d = datetime.strptime(day, "%Y-%m-%d").date()
+    return (d - timedelta(days=d.weekday())).isoformat()
+
+
+def _mediana(valores: list):
+    v = sorted(valores)
+    n = len(v)
+    if not n:
+        return None
+    return float(v[n // 2]) if n % 2 else (v[n // 2 - 1] + v[n // 2]) / 2.0
+
+
+AMOSTRA_MINIMA = 20
+
+
+def _pct(a: int, b: int):
+    return round(100.0 * a / b, 1) if b else None
+
+
+def engajamento_fechamento(conn, dias: int = 28, _now: Optional[float] = None) -> dict:
+    """Painel de engajamento do card "Seu dia na bolsa" (Fase 51, D-18..D-20).
+
+    Fica no BRUTO pelo mesmo motivo do `funil`: a unidade "card" é o par
+    (user_id, properties.card) e o WAU é distinct — nada disso é somável a
+    partir de analytics_daily. Só enxerga RETENCAO_DIAS; a série de WAU além
+    disso vem do rollup diário `wau_7d` (obs_daily_metrics).
+
+    Sem meta, alvo ou tom: a saída é só contagem e razão (D-20). Nenhum
+    user_id nem ticker sai daqui — só agregados."""
+    now = _now if _now is not None else time.time()
+    desde = (datetime.fromtimestamp(now, tz=BRT).date() - timedelta(days=dias)).isoformat()
+    rows = conn.execute(
+        "SELECT user_id, event, properties, day FROM analytics_events "
+        "WHERE day >= ? AND user_id IS NOT NULL AND event IN "
+        "('daily_card_shown','daily_card_explored','decision_day','session_start','trade_simulated')",
+        (desde,),
+    ).fetchall()
+
+    vistos: dict = {}      # (uid, card) -> (modo, set(familias), semana)
+    explorados: dict = {}  # (uid, card) -> set((modo, familia))
+    decisao: dict = {}     # uid -> set(day)
+    ativos_sem: dict = {}  # semana -> set(uid)
+    trades_sem: dict = {}  # semana -> n
+    trades = 0
+    for uid, ev, raw, day in rows:
+        sem = _semana(day)
+        pr = _props(raw)
+        if ev == "daily_card_shown":
+            fams = {c for c in str(pr.get("familias") or "") if c.isdigit()}
+            cur = vistos.setdefault((uid, str(pr.get("card"))), [pr.get("modo"), set(), sem])
+            cur[1] |= fams
+        elif ev == "daily_card_explored":
+            explorados.setdefault((uid, str(pr.get("card"))), set()).add(
+                (pr.get("modo"), str(pr.get("familia")) if pr.get("familia") is not None else None))
+        elif ev == "decision_day":
+            decisao.setdefault(uid, set()).add(day)
+        elif ev == "session_start":
+            ativos_sem.setdefault(sem, set()).add(uid)
+        elif ev == "trade_simulated":
+            trades += 1
+            trades_sem[sem] = trades_sem.get(sem, 0) + 1
+
+    # Explorou só conta se o card foi visto (evita pct > 100).
+    viu = len(vistos)
+    explorou = sum(1 for k in vistos if k in explorados)
+    celulas: dict = {}
+    for (uid, card), (modo, fams, _sem) in vistos.items():
+        exp = explorados.get((uid, card), set())
+        for f in fams:
+            c = celulas.setdefault((f, modo), [0, 0])
+            c[1] += 1
+            if any(fam == f for _m, fam in exp):
+                c[0] += 1
+    por_fam_modo = [
+        {"familia": f, "modo": m, "explorou": e, "viu": v, "pct": _pct(e, v),
+         "amostraPequena": v < AMOSTRA_MINIMA}
+        for (f, m), (e, v) in sorted(celulas.items(), key=lambda kv: (kv[0][0], str(kv[0][1])))
+    ]
+
+    exp_sem: dict = {}
+    for (uid, card), (_m, _f, sem) in vistos.items():
+        c = exp_sem.setdefault(sem, [0, 0])
+        c[1] += 1
+        if (uid, card) in explorados:
+            c[0] += 1
+    semanas = sorted(set(exp_sem) | set(ativos_sem) | set(trades_sem))
+
+    dias_dec = [len(d) for d in decisao.values()]
+    wau_sem = [len(u) for u in ativos_sem.values() if u]
+    wau_medio = sum(wau_sem) / len(wau_sem) if wau_sem else 0
+    return {
+        "dias": dias,
+        "wau7d": wau(conn, 7, _now=now),
+        "exploracao": {
+            "global": {"explorou": explorou, "viu": viu, "pct": _pct(explorou, viu),
+                       "amostraPequena": viu < AMOSTRA_MINIMA},
+            "porFamiliaModo": por_fam_modo,
+        },
+        "diasDecisao": {
+            "mediana": _mediana(dias_dec),
+            "media": round(sum(dias_dec) / len(dias_dec), 2) if dias_dec else None,
+            "usuarios": len(dias_dec),
+        },
+        "operacoesPorAtivo": round(trades / wau_medio, 2) if wau_medio else None,
+        "series": {
+            "exploracaoSemanal": [
+                {"day": s, "value": _pct(*exp_sem[s]) if s in exp_sem else None,
+                 "explorou": exp_sem.get(s, [0, 0])[0], "viu": exp_sem.get(s, [0, 0])[1]}
+                for s in semanas],
+            "operacoesPorAtivoSemanal": [
+                {"day": s, "value": round(trades_sem.get(s, 0) / len(ativos_sem[s]), 2)
+                 if ativos_sem.get(s) else None, "operacoes": trades_sem.get(s, 0),
+                 "ativos": len(ativos_sem.get(s, ()))}
+                for s in semanas],
+            "wau": serie_metrica(conn, "wau_7d", dias=dias, _now=now),
+        },
+        "fonteSerie": "bruto até 90 dias; rollup diário além",
+        "amostraMinima": AMOSTRA_MINIMA,
+    }
 
 
 def shown_vs_dismissed(conn, dias: int = 30, _now: Optional[float] = None) -> list:
