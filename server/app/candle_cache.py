@@ -168,6 +168,26 @@ def peek(symbol: str, interval: str = "1d") -> list:
     return ent["candles"] if ent and ent.get("candles") else []
 
 
+def peek_meta(symbol: str, interval: str = "1d") -> dict:
+    """Como `peek`, mas devolve também `at` (epoch da última busca) e `src`.
+
+    Fase 51 (job "Seu dia na bolsa"): para decidir se a barra de HOJE no cache
+    é a finalizada (busca feita depois do fechamento) ou uma barra parcial
+    revalidada no meio do pregão, o job precisa do `at` — `peek` só devolve as
+    velas. Mesma reidratação do L2, sem rede, nunca busca. Vazio =
+    `{"candles": [], "at": 0.0, "src": None}`.
+    """
+    k = _key(symbol, interval)
+    ent = _CACHE.get(k)
+    if (not ent or not ent.get("candles")) and persiste_no_l2(interval):
+        persisted = _db_get(k)
+        if persisted:
+            _CACHE[k] = ent = persisted
+    if not ent or not ent.get("candles"):
+        return {"candles": [], "at": 0.0, "src": None}
+    return {"candles": ent["candles"], "at": float(ent.get("at") or 0), "src": ent.get("src")}
+
+
 def reset():
     """Para testes."""
     _CACHE.clear()
