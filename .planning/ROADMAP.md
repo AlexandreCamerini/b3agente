@@ -577,3 +577,38 @@ Plans:
 - [x] 50-08-PLAN.md — Wave 4 · front dados: validarMarcos/sizing espelhados, stores com marcos(), putPosition local com preço obrigatório, gate do laço local
 - [x] 50-09-PLAN.md — Wave 5 · UI: modal sobre marcos (Aplicar habilitado, recusa no modal), toggle, card "plano inválido", R:R, bloco do plano/régua (D-18), guardiões D-12
 - [x] 50-10-PLAN.md — Wave 6 · checkpoint do Alex no web e iPhone (regressão 23,01/23,51/23,36/21,58)
+
+### Phase 51: Seu dia na bolsa — card de curiosidade no fechamento
+
+**Goal:** no fim de cada pregão o usuário recebe um card determinístico ("Seu dia na bolsa") com o que aconteceu com os setups que ele viu e não operou, o que o motor fez na carteira dele e um fato raro do mercado ligado a um conceito. O card desperta a curiosidade sem induzir operação; o streak passa a medir dias de decisão; o portal mede exploração e vigia overtrading.
+**Requirements**: ENG-01, ENG-02, ENG-03, ENG-04, ENG-05, ENG-06, ENG-07, ENG-08, ENG-09, ENG-10, ENG-11, ENG-12
+**Depends on:** Phase 50
+**Plans:** 0 plans — a planejar (decisões em `.planning/phases/51-seu-dia-na-bolsa/51-CONTEXT.md`, origem `.planning/engajamento/DECISIONS.md`)
+
+Requisitos:
+
+- ENG-01 Registro por usuário e por dia dos setups vistos (carteira, watchlist ou card do Radar aberto), com ticker, setup, gatilho/stop/alvo do motor e data; o Radar diário passa a ser arquivado por dia
+- ENG-02 Desfecho do "e se" calculado pelo motor (alvo, stop, expirou ou sem gatilho), os dois desfechos com o mesmo peso; nunca a palavra "perdeu"; placar semanal honesto
+- ENG-03 Família 2: o que o motor fez na carteira no dia (stop subiu, breakeven, alvo, carteira × IBOV)
+- ENG-04 Família 3: regras determinísticas de fato raro — mercado no percentil 95 de 12 meses; ativos da carteira/watchlist com critério mais solto (> 2×ATR); cada regra ligada a um conceito
+- ENG-05 Conceitos novos ou verbetes para amplitude/capitulação e máxima/mínima de 52 semanas; gap e volatilidade reaproveitam a KB
+- ENG-06 Card no topo do Acompanhar até o próximo pregão, mesmo card nos dois modos, ordem das famílias por modo (Estudo 1→3→2, Operador 2→1→3)
+- ENG-07 Textos só por template determinístico, por regra e modo, com 3 a 4 variantes, em `skill_ref` ↔ `copy.js`; sem IA
+- ENG-08 Job de fechamento por volta das 17:15 BRT (depois do snapshot), sem orçamento brapi, idempotente por dia; sem nada relevante, sem card nem push
+- ENG-09 Push "Seu dia na bolsa" com preferência nova `fechamento` (ligada para conta nova; conta existente via convite único no card); sem push em dia sem pregão; teto de 2 pushes de engajamento por dia; web só com o card
+- ENG-10 O push do Radar das 08:45 ganha uma linha com o "e se" de ontem
+- ENG-11 Streak passa a contar "dia de decisão" (explorar o card, revisar plano, ajustar stop, decidir não entrar); fim de semana e feriado não quebram; "X dias de decisão nas últimas 4 semanas", nada zera
+- ENG-12 Eventos `daily_card_shown/opened/explored` e `decision_day`; portal com taxa de exploração por família e modo, WAU e dias de decisão; contrapeso de `trade_simulated` por usuário ativo
+
+**Success Criteria** (what must be TRUE):
+
+1. Num dia de pregão, uma conta com setup visto e não operado recebe às ~17:15 um card cujos números (desfecho, R, preços) vêm só do motor, sem chamada de IA nem requisição brapi
+2. O desfecho de stop e o de alvo aparecem com o mesmo destaque; nenhum texto do card contém "perdeu", "oportunidade" ou urgência; guardião trava o vocabulário
+3. Em feriado da B3 (`pregao.is_holiday`) e em dia sem nada relevante, nenhum push nem card novo é gerado
+4. Conta existente não recebe o push novo antes de aceitar o convite; conta nova recebe; nunca mais de 2 pushes de engajamento no dia
+5. O streak não conta abrir o app sem decidir, não zera e não quebra em fim de semana/feriado; a data é a de Brasília
+6. O portal mostra exploração do card, WAU e operações por usuário ativo lado a lado
+7. Paridade `skill_ref` ↔ `copy.js` e `deviceStore` ↔ `serverStore`; suíte canônica verde
+
+Plans:
+
