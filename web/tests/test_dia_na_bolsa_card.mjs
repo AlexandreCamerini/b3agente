@@ -46,5 +46,31 @@ ok("faixaDots: vazio em pregão sem decisão", dots[1].tipo === "vazio");
 const src = readFileSync(join(aqui, "../src/diaNaBolsaLogica.js"), "utf8");
 ok("lógica sem toISOString (D-17)", !/toISOString/.test(src));
 
+// ---- regras visuais por leitura de fonte do JSX ---------------------------
+const jsxPath = join(aqui, "../src/diaNaBolsa.jsx");
+ok("diaNaBolsa.jsx existe", existsSync(jsxPath));
+if (existsSync(jsxPath)) {
+  const bruto = readFileSync(jsxPath, "utf8");
+  const semComent = bruto.split("\n").filter((l) => !/^\s*(\/\/|\*|\/\*|\{\/\*)/.test(l)).join("\n");
+  ok("sem hex literal", !/#[0-9a-fA-F]{3,6}\b/.test(semComent));
+  ok("diaNaBolsaTxt importado", /import\s*\{[^}]*diaNaBolsaTxt[^}]*\}\s*from\s*"\.\/copy\.js"/.test(semComent));
+  ok("role=region", /role="region"/.test(semComent));
+  ok("título h2", /<h2/.test(semComent));
+  ok("alvo de toque 44", /minHeight:\s*(44|"44px")/.test(semComent));
+  ok("sem dangerouslySetInnerHTML", !/dangerouslySetInnerHTML/.test(semComent));
+  ok("vocabulário proibido ausente", !/perdeu|oportunidade/i.test(semComent));
+  const m = semComent.match(/const estiloChip\s*=\s*\(?\s*\{[\s\S]*?\}\)?;/);
+  ok("estiloChip único declarado", !!m);
+  ok("estiloChip neutro (sem negative/positive)", !!m && !/T\.(negative|positive)/.test(m[0]) && /T\.bgPanel/.test(m[0]) && /T\.borderSubtle/.test(m[0]) && /T\.textPrimary/.test(m[0]));
+  ok("chips usam estiloChip", (semComent.match(/estiloChip/g) || []).length >= 2);
+  for (const ev of ["daily_card_shown", "daily_card_opened", "daily_card_explored"])
+    ok("track " + ev, semComent.includes(`track("${ev}"`));
+  const tracks = [...semComent.matchAll(/track\("daily_card_[a-z]+",\s*(\{[^}]*\})/g)].map((x) => x[1]);
+  ok("track com props", tracks.length >= 3);
+  ok("track sem ticker/preço", tracks.every((t) => !/ticker|preco|price|valor|stop|alvo/i.test(t)), tracks.join(" ; "));
+  ok("export DiaNaBolsaCard e FaixaDecisao", /export function DiaNaBolsaCard/.test(semComent) && /export function FaixaDecisao/.test(semComent));
+  ok("botão de retry usa erro_tentar", /"erro_tentar"/.test(semComent));
+}
+
 if (fails) { console.error(`\n${fails} falha(s)`); process.exit(1); }
 console.log("\nTudo ok");
