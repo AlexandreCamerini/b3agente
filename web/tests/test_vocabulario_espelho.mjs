@@ -123,7 +123,8 @@ function paresDoModo(modoSrc) {
 // 2026-10-13 (quick 261013-vai): EXECUCAO_FORA_PREGAO entra no mesmo guardião.
 // 2026-10-14 (quick 261014-upj): REBAIXAMENTO_OPERADOR idem.
 // Fase 50 (2026-10-21): MARCOS_PLANO (marcos do motor) idem.
-const DICTS = ["HISTORICO", "HISTORICO_ROTULO", "ENTRADA_AUTO", "RECONCILIACAO_ELEGIBILIDADE", "RETORNO_ACUMULADO", "CURVA_EVOLUCAO", "EXECUCAO_FORA_PREGAO", "REBAIXAMENTO_OPERADOR", "MARCOS_PLANO"];
+// Fase 51 (2026-11): DIA_NA_BOLSA entra no mesmo guardião.
+const DICTS = ["HISTORICO", "HISTORICO_ROTULO", "ENTRADA_AUTO", "RECONCILIACAO_ELEGIBILIDADE", "RETORNO_ACUMULADO", "CURVA_EVOLUCAO", "EXECUCAO_FORA_PREGAO", "REBAIXAMENTO_OPERADOR", "MARCOS_PLANO", "DIA_NA_BOLSA"];
 // Python "educacional" ↔ JS "estudo"; "operador" ↔ "operador".
 const MODO_JS = { educacional: "estudo", operador: "operador" };
 const CHAVE_JS = {
@@ -134,6 +135,7 @@ const CHAVE_JS = {
   EXECUCAO_FORA_PREGAO: "execucaoForaPregao",
   REBAIXAMENTO_OPERADOR: "rebaixamentoOperador",
   MARCOS_PLANO: "marcosPlano",
+  DIA_NA_BOLSA: "diaNaBolsa",
 };
 const CHAVES_ESPERADAS = {
   HISTORICO: ["elegivel", "inelegivel", "insuficiente", "nunca_medido", "aposentado", "desatualizado"],
@@ -145,6 +147,7 @@ const CHAVES_ESPERADAS = {
   EXECUCAO_FORA_PREGAO: ["aviso_diario", "aviso_opcao", "ciclo_fechado", "ciclo_fechado_sem_hora", "status_indeterminado", "opcao_bloqueada", "opcao_bloqueada_sem_hora", "opcao_bloqueada_acao", "botao_bloqueado", "botao_bloqueado_sem_hora"],
   REBAIXAMENTO_OPERADOR: ["diario_execucao", "diario_entrada", "diario_ambos", "aviso_titulo", "aviso_execucao", "aviso_entrada", "botao_religar", "botao_manter", "botao_ciente"],
   MARCOS_PLANO: ["plano_invalido_diario", "entrada_rr_baixo", "entrada_recusada", "entrada_marcos_gravados", "compra_sem_marcos", "compra_com_marcos", "gestao_breakeven", "gestao_trailing", "gestao_toggle", "modal_titulo", "modal_ia_explica", "origem_stop_invalidacao", "origem_stop_piso_1atr", "origem_alvo_resistencia", "origem_alvo_projecao_2r", "opcao_ancora_alvo", "opcao_ancora_stop", "opcao_ancora_spot", "bloco_stop", "bloco_alvo", "bloco_breakeven", "bloco_rr", "regua_alvo", "modal_recusa_titulo", "modal_calculando", "modal_calculo_motor", "modal_parecer_aguardar", "modal_ia_gauge", "modal_marcos_calculando", "modal_marcos_indisponiveis", "modal_decisao_sua", "bloco_stop_legado", "origem_stop_gravado", "origem_alvo_gravado", "origem_alvo_projecao_rr_min", "compra_previa_titulo", "compra_previa_recalcular", "compra_gravar_protecao", "compra_sem_protecao_check", "compra_sem_protecao_motivo", "compra_sem_marcos_autorizada", "modal_recalcular", "compra_previa_mudou", "compra_previa_carimbo", "compra_marcos_mantidos", "compra_previa_mantem_marcos", "ordem_sem_marcos_autorizada", "compra_falta_autorizacao"],
+  DIA_NA_BOLSA: ["titulo", "kicker", "carimbo", "label_f1", "label_f2", "label_f3", "chip_alvo", "chip_stop", "chip_expirou", "chip_sem_gatilho", "placar_semana", "mais_n", "f2_carteira_ibov", "f2_ibov_indisponivel", "ver_conceito", "selo_p95", "selo_atr", "convite_pergunta", "convite_aceitar", "convite_recusar", "convite_ok_aceite", "convite_ok_recusa", "erro_carregar", "erro_tentar", "atrasado", "sr_carregando", "config_rotulo", "decisao_4sem", "decisao_4sem_um", "decisao_4sem_zero", "chamada_f1_1", "chamada_f1_2", "chamada_f1_3", "chamada_f2_1", "chamada_f2_2", "chamada_f2_3", "chamada_f3_1", "chamada_f3_2", "chamada_f3_3", "f1_alvo_1", "f1_alvo_2", "f1_alvo_3", "f1_alvo_4", "f1_stop_1", "f1_stop_2", "f1_stop_3", "f1_stop_4", "f1_expirou_1", "f1_expirou_2", "f1_expirou_3", "f1_sem_gatilho_1", "f1_sem_gatilho_2", "f1_sem_gatilho_3", "f2_stop_subiu_1", "f2_stop_subiu_2", "f2_stop_subiu_3", "f2_breakeven_1", "f2_breakeven_2", "f2_breakeven_3", "f2_stop_executado_1", "f2_stop_executado_2", "f2_stop_executado_3", "f2_alvo_executado_1", "f2_alvo_executado_2", "f2_alvo_executado_3", "f2_pendente_executada_1", "f2_pendente_executada_2", "f2_pendente_executada_3", "f2_entrada_auto_1", "f2_entrada_auto_2", "f2_entrada_auto_3", "f3_ibov_raro_1", "f3_ibov_raro_2", "f3_ibov_raro_3", "f3_ibov_raro_4", "f3_amplitude_1", "f3_amplitude_2", "f3_amplitude_3", "f3_gap_1", "f3_gap_2", "f3_gap_3", "f3_max52_1", "f3_max52_2", "f3_max52_3", "f3_min52_1", "f3_min52_2", "f3_min52_3", "f3_atr_ativo_1", "f3_atr_ativo_2", "f3_atr_ativo_3", "f3_pergunta_ibov_raro", "f3_pergunta_amplitude", "f3_pergunta_gap", "f3_pergunta_max52", "f3_pergunta_min52", "f3_pergunta_atr_ativo"],
 };
 
 const paresPorDictModo = {}; // paresPorDictModo[NOME][modoPy] = {chave: valor}
