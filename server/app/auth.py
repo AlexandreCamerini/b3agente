@@ -106,6 +106,11 @@ def register_email(conn, email: str, password: str, name: str = "") -> dict:
         "created_at": _iso(_now()),
     }
     db.insert_user(conn, user)
+    try:  # conta nova nasce com o fechamento ligado e decidido (D-13)
+        from . import push
+        push.decidir_fechamento(conn, user["id"], True)
+    except Exception:  # noqa: BLE001 — nunca derruba a criação de conta;
+        pass           # falha = default False, a conta verá o convite
     db.insert_identity(conn, {"user_id": user["id"], "provider": "email", "provider_sub": None, "email": e, "pass_hash": ph})
     return db.get_user_by_id(conn, user["id"])
 
@@ -361,5 +366,10 @@ def upsert_oauth_user(conn, provider: str, sub: str, email: str = None, name: st
         "created_at": _iso(_now()),
     }
     db.insert_user(conn, user)
+    try:  # conta nova nasce com o fechamento ligado e decidido (D-13)
+        from . import push
+        push.decidir_fechamento(conn, user["id"], True)
+    except Exception:  # noqa: BLE001 — nunca derruba a criação de conta;
+        pass           # falha = default False, a conta verá o convite
     db.insert_identity(conn, {"user_id": user["id"], "provider": provider, "provider_sub": sub, "email": e})
     return db.get_user_by_id(conn, user["id"])

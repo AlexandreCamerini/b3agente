@@ -98,8 +98,20 @@ def tokens_for(conn, user_id: str) -> list:
 # `{**PREFS_PADRAO, **p}`, então preferência gravada antes desta mudança herda
 # as três chaves novas com o default certo. Nenhuma migração de dado escrita —
 # o default É a migração.
+#
+# Fase 51 (D-13) — `fechamento` (push "Seu dia na bolsa") é opt-in GENUÍNO e
+# nasce `False` aqui. O contrário do que `radar`/`execucao`/`protecao` fazem:
+# o merge `{**PREFS_PADRAO, **p}` ligaria o push para TODA conta antiga sem a
+# chave gravada, sem ninguém ter consentido. Conta nova recebe True por
+# gravação explícita (`auth.py` -> `decidir_fechamento`). `fechamento` e
+# `fechamentoDecidido` ficam FORA de PREFS_BOOLS de propósito: o consentimento
+# só é gravado por `decidir_fechamento` (convite / criação de conta); o
+# `register-token` repassa `body.prefs` inteiro a `set_prefs`, e com a chave na
+# allowlist qualquer sync do aparelho sobrescreveria a decisão do usuário.
 PREFS_PADRAO = {"gatilho": False, "radar": True, "execucao": True,
-                "protecao": True, "modo": "estudo", "universo": [], "at": None}
+                "protecao": True, "fechamento": False,
+                "fechamentoDecidido": False,
+                "modo": "estudo", "universo": [], "at": None}
 # Chaves booleanas da preferência (allowlist do `set_prefs`), na ordem em que
 # nasceram. `gatilho` primeiro por ser a original; as três classes de conta
 # depois.
@@ -130,6 +142,10 @@ def set_prefs(conn, user_id: str, patch: dict) -> dict:
     """
     p = prefs_for(conn, user_id)
     patch = patch if isinstance(patch, dict) else {}
+    # Consentimento do fechamento nunca entra por aqui (ver PREFS_PADRAO): só
+    # `decidir_fechamento` grava. Descarta antes da allowlist, por defesa.
+    patch = {k: v for k, v in patch.items()
+             if k not in ("fechamento", "fechamentoDecidido")}
     for k in PREFS_BOOLS:
         if k in patch:
             p[k] = bool(patch[k])
@@ -146,6 +162,53 @@ def set_prefs(conn, user_id: str, patch: dict) -> dict:
     p["at"] = time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime())
     db.kv_set(conn, "pushPrefs", p, user_id=user_id)
     return p
+
+
+# -------------------- fechamento: consentimento e teto de engajamento -------
+TETO_ENGAJAMENTO_DIA = 2
+
+
+def quer_fechamento(conn, user_id: str) -> bool:
+    """FAIL-CLOSED: opt-in genuíno, na dúvida NÃO envia. É o oposto do gate do
+    Radar (`radar_daily._quer_radar`, fail-open): lá a falha tiraria um aviso
+    que o usuário já recebia; aqui enviaria sem consentimento."""
+    try:
+        return prefs_for(conn, user_id).get("fechamento") is True
+    except Exception:  # noqa: BLE001
+        return False
+
+
+def estado_fechamento(conn, user_id: str) -> dict:
+    p = prefs_for(conn, user_id)
+    return {"ligado": p.get("fechamento") is True,
+            "decidido": p.get("fechamentoDecidido") is True}
+
+
+def decidir_fechamento(conn, user_id: str, ligado: bool) -> dict:
+    """Única porta de gravação do consentimento do fechamento (convite e
+    criação de conta). Grava direto no kv, sem passar por `set_prefs`."""
+    p = prefs_for(conn, user_id)
+    p["fechamento"] = bool(ligado)
+    p["fechamentoDecidido"] = True
+    p["at"] = time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime())
+    db.kv_set(conn, "pushPrefs", p, user_id=user_id)
+    return p
+
+
+def reservar_engajamento(conn, user_id: str, hoje: str, tipo: str) -> bool:
+    """Teto de TETO_ENGAJAMENTO_DIA pushes de engajamento por conta/dia,
+    compartilhado entre o Radar 08:45 e o fechamento. True = reservou (pode
+    enviar); False = tipo já enviado hoje ou teto atingido."""
+    est = db.kv_get(conn, "pushEngajamento", None, user_id=user_id)
+    if not isinstance(est, dict) or est.get("dia") != hoje:
+        est = {"dia": hoje, "tipos": []}
+    tipos = [t for t in (est.get("tipos") or []) if isinstance(t, str)]
+    if tipo in tipos or len(tipos) >= TETO_ENGAJAMENTO_DIA:
+        return False
+    tipos.append(tipo)
+    db.kv_set(conn, "pushEngajamento", {"dia": hoje, "tipos": tipos},
+              user_id=user_id)
+    return True
 
 
 # -------------------- tag do evento → classe de consentimento ----------------

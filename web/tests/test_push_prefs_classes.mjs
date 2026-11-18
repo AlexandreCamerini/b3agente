@@ -1,3 +1,5 @@
+// Fase 51: `fechamento` é opt-in (semântica invertida) e fica FORA de CLASSES;
+// guardião próprio em test_dia_na_bolsa_push_prefs.mjs
 // Quick task 260824-kc2 — preferência de push POR CLASSE, nos DOIS stores.
 //
 // Fecha o item 6 do brief de notificações: `serverStore.syncPushPrefs` existia
