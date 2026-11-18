@@ -167,6 +167,21 @@ backend (princípio 5).
   "Não há dados suficientes para concluir." quando faltar dado; guardiões
   existentes reconciliados com nota datada, sem apagar teste.
 
+### Fase 51 — Seu dia na bolsa
+
+- ENG-01 Registro por usuário e por dia dos setups vistos (carteira, watchlist ou card do Radar aberto), com ticker, setup, gatilho/stop/alvo do motor e data; o Radar diário passa a ser arquivado por dia
+- ENG-02 Desfecho do "e se" calculado pelo motor (alvo, stop, expirou ou sem gatilho), os dois desfechos com o mesmo peso; nunca a palavra "perdeu"; placar semanal honesto
+- ENG-03 Família 2: o que o motor fez na carteira no dia (stop subiu, breakeven, alvo, carteira × IBOV)
+- ENG-04 Família 3: regras determinísticas de fato raro — mercado no percentil 95 de 12 meses; ativos da carteira/watchlist com critério mais solto (> 2×ATR); cada regra ligada a um conceito
+- ENG-05 Conceitos novos ou verbetes para amplitude/capitulação e máxima/mínima de 52 semanas; gap e volatilidade reaproveitam a KB
+- ENG-06 Card no topo do Acompanhar até o próximo pregão, mesmo card nos dois modos, ordem das famílias por modo (Estudo 1→3→2, Operador 2→1→3)
+- ENG-07 Textos só por template determinístico, por regra e modo, com 3 a 4 variantes, em `skill_ref` ↔ `copy.js`; sem IA
+- ENG-08 Job de fechamento por volta das 17:15 BRT (depois do snapshot), sem orçamento brapi, idempotente por dia; sem nada relevante, sem card nem push
+- ENG-09 Push "Seu dia na bolsa" com preferência nova `fechamento` (ligada para conta nova; conta existente via convite único no card); sem push em dia sem pregão; teto de 2 pushes de engajamento por dia; web só com o card
+- ENG-10 O push do Radar das 08:45 ganha uma linha com o "e se" de ontem
+- ENG-11 Streak passa a contar "dia de decisão" (explorar o card, revisar plano, ajustar stop, decidir não entrar); fim de semana e feriado não quebram; "X dias de decisão nas últimas 4 semanas", nada zera Emenda D-16 (2026-11-17, decisão do Alex): 'decidir não entrar' fica fora da v1; decision_day cobre card, plano e stop.
+- ENG-12 Eventos `daily_card_shown/opened/explored` e `decision_day`; portal com taxa de exploração por família e modo, WAU e dias de decisão; contrapeso de `trade_simulated` por usuário ativo
+
 ## Future Requirements
 
 - Quick task avulsa (fora da milestone): remover

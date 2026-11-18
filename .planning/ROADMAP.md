@@ -597,7 +597,7 @@ Requisitos:
 - ENG-08 Job de fechamento por volta das 17:15 BRT (depois do snapshot), sem orçamento brapi, idempotente por dia; sem nada relevante, sem card nem push
 - ENG-09 Push "Seu dia na bolsa" com preferência nova `fechamento` (ligada para conta nova; conta existente via convite único no card); sem push em dia sem pregão; teto de 2 pushes de engajamento por dia; web só com o card
 - ENG-10 O push do Radar das 08:45 ganha uma linha com o "e se" de ontem
-- ENG-11 Streak passa a contar "dia de decisão" (explorar o card, revisar plano, ajustar stop, decidir não entrar); fim de semana e feriado não quebram; "X dias de decisão nas últimas 4 semanas", nada zera
+- ENG-11 Streak passa a contar "dia de decisão" (explorar o card, revisar plano, ajustar stop, decidir não entrar); fim de semana e feriado não quebram; "X dias de decisão nas últimas 4 semanas", nada zera Emenda D-16 (2026-11-17, decisão do Alex): 'decidir não entrar' fica fora da v1; decision_day cobre card, plano e stop.
 - ENG-12 Eventos `daily_card_shown/opened/explored` e `decision_day`; portal com taxa de exploração por família e modo, WAU e dias de decisão; contrapeso de `trade_simulated` por usuário ativo
 
 **Success Criteria** (what must be TRUE):
