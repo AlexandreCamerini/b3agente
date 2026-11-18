@@ -607,6 +607,74 @@ CONCEITOS = {
         ],
         "veja": ["r", "confluencia"],
     },
+
+    # ------------------------------------------- Fase 51 (Seu dia na bolsa)
+    # Fatos raros do card diário. Gap e volatilidade NÃO têm conceito aqui: o
+    # card abre os verbetes KB `estr-gap`, `ind-volatilidade-historica` e
+    # `ind-atr` (nenhum verbete duplicado).
+    "amplitude": {
+        "titulo": {"educacional": "Amplitude: quando quase todo o mercado anda junto",
+                   "operador": "Amplitude / capitulação"},
+        "campos": ("fracao", "n", "direcao", "data"),
+        "naoAcontece": [
+            "O app não compra nem vende nada. Nenhuma ordem sai daqui para uma "
+            "corretora: a carteira é simulada e a execução continua sendo sua.",
+            "Amplitude alta não diz o que acontece no dia seguinte. É um retrato "
+            "do que já ocorreu, não uma previsão nem uma promessa de reversão ou "
+            "de continuação.",
+        ],
+        "oQueE": [
+            {"educacional": "Amplitude é a fração dos ativos acompanhados que se "
+                            "moveram na mesma direção no mesmo dia. Quando é "
+                            "muito alta, o mercado andou quase todo junto — "
+                            "pouco ficou de fora do movimento.",
+             "operador": "Amplitude: fração do universo acompanhado que fechou "
+                         "no mesmo sentido. Valor extremo indica movimento "
+                         "generalizado (capitulação, se for de queda)."},
+            "Neste dia, {fracao} dos {n} ativos acompanhados andaram na mesma "
+            "direção ({direcao}).",
+        ],
+        "oQueAcontece": [
+            {"educacional": "Por ser raro, o app destaca o dia. Em dia assim a "
+                            "escolha do ativo pesa menos e o movimento do "
+                            "conjunto pesa mais — por isso a diversificação "
+                            "ajuda menos nesse dia específico.",
+             "operador": "Em dia de amplitude extrema a correlação sobe: o "
+                         "ativo individual pesa menos que o conjunto, e a "
+                         "diversificação protege menos naquela sessão."},
+            "A conta é feita pelo app com os fechamentos do dia; a leitura tem "
+            "a idade do dado e não indica o que vem depois.",
+        ],
+        "veja": ["diversificacao"],
+    },
+    "extremo-52-semanas": {
+        "titulo": {"educacional": "Máxima e mínima de 52 semanas",
+                   "operador": "Extremo de 52 semanas"},
+        "campos": ("ticker", "lado", "preco", "data"),
+        "naoAcontece": [
+            "O app não compra nem vende nada. Nenhuma ordem sai daqui para uma "
+            "corretora: a carteira é simulada e a execução continua sendo sua.",
+            "Um novo extremo não promete continuação nem reversão. Preço que "
+            "chegou ao limite do período não indica o próximo movimento.",
+        ],
+        "oQueE": [
+            {"educacional": "É o maior (ou o menor) preço de fechamento dos "
+                            "últimos 12 meses, cerca de 252 pregões. Quando o "
+                            "preço de hoje passa dele, o ativo está num nível "
+                            "que não via há um ano.",
+             "operador": "Extremo de 52 semanas: fechamento acima da máxima (ou "
+                         "abaixo da mínima) dos 252 pregões anteriores."},
+            "Em {ticker}, o fechamento de {preco} é a {lado} de 52 semanas.",
+        ],
+        "oQueAcontece": [
+            "O app destaca porque é um fato raro e verificável, não porque seja "
+            "um sinal. Nível de 52 semanas costuma atrair atenção e volume, e "
+            "é um ponto de referência para stop e alvo — nada além disso.",
+            "A leitura vale para o fechamento do dia e tem a idade do dado "
+            "daquela fonte.",
+        ],
+        "veja": ["stop", "alvo"],
+    },
 }
 
 
@@ -627,6 +695,14 @@ def _pct(v) -> Optional[str]:
     if not isinstance(v, (int, float)) or isinstance(v, bool):
         return None
     return ("%.0f%%" % float(v))
+
+
+def _fracao_pct(v) -> Optional[str]:
+    """Fração 0..1 como percentual inteiro (0,91 -> "91%"). Fora de 0..1 não
+    formata: o parágrafo ancorado some em vez de mostrar número sem sentido."""
+    if not isinstance(v, (int, float)) or isinstance(v, bool) or not 0 <= float(v) <= 1:
+        return None
+    return "%.0f%%" % (float(v) * 100)
 
 
 def _num_positivo(v) -> Optional[str]:
@@ -692,7 +768,9 @@ _FORMATADORES = {"entrada": _num, "stop": _num, "distancia": _num, "alvo": _num,
                  "strikePut": _num, "strikeCall": _num, "liquido": _num_abs,
                  "ganhoTotal": _num,
                  # Fase 47 (2026-10-06): expectativa medida (R) e tamanho da amostra.
-                 "expR": _exp_r, "n": _volume_milhar}
+                 "expR": _exp_r, "n": _volume_milhar,
+                 # Fase 51: amplitude (fração 0..1) e preço do extremo de 52 semanas.
+                 "fracao": _fracao_pct, "preco": _num}
 
 
 def _constantes() -> dict:
