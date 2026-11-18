@@ -207,3 +207,116 @@ def test_run_daily_usa_o_push_body():
     src = (pathlib.Path(__file__).resolve().parents[1] / "app" / "radar_daily.py").read_text(encoding="utf-8")
     assert src.count("corpo = push_body(payload)") == 1
     assert src.count("Varredura automática concluída: {n} ativo(s)") == 0, "sobrou o texto antigo"
+
+
+# ---------------------------------------------------------------------------
+# Fase 51 (plano 03, ENG-01) — arquivo diário do Radar + teto de engajamento.
+# ---------------------------------------------------------------------------
+def _linha(t, decisao="COMPRAR", tipo="a mercado", entrada=10.0, stop=9.0, alvo=12.0):
+    return {"ticker": t, "close": entrada,
+            "plano": {"decisao": decisao, "tipo": tipo, "setup": "rompimento",
+                      "lado": "compra", "entrada": entrada, "stop": stop, "alvo": alvo}}
+
+
+def test_store_result_grava_arquivo_diario_e_preserva_radardaily():
+    c = _conn()
+    payload = {"results": [_linha("AAAA3"), _linha("BBBB3", decisao="AGUARDAR"),
+                           _linha("CCCC3", entrada=None)]}
+    radar_daily.store_result(c, "6mo", payload, "automática")
+    assert radar_daily.get_bruto(c, "6mo")["results"] == payload["results"]
+    hoje = datetime.now(BRT).date().isoformat()
+    arq = radar_daily.get_arquivo(c, hoje)
+    assert arq["data"] == hoje and arq["scanAt"]
+    assert [l["ticker"] for l in arq["linhas"]] == ["AAAA3"]
+    assert set(arq["linhas"][0]) == {"ticker", "setup", "decisao", "tipo", "entrada",
+                                    "stop", "alvo", "entradaAMercado", "close"}
+    assert arq["linhas"][0]["entradaAMercado"] is True
+    assert arq["universo"] == ["AAAA3", "BBBB3", "CCCC3"]
+    from datetime import date
+    assert date.fromisoformat(arq["dataBase"]) < date.fromisoformat(hoje)
+    from app import pregao
+    assert pregao.is_trading_day(date.fromisoformat(arq["dataBase"]))
+    # manual também grava
+    radar_daily.store_result(c, "6mo", {"results": []}, "manual")
+    assert radar_daily.get_arquivo(c, hoje)["linhas"] == []
+
+
+def test_arquivo_poda_50_dias_e_mantem_40():
+    from datetime import timedelta
+    c = _conn()
+    hoje = datetime.now(BRT).date()
+    for dias in (50, 40):
+        d = (hoje - timedelta(days=dias)).isoformat()
+        db.kv_set(c, "radarDailyArquivo:" + d, {"data": d, "linhas": [], "universo": []},
+                  user_id=None)
+    radar_daily.store_result(c, "6mo", {"results": []}, "automática")
+    assert radar_daily.get_arquivo(c, (hoje - timedelta(days=50)).isoformat()) is None
+    assert radar_daily.get_arquivo(c, (hoje - timedelta(days=40)).isoformat()) is not None
+
+
+def test_arquivo_ate_devolve_o_mais_recente_dentro_da_janela():
+    c = _conn()
+    db.kv_set(c, "radarDailyArquivo:2026-11-10", {"data": "2026-11-10", "linhas": []}, user_id=None)
+    assert radar_daily.arquivo_ate(c, "2026-11-10")[0] == "2026-11-10"
+    assert radar_daily.arquivo_ate(c, "2026-11-14")[0] == "2026-11-10"
+    assert radar_daily.arquivo_ate(c, "2026-11-18") is None   # 8 dias depois
+    assert radar_daily.arquivo_ate(c, "lixo") is None
+
+
+def _setup_push_dois_usuarios(c):
+    c.execute("INSERT INTO users(id, provider, provider_sub, created_at) VALUES ('u1','t','s1','2026-01-01')")
+    c.execute("INSERT INTO users(id, provider, provider_sub, created_at) VALUES ('u2','t','s2','2026-01-01')")
+    for u in ("u1", "u2"):
+        db.kv_set(c, "pushTokens", ["tok"], user_id=u)
+
+
+def test_run_daily_respeita_teto_de_engajamento_mas_registra_evento():
+    import os
+    from app import push
+    os.environ["B3_SCAN_UNIVERSE"] = "AAAA3"
+    try:
+        c = _conn()
+        _setup_push_dois_usuarios(c)
+        hoje = datetime.now(BRT).date().isoformat()
+        push.reservar_engajamento(c, "u2", hoje, "fechamento")
+        push.reservar_engajamento(c, "u2", hoje, "outro")   # u2 no teto
+        enviados = []
+
+        async def fake_push(uid, title, body):
+            enviados.append(uid)
+        _run(radar_daily.run_daily(c, _fake_fetch, notify_push=fake_push))
+        assert enviados == ["u1"]
+        assert db.kv_get(c, "pushEngajamento", None, user_id="u1")["tipos"] == ["radar"]
+    finally:
+        os.environ.pop("B3_SCAN_UNIVERSE", None)
+
+
+def test_run_daily_teto_fail_closed_e_pref_fail_open(monkeypatch):
+    import os
+    from app import push
+    os.environ["B3_SCAN_UNIVERSE"] = "AAAA3"
+    try:
+        c = _conn()
+        _setup_push_dois_usuarios(c)
+        eventos = []
+        orig = radar_daily.store.push_events
+        monkeypatch.setattr(radar_daily.store, "push_events",
+                            lambda conn, evs, user_id=None: eventos.append(user_id))
+
+        def boom(*a, **k):
+            raise RuntimeError("kv")
+        # 1) reservar levanta -> ninguém recebe, rastro continua
+        monkeypatch.setattr(push, "reservar_engajamento", boom)
+        enviados = []
+
+        async def fake_push(uid, title, body):
+            enviados.append(uid)
+        _run(radar_daily.run_daily(c, _fake_fetch, notify_push=fake_push))
+        assert enviados == [] and sorted(eventos) == ["u1", "u2"]
+        monkeypatch.undo()
+        # 2) prefs_for levanta -> Radar segue enviando (fail-open da pref)
+        monkeypatch.setattr(push, "prefs_for", boom)
+        _run(radar_daily.run_daily(c, _fake_fetch, notify_push=fake_push))
+        assert sorted(enviados) == ["u1", "u2"]
+    finally:
+        os.environ.pop("B3_SCAN_UNIVERSE", None)

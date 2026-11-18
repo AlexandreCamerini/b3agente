@@ -26,7 +26,7 @@ import time
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
-from . import db, scanner, skill_ref, store
+from . import db, pregao, scanner, skill_ref, store
 from . import candles as candles_mod
 
 BRT = timezone(timedelta(hours=-3))
@@ -81,6 +81,103 @@ def _key(period: str) -> str:
     return "radarDaily:" + period
 
 
+# ---------------------- arquivo diário (Fase 51, ENG-01) --------------------
+# `radarDaily:<period>` é SOBRESCRITO a cada leitura e `get_stored` devolve None
+# depois que um pregão fecha: a leitura de ontem some. O "e se" do card de
+# fechamento precisa dela, então cada leitura (automática ou manual) grava
+# também uma cópia enxuta por data BRT. Retenção de 45 dias corridos: cobre o
+# horizonte de 10 pregões + o placar de 4 semanas; nada além disso é exigido
+# porque o registro de "visto" copia os preços (não relê o arquivo).
+RETENCAO_ARQUIVO_DIAS = 45
+_PREFIXO_ARQUIVO = "radarDailyArquivo:"
+
+
+def _key_arquivo(data: str) -> str:
+    return _PREFIXO_ARQUIVO + data
+
+
+def _num(v) -> bool:
+    return isinstance(v, (int, float)) and not isinstance(v, bool)
+
+
+def _linha_arquivo(r: dict) -> Optional[dict]:
+    """Linha operável (COMPRAR/VENDER com entrada/stop/alvo numéricos) ou None."""
+    plano = r.get("plano") if isinstance(r, dict) else None
+    if not isinstance(plano, dict):
+        return None
+    if str(plano.get("decisao") or "").upper() not in ("COMPRAR", "VENDER"):
+        return None
+    if not all(_num(plano.get(k)) for k in ("entrada", "stop", "alvo")):
+        return None
+    tipo = plano.get("tipo")
+    return {
+        "ticker": r.get("ticker"),
+        "setup": plano.get("setup"),
+        "decisao": str(plano.get("decisao")).upper(),
+        "tipo": tipo,
+        "entrada": plano.get("entrada"),
+        "stop": plano.get("stop"),
+        "alvo": plano.get("alvo"),
+        "entradaAMercado": str(tipo or "").startswith("a mercado"),
+        "close": r.get("close"),
+    }
+
+
+def _pregao_anterior(d):
+    x = d - timedelta(days=1)
+    for _ in range(15):
+        if pregao.is_trading_day(x):
+            return x
+        x -= timedelta(days=1)
+    return None
+
+
+def _podar_arquivo(conn, hoje) -> None:
+    """Remove `radarDailyArquivo:*` (user_id NULL) com data < hoje - retenção."""
+    corte = (hoje - timedelta(days=RETENCAO_ARQUIVO_DIAS)).isoformat()
+    rows = conn.execute("SELECT key FROM kv WHERE key LIKE ?",
+                        (_PREFIXO_ARQUIVO + "%",)).fetchall()
+    velhas = [k for (k,) in rows if k[len(_PREFIXO_ARQUIVO):] < corte]
+    for k in velhas:
+        conn.execute("DELETE FROM kv WHERE key = ?", (k,))
+    if velhas:
+        conn.commit()
+
+
+def _gravar_arquivo(conn, now: datetime, payload: dict, annotated: dict) -> None:
+    hoje = now.date()
+    results = [r for r in (payload.get("results") or []) if isinstance(r, dict)]
+    linhas = [l for l in (_linha_arquivo(r) for r in results) if l]
+    base = _pregao_anterior(hoje)
+    db.kv_set(conn, _key_arquivo(hoje.isoformat()), {
+        "data": hoje.isoformat(),
+        "dataBase": base.isoformat() if base else None,
+        "scanAt": annotated.get("scanAt"),
+        "linhas": linhas,
+        "universo": [r.get("ticker") for r in results if r.get("ticker")],
+    }, user_id=None)
+    _podar_arquivo(conn, hoje)
+
+
+def get_arquivo(conn, data: str) -> Optional[dict]:
+    hit = db.kv_get(conn, _key_arquivo(data), user_id=None)
+    return hit if isinstance(hit, dict) and "linhas" in hit else None
+
+
+def arquivo_ate(conn, data: str, max_dias: int = 7) -> Optional[tuple]:
+    """Arquivo do dia, ou o mais recente até `max_dias` antes: `(data, dict)`."""
+    try:
+        d = datetime.strptime(data, "%Y-%m-%d").date()
+    except (TypeError, ValueError):
+        return None
+    for i in range(max_dias + 1):
+        k = (d - timedelta(days=i)).isoformat()
+        hit = get_arquivo(conn, k)
+        if hit is not None:
+            return k, hit
+    return None
+
+
 def store_result(conn, period: str, payload: dict, origem: str) -> dict:
     """Grava o resultado do dia (cópia anotada — nunca muta o cache do scanner)."""
     now = datetime.now(BRT)
@@ -90,6 +187,10 @@ def store_result(conn, period: str, payload: dict, origem: str) -> dict:
     annotated["scanOrigem"] = origem  # "automática" | "manual"
     annotated["scanAuto"] = origem == "automática"
     db.kv_set(conn, _key(period), annotated, user_id=None)
+    try:  # o arquivo é best-effort: nunca derruba a varredura do dia
+        _gravar_arquivo(conn, now, payload, annotated)
+    except Exception as e:  # noqa: BLE001
+        print(f"[radar-daily] arquivo diário falhou: {type(e).__name__}")
     if origem == "automática":
         db.kv_set(conn, "radarDailyLastRun", now.date().isoformat(), user_id=None)
     return annotated
@@ -308,6 +409,17 @@ async def run_daily(conn, fetch, notify_push=None, origem: str = "automática") 
             except Exception:  # noqa: BLE001 — na dúvida, avisa
                 _quer_radar = True
             if not _quer_radar:
+                continue
+            # Teto de 2 pushes de engajamento/dia (Fase 51, D-13), contador
+            # compartilhado com o fechamento. Semântica OPOSTA à pref acima:
+            # aqui é FAIL-CLOSED — exceção ao reservar = o push do Radar não
+            # sai para este uid (melhor calar que estourar o teto). A pref
+            # `radar` segue fail-open; o rastro em `push_events` já foi gravado.
+            try:
+                if not push.reservar_engajamento(
+                        conn, uid, datetime.now(BRT).date().isoformat(), "radar"):
+                    continue
+            except Exception:  # noqa: BLE001 — teto indeterminado: não envia
                 continue
             try:
                 await notify_push(uid, skill_ref.PUSH_RADAR["titulo"], corpo)
