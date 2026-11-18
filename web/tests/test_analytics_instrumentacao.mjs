@@ -13,6 +13,10 @@ const src = readFileSync(join(here, "..", "src", "App.jsx"), "utf8");
 let fails = 0;
 const ok = (name, cond) => { console.log((cond ? "ok " : "FALHOU ") + name); if (!cond) fails++; };
 const count = (re) => (src.match(re) || []).length;
+// Fase 51: daily_card_* vivem em diaNaBolsa.jsx (o card é componente próprio);
+// as demais asserções seguem medindo só App.jsx (`src`).
+const srcDnb = readFileSync(join(here, "..", "src", "diaNaBolsa.jsx"), "utf8");
+const srcTudo = src + "\n" + srcDnb;
 
 ok("importa track/setAnalyticsUser/flush de analytics.js",
    /import \{ track, setAnalyticsUser, flush as flushAnalytics \} from "\.\/analytics\.js";/.test(src));
@@ -23,9 +27,11 @@ const EVENTOS = [
   "onboarding_step_completed", "portfolio_view", "radar_scan_run", "radar_result_opened",
   "setup_alert_shown", "setup_alert_opened", "options_chain_view", "trade_simulated",
   "coach_tip_shown", "coach_tip_dismissed", "notification_tapped", "session_start", "session_end",
+  // Fase 51 (D-18): eventos do card "Seu dia na bolsa" e do dia de decisão.
+  "daily_card_shown", "daily_card_opened", "daily_card_explored", "decision_day",
 ];
 for (const ev of EVENTOS) {
-  ok(`evento "${ev}" tem track() no código`, new RegExp(`track\\("${ev}"`).test(src));
+  ok(`evento "${ev}" tem track() no código`, new RegExp(`track\\("${ev}"`).test(srcTudo));
 }
 
 // --- trade_simulated cobre compra E venda, ação E opção ---------------------
