@@ -12,7 +12,7 @@ O que confere, em ordem:
   4. impressão digital da chave PÚBLICA derivada (SHA-256 da SPKI) — identifica a
      chave sem revelar nada;
   5. se APNS_AUTH_KEY é na verdade a chave do Sign in with Apple (SIWA_PRIVATE_KEY);
-  6. arquivos AuthKey_*.p8 locais (Downloads, Desktop, Documents, iCloud Drive):
+  6. arquivos AuthKey_*.p8 locais (/Users/acamerini/p8, Desktop, Documents, iCloud Drive):
      qual Key ID corresponde à chave configurada;
   7. PROVA na Apple: assina o JWT como o servidor (push._jwt) e faz um POST para um
      token de aparelho FALSO (64 zeros) nos hosts de produção e sandbox. A Apple
@@ -93,11 +93,16 @@ def impressao(chave) -> str:
     return hashlib.sha256(spki).hexdigest()[:16]
 
 
+# Pasta onde ficam os AuthKey_*.p8 baixados do portal Apple (decisão do Alex,
+# 2026-11-18: saiu de ~/Downloads). Sobrescreva com P8_DIR=... se mudar.
+P8_DIR = os.environ.get("P8_DIR", "/Users/acamerini/p8")
+
+
 def p8_locais() -> dict[str, str]:
     """Key ID (do nome AuthKey_XXXXXXXXXX.p8) → impressão da chave pública."""
     home = os.path.expanduser("~")
     raizes = [
-        os.path.join(home, "Downloads"),
+        P8_DIR,
         os.path.join(home, "Desktop"),
         os.path.join(home, "Documents"),
         os.path.join(home, "Library", "Mobile Documents", "com~apple~CloudDocs"),
@@ -233,7 +238,7 @@ def main() -> int:
                 aviso("SIWA_PRIVATE_KEY presente mas ilegível — comparação pulada")
         locais = p8_locais()
         if not locais:
-            aviso("nenhum AuthKey_*.p8 em Downloads/Desktop/Documents/iCloud Drive — não dá para cruzar com arquivos")
+            aviso(f"nenhum AuthKey_*.p8 em {P8_DIR}, Desktop, Documents ou iCloud Drive — não dá para cruzar com arquivos")
         else:
             casou = [k for k, v in locais.items() if v == fp]
             print(f"  arquivos .p8 locais: {', '.join(sorted(locais))}")

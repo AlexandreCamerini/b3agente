@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # configurar-apns.sh — Boris+ · configura o push (APNs) no Railway em 1 comando.
 #
-#   bash scripts/configurar-apns.sh ~/Downloads/AuthKey_22Y76F52NJ.p8
-#   bash scripts/configurar-apns.sh ~/Downloads/AuthKey_22Y76F52NJ.p8 --sandbox   # build de desenvolvimento
+#   bash scripts/configurar-apns.sh /Users/acamerini/p8/AuthKey_22Y76F52NJ.p8
+#   bash scripts/configurar-apns.sh /Users/acamerini/p8/AuthKey_22Y76F52NJ.p8 --sandbox   # build de desenvolvimento
 #
 # Parâmetros JÁ preenchidos com os dados da conta do Alex (confira se mudar):
 #   APNS_TEAM_ID = LC65399YC9   (Membership da conta Apple Developer)
@@ -33,7 +33,7 @@ for arg in "$@"; do
     *) P8="$arg" ;;
   esac
 done
-[ -n "$P8" ] || die "informe o caminho do .p8 (ex.: ~/Downloads/AuthKey_${KEY_ID}.p8)"
+[ -n "$P8" ] || die "informe o caminho do .p8 (ex.: /Users/acamerini/p8/AuthKey_${KEY_ID}.p8)"
 P8="${P8/#\~/$HOME}"
 [ -f "$P8" ] || die "arquivo não encontrado: $P8"
 
