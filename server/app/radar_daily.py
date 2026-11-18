@@ -382,13 +382,26 @@ async def run_daily(conn, fetch, notify_push=None, origem: str = "automática") 
         # `kv_set` por usuário por dia sem push correspondente.
         from . import push  # import local (só `db`): sem ciclo de import
         for uid in _push_audience(conn):
+            # Fase 51 / D-14 (ENG-10): o "e se" de ontem é POR USUÁRIO — o
+            # `corpo` acima era único para toda a audiência. Sem push novo:
+            # a linha entra neste mesmo push (teto de engajamento intacto).
+            # Sem "e se" (ou qualquer falha) = corpo idêntico ao de antes.
+            corpo_uid = corpo
+            try:
+                from . import dia_na_bolsa
+                eses = dia_na_bolsa.e_se_de_ontem(conn, uid, datetime.now(BRT).date())
+                if eses:
+                    corpo_ontem = skill_ref.PUSH_RADAR[eses["chave"]].replace("{T}", eses["T"])
+                    corpo_uid = corpo + " " + corpo_ontem
+            except Exception:  # noqa: BLE001 — a linha é decoração; o push segue
+                corpo_uid = corpo
             # `try` PRÓPRIO: o registro do evento é o rastro DURÁVEL (a tela
             # "EVENTOS E AVISOS RECENTES", App.jsx:4301); a entrega do push é
             # efêmera. Um `except` só, como antes, fazia a falha de um matar o
             # outro — e o Radar era o único call site sem rastro nenhum.
             try:
                 store.push_events(conn, [{"time": store.now_str(), "kind": "info",
-                                          "tag": "radar-diario", "text": corpo}], user_id=uid)
+                                          "tag": "radar-diario", "text": corpo_uid}], user_id=uid)
             except Exception:  # noqa: BLE001 — registro é best-effort
                 pass
             # 260824-kc2: a preferência silencia a INTERRUPÇÃO, não o RASTRO.
@@ -422,7 +435,7 @@ async def run_daily(conn, fetch, notify_push=None, origem: str = "automática") 
             except Exception:  # noqa: BLE001 — teto indeterminado: não envia
                 continue
             try:
-                await notify_push(uid, skill_ref.PUSH_RADAR["titulo"], corpo)
+                await notify_push(uid, skill_ref.PUSH_RADAR["titulo"], corpo_uid)
             except Exception:  # noqa: BLE001 — push é best-effort
                 pass
     return annotated

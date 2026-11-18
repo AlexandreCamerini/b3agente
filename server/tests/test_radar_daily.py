@@ -320,3 +320,53 @@ def test_run_daily_teto_fail_closed_e_pref_fail_open(monkeypatch):
         assert sorted(enviados) == ["u1", "u2"]
     finally:
         os.environ.pop("B3_SCAN_UNIVERSE", None)
+
+
+# ---------------------------------------------------------------------------
+# Fase 51 / 51-07 (D-14, ENG-10) — linha "Ontem: ..." por usuário no push do
+# Radar 08:45. Sem push novo; sem "e se" = corpo idêntico ao de antes.
+# ---------------------------------------------------------------------------
+def _rodar_radar_com_eses(monkeypatch, por_uid):
+    import os
+    from app import dia_na_bolsa
+    os.environ["B3_SCAN_UNIVERSE"] = "AAAA3"
+    try:
+        c = _conn()
+        _setup_push_dois_usuarios(c)
+        eventos = {}
+        orig = radar_daily.store.push_events
+        monkeypatch.setattr(radar_daily.store, "push_events",
+                            lambda conn, evs, user_id=None: eventos.__setitem__(user_id, evs[0]["text"]))
+
+        def fake_eses(conn, uid, hoje):
+            r = por_uid.get(uid)
+            if isinstance(r, Exception):
+                raise r
+            return r
+        monkeypatch.setattr(dia_na_bolsa, "e_se_de_ontem", fake_eses)
+        enviados = {}
+
+        async def fake_push(uid, title, body):
+            enviados[uid] = body
+        _run(radar_daily.run_daily(c, _fake_fetch, notify_push=fake_push))
+        return enviados, eventos
+    finally:
+        os.environ.pop("B3_SCAN_UNIVERSE", None)
+
+
+def test_radar_acrescenta_ontem_alvo_e_stop_por_usuario(monkeypatch):
+    enviados, eventos = _rodar_radar_com_eses(monkeypatch, {
+        "u1": {"chave": "corpo_ontem_alvo", "T": "PETR4"},
+        "u2": {"chave": "corpo_ontem_stop", "T": "VALE3"}})
+    assert enviados["u1"].endswith(" Ontem: PETR4 chegaria ao alvo.")
+    assert enviados["u2"].endswith(" Ontem: VALE3 teve o stop atingido.")
+    # o rastro em push_events é o MESMO texto enviado àquele usuário
+    assert eventos == enviados
+
+
+def test_radar_sem_eses_ou_com_falha_mantem_o_corpo_antigo(monkeypatch):
+    enviados, eventos = _rodar_radar_com_eses(monkeypatch, {
+        "u1": None, "u2": RuntimeError("kv")})
+    assert enviados["u1"] == enviados["u2"]
+    assert "Ontem" not in enviados["u1"] and "{T}" not in enviados["u1"]
+    assert eventos == enviados
