@@ -169,6 +169,28 @@ sync.loadToken();
 //  - chamadas que EXIGEM servidor (cotação/análise/compra/venda/ciclo) seguem
 //    diretas — erro offline é claro, sem fila.
 //  - o token de sessão (quando logado) é anexado pelo api.js em toda chamada.
+// Fase 51 (D-16, ENG-11): dias de decisao — espelho EXATO de store.set_config
+// (uniao, regex AAAA-MM-DD, ordenado, teto 60). Usado pelo deviceStore e pelo
+// patch otimista do serverStore, para o cache nunca ser SUBSTITUIDO.
+const DIAS_DECISAO_MAX = 60;
+function uniaoDiasDecisao(atual, novos) {
+  const set = new Set();
+  for (const d of [...(Array.isArray(atual) ? atual : []), ...(Array.isArray(novos) ? novos : [])]) {
+    if (typeof d === "string" && /^\d{4}-\d{2}-\d{2}$/.test(d)) set.add(d);
+  }
+  return [...set].sort().slice(-DIAS_DECISAO_MAX);
+}
+
+function _normalizarVistos(tickers) {
+  const out = [];
+  for (const t of Array.isArray(tickers) ? tickers : []) {
+    const u = String(t || "").trim().toUpperCase();
+    if (u && !out.includes(u)) out.push(u);
+    if (out.length >= 60) break;
+  }
+  return out;
+}
+
 function serverStore() {
   // patch otimista raso da config: nunca guarda apiKey no cache; reflete só o
   // indicador keyStored e campos de exibição. O servidor reconcilia no flush.
@@ -176,6 +198,7 @@ function serverStore() {
     const c = { ...(cur.config || {}) };
     for (const k of Object.keys(patch || {})) {
       if (k === "apiKey" || k === "clearKey") continue;
+      if (k === "diasDecisao") { c.diasDecisao = uniaoDiasDecisao(c.diasDecisao, patch.diasDecisao); continue; }
       c[k] = patch[k];
     }
     if (typeof patch.apiKey === "string" && patch.apiKey) c.keyStored = true;
@@ -252,6 +275,12 @@ function serverStore() {
     // A paridade que faltava era a do ENVIO da preferência — é o
     // `syncPushPrefs` abaixo, disparado pelo próprio store, que a fecha.
     registerPushToken: (token, extra) => api.pushRegisterToken(token, extra),   // FASE 3.3b: APNs (exige conta)
+    // Fase 51: card "Seu dia na bolsa". Paridade com o deviceStore (mesmo
+    // contrato). O consentimento do fechamento sai SÓ por decidirFechamento
+    // (rota de convite) — nunca por syncPushPrefs/_pushPrefsLocais.
+    getDiaNaBolsa: (modo) => api.diaNaBolsa(modo),
+    registrarVistos: (tickers, origem) => api.diaNaBolsaVistos(_normalizarVistos(tickers), origem),
+    decidirFechamento: (aceite) => api.diaNaBolsaConvite(!!aceite),
     // Paridade com o deviceStore: MESMA assinatura (sem argumento) e mesmo
     // contrato — o store monta o corpo, quem chama não precisa saber a forma.
     // Assinaturas diferentes aqui já seriam um bug silencioso: `App.jsx` chama
@@ -535,6 +564,7 @@ function deviceStore() {
       if (!doc.config.notif || typeof doc.config.notif !== "object") doc.config.notif = { enabled: false, stop: true, alvo: true, agente: true, variacao: true, gatilho: false };
       if (typeof doc.config.notif.gatilho !== "boolean") doc.config.notif.gatilho = false;  // classe nova: opt-in
       if (!Array.isArray(doc.config.conceitosVistos)) doc.config.conceitosVistos = [];      // camada de entendimento
+      if (!Array.isArray(doc.config.diasDecisao)) doc.config.diasDecisao = [];              // Fase 51: dias de decisão (data BRT)
       if (!doc.config.gestoUso || typeof doc.config.gestoUso !== "object") doc.config.gestoUso = { aberturas: 0, gesto: 0, botao: 0 };  // toque longo: dica + medição
       // FASE 8B (R2): skill da mesa — backfill em docs antigos
       if (!doc.skillOperador || typeof doc.skillOperador !== "object" || typeof doc.skillOperador.text !== "string") {
@@ -814,6 +844,8 @@ function deviceStore() {
       if ("borisIntroVisto" in patch) c.borisIntroVisto = !!patch.borisIntroVisto;  // F6: apresentação do Boris só aparece 1x
       if (typeof patch.candlePeriod === "string" && ["1mo", "3mo", "6mo", "1y", "2y"].includes(patch.candlePeriod)) c.candlePeriod = patch.candlePeriod;
       if (patch.streak && typeof patch.streak === "object") c.streak = { days: parseInt(patch.streak.days, 10) || 0, last: String(patch.streak.last || "") };
+      // Fase 51: espelho de store.set_config — UNIÃO, regex, ordenado, teto 60.
+      if (Array.isArray(patch.diasDecisao)) c.diasDecisao = uniaoDiasDecisao(c.diasDecisao, patch.diasDecisao);
       if (patch.notif && typeof patch.notif === "object") {
         const base = (c.notif && typeof c.notif === "object") ? c.notif : { enabled: false, stop: true, alvo: true, agente: true, variacao: true, gatilho: false, radar: true, execucao: true, protecao: true };
         for (const k of ["enabled", "stop", "alvo", "agente", "variacao", "gatilho", "radar", "execucao", "protecao"]) if (k in patch.notif) base[k] = !!patch.notif[k];
@@ -1259,6 +1291,23 @@ function deviceStore() {
     // quando o interruptor muda ou a watchlist muda — sem isso o servidor
     // continuaria pushando sobre a lista de ontem.
     async syncPushPrefs() { ensure(); return api.pushRegisterToken("", _pushPrefsLocais()); },
+    // Fase 51: as três exigem conta; sem sessão não tocam a rede (T-51-18).
+    // `fechamento` NÃO entra em _pushPrefsLocais: só decidirFechamento o envia.
+    async getDiaNaBolsa(modo) {
+      ensure();
+      if (!sync.hasSession()) return { card: null, convite: false, fechamento: null, ultimas4Semanas: [] };
+      return api.diaNaBolsa(modo || doc.config.appMode || "estudo");
+    },
+    async registrarVistos(tickers, origem) {
+      ensure();
+      if (!sync.hasSession()) return null;
+      return api.diaNaBolsaVistos(_normalizarVistos(tickers), origem);
+    },
+    async decidirFechamento(aceite) {
+      ensure();
+      if (!sync.hasSession()) return null;
+      return api.diaNaBolsaConvite(!!aceite);
+    },
     async scanProgress() { ensure(); return api.scanProgress(); },   // BLOCO B1
     // F1: no aparelho o modo é local-first (como no scanDeep) — vai explícito.
     async timing(t) { ensure(); return api.timing(t, doc.config.appMode || "estudo"); },

@@ -282,6 +282,10 @@ export const api = {
   pushAnalysisLog: (t, entry) => req("POST", "/api/analysis-log/" + encodeURIComponent(t), entry || {}),   // FASE 2 (2.5)
   // FASE 3.3b + push do gatilho: o corpo carrega TAMBÉM consentimento, modo e
   // universo — no aparelho a config é local e o servidor não tem outra via.
+  // Fase 51: card "Seu dia na bolsa" (rotas em dia_na_bolsa; exigem login).
+  diaNaBolsa: (modo) => req("GET", "/api/dia-na-bolsa" + (modo ? "?modo=" + encodeURIComponent(modo) : "")),
+  diaNaBolsaVistos: (tickers, origem) => req("POST", "/api/dia-na-bolsa/vistos", { tickers, origem }),
+  diaNaBolsaConvite: (aceite) => req("POST", "/api/dia-na-bolsa/convite", { aceite: !!aceite }),
   pushRegisterToken: (token, extra) => req("POST", "/api/push/register-token", { token, ...(extra || {}) }),
   // Camada de entendimento (custo zero: texto determinístico do backend).
   conceitos: (modo, resumido) => req("GET", "/api/conceitos?modo=" + encodeURIComponent(modo || "estudo") + (resumido ? "&resumido=true" : ""), undefined, 15000),
