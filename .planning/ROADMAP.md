@@ -583,7 +583,7 @@ Plans:
 **Goal:** no fim de cada pregão o usuário recebe um card determinístico ("Seu dia na bolsa") com o que aconteceu com os setups que ele viu e não operou, o que o motor fez na carteira dele e um fato raro do mercado ligado a um conceito. O card desperta a curiosidade sem induzir operação; o streak passa a medir dias de decisão; o portal mede exploração e vigia overtrading.
 **Requirements**: ENG-01, ENG-02, ENG-03, ENG-04, ENG-05, ENG-06, ENG-07, ENG-08, ENG-09, ENG-10, ENG-11, ENG-12
 **Depends on:** Phase 50
-**Plans:** 0 plans — a planejar (decisões em `.planning/phases/51-seu-dia-na-bolsa/51-CONTEXT.md`, origem `.planning/engajamento/DECISIONS.md`)
+**Plans:** 12 plans em 7 ondas (decisões em `.planning/phases/51-seu-dia-na-bolsa/51-CONTEXT.md`, origem `.planning/engajamento/DECISIONS.md`)
 
 Requisitos:
 
@@ -611,4 +611,17 @@ Requisitos:
 7. Paridade `skill_ref` ↔ `copy.js` e `deviceStore` ↔ `serverStore`; suíte canônica verde
 
 Plans:
+
+- [ ] 51-00-PLAN.md — Wave 1 · bootstrap do worktree: server/.venv 3.12 + pip, npm ci em web/ e web-admin/ (checkpoint se o sandbox bloquear a rede)
+- [ ] 51-01-PLAN.md — Wave 2 · núcleo puro: desfecho do visto sobre `_avaliar_entry` (resolve no dia do toque), placar, família 2, regras de raridade (p95, 2×ATR, amplitude, gap, 52 sem), ordem por modo, variante sha256
+- [ ] 51-02-PLAN.md — Wave 2 · templates `DIA_NA_BOLSA` + `PUSH_RADAR.corpo_ontem_*` em skill_ref ↔ copy.js, guardião de espelho e de vocabulário proibido
+- [ ] 51-03-PLAN.md — Wave 2 · pref `fechamento` opt-in (default False, conta nova True, fail-closed), teto de 2 pushes de engajamento, arquivo diário do Radar com retenção
+- [ ] 51-04-PLAN.md — Wave 3 · conceitos amplitude e extremo-52-semanas; script de calibração de frequência em 12 meses
+- [ ] 51-05-PLAN.md — Wave 4 · `dia_na_bolsa.py`: vistos com preços do motor, job 17:20 BRT cache-first + Yahoo limitado, sem brapi/LLM, com retentativa até 20:00, card por conta, push com consentimento; hook no scheduler e `marcoMotor`
+- [ ] 51-06-PLAN.md — Wave 3 · front dados: api.js + métodos novos nos dois stores, `config.diasDecisao` (união) no servidor e no aparelho
+- [ ] 51-07-PLAN.md — Wave 5 · rotas `/api/dia-na-bolsa` (GET, vistos, convite) e linha do "e se" de ontem no Radar 08:45
+- [ ] 51-08-PLAN.md — Wave 5 · componente `DiaNaBolsaCard` + `FaixaDecisao` (UI-SPEC) e lógica pura
+- [ ] 51-09-PLAN.md — Wave 6 · analytics (WAU exato + série, exploração por família/modo, operações por usuário ativo) e painel do portal
+- [ ] 51-10-PLAN.md — Wave 6 · integração em App.jsx: slot no Acompanhar, streak de decisão BRT, decision_day, vistos, toggle de config, toque no push
+- [ ] 51-11-PLAN.md — Wave 7 · suíte canônica, emenda D-16 no texto de ENG-11 e checkpoint do Alex (com premissas P-A..P-D) no web e no iPhone
 

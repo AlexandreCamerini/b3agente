@@ -35,3 +35,12 @@ Estado: **árvore completa em 2026-11-17, aguardando confirmação final do Alex
   - Free: 30 análises por mês e 20 por dia de IA gerenciada.
   - brapi: 15 mil por mês, teto diário de cota/21, janela das 10:00 às 17:15.
 - **Não existe:** resumo de abertura, resumo de fechamento, "o que mudou desde ontem", widget, e-mail e meta semanal.
+
+## Decisões autônomas do planejamento da Fase 51 (2026-11-18, sessão autônoma — REVERSÍVEIS, revisar)
+
+Sessão sem humano no loop (hook de sessão autônoma). Escolhida a opção mais conservadora e reversível; nada foi executado nem publicado.
+
+| ID | Questão | Decisão | Motivo | Status |
+|---|---|---|---|---|
+| P-A | Fonte do EOD do job ~17:15 (D-12 dizia "só cache", mas o cache não tem a barra fechada do dia nesse horário) | O job usa o cache quando ele já tem a barra fechada de hoje. Para o resto, busca no Yahoo, que é backup na ADR-008 e não usa brapi, em ordem de prioridade: vistos abertos, posições, IBOV, watchlist e por último o universo do Radar. Teto de 120 chamadas por dia BRT, somando as passadas,, ajustável por `B3_DIA_NA_BOLSA_MAX_YAHOO`. Ticker sem dado fica fora do card. | Cumpre a ADR-008 (Yahoo é backup, brapi não entra) e o princípio 4 (nenhum valor inventado). A prioridade garante a família 1, que é o núcleo do critério 1. A mudança se desfaz por env. | pendente de confirmação do Alex |
+| P-B | Família 2: carteira × IBOV sem evento do motor gera card? | Não. A linha carteira × IBOV só aparece junto de um evento do motor (stop subiu, breakeven, alvo). | É a opção conservadora: evita um card diário sem conteúdo e o estímulo a olhar o placar todo dia (Q3, overtrading). Habilitar depois é aditivo. | pendente de confirmação do Alex |
