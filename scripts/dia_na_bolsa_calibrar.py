@@ -154,14 +154,17 @@ def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--rede", action="store_true", help="busca no Yahoo (range 2y) em vez do L2 local")
     ap.add_argument("--dias", type=int, default=JANELA, help="pregões avaliados (padrão 252)")
-    ap.add_argument("--tickers", default="", help="lista separada por vírgula (padrão: catálogo)")
+    ap.add_argument("--tickers", default="", help="lista separada por vírgula (padrão: universo do Radar, scanner.DEFAULT_UNIVERSE — o mesmo do job)")
     a = ap.parse_args(argv)
 
     padrao_db = os.path.join(SERVER, "data", "b3_agente.db")
     if not a.rede and not os.environ.get("B3_DB_PATH") and os.path.exists(padrao_db):
         os.environ["B3_DB_PATH"] = padrao_db
-    from app.catalog import CATALOG_TICKERS
-    tickers = [t.strip().upper() for t in a.tickers.split(",") if t.strip()] or list(CATALOG_TICKERS)
+    # Orquestrador da Fase 51: o padrão é o mesmo universo do job (dia_na_bolsa
+    # usa scanner.DEFAULT_UNIVERSE como base da amplitude). O catálogo de 20
+    # ativos ficava abaixo de AMPLITUDE_MIN_ATIVOS e media outra coisa.
+    from app.scanner import DEFAULT_UNIVERSE
+    tickers = [t.strip().upper() for t in a.tickers.split(",") if t.strip()] or list(DEFAULT_UNIVERSE)
 
     ibov, universo = (_carregar_rede if a.rede else _carregar_local)(tickers)
     if len(ibov or []) < MIN_BARRAS or not universo:
