@@ -59,7 +59,9 @@ def test_catalogo_sem_auth_devolve_83_verbetes_e_9_familias(cli):
     # Fase 48, onda 2: +2 (opc-put-protetora, opc-collar) (91 -> 93).
     # Fase 47 (2026-10-06, DIDA-01): +1 verbete manual expectativa-matematica (93 -> 94).
     # quick 261012-09v (2026-10-12): +1 verbete manual app-eficiencia-ia (94 -> 95).
-    assert len(body["verbetes"]) == 95
+    # Fase 51 (2026-11-18, ENG-05): +2 conceitos do card "Seu dia na bolsa"
+    # (amplitude, extremo-52-semanas) (95 -> 97).
+    assert len(body["verbetes"]) == 97
     assert len(body["familias"]) == 9
     assert body["familias"] == [{"id": fid, "rotulo": rotulo} for fid, rotulo in kb.FAMILIAS]
 
