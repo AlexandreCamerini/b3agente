@@ -113,7 +113,7 @@ Fora do escopo:
   - **Emenda D-16 (2026-11-17, decisão do Alex):** "decidir não entrar" fica FORA da v1 — não existe controle de usuário para isso no app; `decision_day` cobre só `card`, `plano` e `stop`. Não criar botão nesta fase.
 - **D-17 Data de Brasília:** o streak atual usa data UTC (`App.jsx:10938-10951`, `toISOString().slice(0,10)`) e credita o dia seguinte depois das 21:00 BRT. Passa a usar `hojeBRT()`, como o efeito do snapshot logo acima. Isso entra como correção junto com a mudança de regra.
 
-- **Emendas D-06/D-12 (2026-11-18, adotada, pendente de confirmação do Alex, reversível por env — ver `.planning/engajamento/DECISIONS.md` P-A/P-B):**
+- **Emendas D-06/D-12 (2026-11-18, confirmada pelo Alex em 2026-11-18, reversível por env — ver `.planning/engajamento/DECISIONS.md` P-A/P-B):**
   - P-A (D-12): o job fica cache-first. O que faltar vem do Yahoo (backup ADR-008, zero brapi), na prioridade vistos > posições > IBOV > watchlist > universo do Radar, com teto de 120 chamadas por dia BRT, somando as passadas, (`B3_DIA_NA_BOLSA_MAX_YAHOO`). Ticker sem dado fica fora do card.
   - P-B (D-06): carteira × IBOV só entra junto de um evento do motor; sozinha não gera card.
 
