@@ -1241,7 +1241,10 @@ async def _run_cycle_inner(conn, scope, quotes_getter, origem: str, t0: float, s
                             atr=skill_ref.num_br((ctx_p or {}).get("atr") or 0))
                     else:
                         texto_g = f"Trailing: stop de {pos['t']} ajustado para R$ {novo:.2f} ({info_n})."
-                    events.append({"time": _now_str(), "kind": "info", "text": texto_g})
+                    # `marcoMotor` (Fase 51): campo ESTRUTURADO para a família 2 do card "Seu dia na bolsa" — o card nunca lê `text`. Sem `t` nem `tag` de propósito: `t` mudaria o roteamento do toque do push e `tag` a classe do evento (`classe_do_evento` segue recebendo None para este evento, como antes).
+                    events.append({"time": _now_str(), "kind": "info", "text": texto_g,
+                                   "marcoMotor": {"tipo": "breakeven" if info_n == "gestao_breakeven" else "stop_subiu",
+                                                  "ticker": pos["t"], "stop": novo, "motivo": info_n}})
                     pos = {**pos, "stop": novo}
                     pos_ef = {**pos_ef, "stop": novo}
         breach_stop, hit_alvo = _gatilho_saida(par, pos_ef, price)
@@ -1656,6 +1659,12 @@ async def scheduler_loop(conn, quotes_getter, notify_push=None, interval_s: int 
                 await snapshot_diario.maybe_run(conn, quotes_getter)
             except Exception as e:  # noqa: BLE001 — o snapshot nunca derruba o laço
                 print(f"[snapshot-diario] hook do scheduler falhou: {e}")
+            # Fase 51 (51-05): card "Seu dia na bolsa" — depois do snapshot de fechamento de propósito (o job espera o ponto da carteira até 17:40). FORA do gate de kill-switch e de in_market_hours: mede e avisa, nunca executa ordem. `try/except` PRÓPRIO: nenhuma falha daqui chega ao heartbeat nem ao ciclo de stop/alvo.
+            try:
+                from . import dia_na_bolsa  # import local: sem ciclo de import
+                await dia_na_bolsa.maybe_run(conn)
+            except Exception as e:  # noqa: BLE001 — o card nunca derruba o laço
+                print(f"[dia-na-bolsa] hook do scheduler falhou: {e}")
             if not kill_switch_on() and in_market_hours():
                 # ADR-001 (item 7): passada INTRADAY, GLOBAL, uma por acordar do
                 # laço. Roda ANTES do ciclo por usuário de propósito — assim o

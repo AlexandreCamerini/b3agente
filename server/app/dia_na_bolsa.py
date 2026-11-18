@@ -740,9 +740,84 @@ async def _run(conn, now: datetime, final: bool) -> dict:
     return {**res, **stats}
 
 
+def _linha_do_card(familias: dict, k: str) -> Optional[dict]:
+    """Primeira linha renderizável da família `k` (chave, variante, vals)."""
+    f = familias.get(k)
+    if not isinstance(f, dict):
+        return None
+    if k == "3":
+        return f.get("fato") if isinstance(f.get("fato"), dict) else None
+    linhas = f.get("linhas") or []
+    return linhas[0] if linhas else None
+
+
+def _corpo_push(card: dict, modo_prefs: str) -> str:
+    """Corpo = 1ª linha da 1ª família na ordem do modo da conta (D-13)."""
+    fams = card.get("familias") or {}
+    voc = "operador" if modo_prefs == "operador" else "educacional"
+    for k in R.ordem_familias(modo_prefs, [int(x) for x in fams]):
+        linha = _linha_do_card(fams, str(k))
+        if linha:
+            txt = skill_ref.dia_na_bolsa_txt(voc, linha["chave"], linha.get("variante") or 0,
+                                             linha.get("vals") or {})
+            if txt:
+                return txt
+    return ""
+
+
 async def _enviar_push(conn, uid: str, card: dict, hoje: str) -> int:
-    """Gancho do push de fechamento (implementado na sequência do plano)."""
-    return 0
+    """Push "Seu dia na bolsa" (D-13). Só sai com: card não vazio, consentimento
+    (`quer_fechamento`, FAIL-CLOSED), token registrado, reserva do teto de
+    engajamento e nenhum envio anterior no dia. Devolve 1 se enviou, 0 se não.
+
+    `extra` leva só `kind` e NUNCA `t` (mesma razão de `radar_daily.run_daily`):
+    o cliente filtra o toque por ticker válido em `t`, e o card não tem ticker
+    único; eleger um repetiria o erro de ticker trocado. Web/PWA sem token APNs
+    não recebe push (D-13)."""
+    try:
+        from . import push  # import local: sem ciclo de import
+        if card.get("vazio") or card.get("pushEnviado") or not card.get("familias"):
+            return 0
+        if not push.quer_fechamento(conn, uid):
+            return 0
+        if not (db.kv_get(conn, "pushTokens", [], user_id=uid) or []):
+            return 0
+        modo = push.prefs_for(conn, uid).get("modo")
+        corpo = _corpo_push(card, modo if modo in ("estudo", "operador") else "estudo")
+        if not corpo:
+            return 0
+        if not push.reservar_engajamento(conn, uid, hoje, "fechamento"):
+            return 0
+        voc = "operador" if modo == "operador" else "educacional"
+        card["pushEnviado"] = True          # antes do envio: no máximo 1 por conta por dia
+        db.kv_set(conn, K_CARD, card, user_id=uid)
+        await push.send_to_user(conn, uid, skill_ref.DIA_NA_BOLSA[voc]["titulo"], corpo,
+                                som=False, prioridade="5", extra={"kind": "fechamento"})
+        return 1
+    except Exception as e:  # noqa: BLE001 — push é best-effort; o card já está gravado
+        print(f"[dia-na-bolsa] push falhou: {type(e).__name__}")
+        return 0
+
+
+def e_se_de_ontem(conn, uid: str, hoje) -> Optional[dict]:
+    """O "e se" de ONTEM para o Radar (51-07): o primeiro visto resolvido em
+    alvo OU stop no pregão anterior, por ordem de ticker (sem preferir alvo,
+    D-04). `{"chave": "corpo_ontem_alvo"|"corpo_ontem_stop", "T": ticker}`."""
+    hoje_iso = hoje.isoformat() if isinstance(hoje, _date) else str(hoje)
+    ant = _pregao_anterior(hoje_iso)
+    if not ant:
+        return None
+    operados = _operados(conn, uid)
+    achados = []
+    for v in ler_vistos(conn, uid):
+        est = v.get("estado")
+        if (isinstance(est, dict) and est.get("aberto") is False and est.get("resolvidoEm") == ant
+                and est.get("resultado") in ("alvo", "stop") and not _foi_operado(v, operados)):
+            achados.append(v)
+    if not achados:
+        return None
+    v = sorted(achados, key=lambda x: (x.get("ticker") or "", x.get("setup") or ""))[0]
+    return {"chave": "corpo_ontem_" + v["estado"]["resultado"], "T": v["ticker"]}
 
 
 async def maybe_run(conn, now: Optional[datetime] = None) -> Optional[dict]:

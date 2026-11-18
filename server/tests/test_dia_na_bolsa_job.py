@@ -518,3 +518,121 @@ def test_famila3_amplitude_ibov_raro_escolhe_mercado(monkeypatch):
     assert fato["vals"]["direcao"] == "caiu" and fato["vals"]["pct"].endswith("%")
     p = dnb.payload_para(c, "u1", "estudo", dt(18, 0))
     assert p["card"]["familias"]["3"]["fato"]["conceito"]["rotulo"]
+
+
+# ======================================================================
+# Push de fechamento, "e se" de ontem e hook do scheduler
+# ======================================================================
+def _cenario_push(monkeypatch, c, quer=True, token=True, modo=None):
+    _snapshot_ok(c)
+    _arquivo(c, universo=["PETR4"])
+    Rede(monkeypatch, candles={"PETR4": serie(hoje_candle={"open": 10.0, "low": 8.9, "close": 10.0})})
+    _conta(c, "u1")
+    db.kv_set(c, dnb.K_VISTOS, [_visto("PETR4")], user_id="u1")
+    if quer:
+        push.decidir_fechamento(c, "u1", True)
+    if token:
+        db.kv_set(c, "pushTokens", [{"token": "abc"}], user_id="u1")
+    if modo:
+        db.kv_set(c, "pushPrefs", {**push.prefs_for(c, "u1"), "modo": modo}, user_id="u1")
+    enviados = []
+
+    async def send(conn, uid, title, body, som=True, prioridade="10", client=None, extra=None):
+        enviados.append({"uid": uid, "title": title, "body": body, "som": som,
+                         "prioridade": prioridade, "extra": extra})
+        return {"sent": 1, "total": 1, "detalhes": []}
+    monkeypatch.setattr(push, "send_to_user", send)
+    return enviados
+
+
+def test_push_um_por_dia_com_corpo_da_primeira_familia_do_modo(monkeypatch):
+    c = _conn()
+    env = _cenario_push(monkeypatch, c, modo="estudo")
+    _run(dnb.maybe_run(c, dt(17, 30)))
+    assert len(env) == 1
+    e = env[0]
+    assert e["title"] == "Seu dia na bolsa" and e["extra"] == {"kind": "fechamento"} and "t" not in e["extra"]
+    assert e["som"] is False and e["prioridade"] == "5" and "PETR4" in e["body"]
+    assert _card(c, "u1")["pushEnviado"] is True
+    # segunda passada no mesmo dia: nenhum push novo
+    db.kv_set(c, dnb.K_FEITAS, None, user_id=None)
+    db.kv_set(c, dnb.K_LAST_RUN, None, user_id=None)
+    db.kv_set(c, dnb.K_TENTATIVA, None, user_id=None)
+    _run(dnb.maybe_run(c, dt(17, 50)))
+    assert len(env) == 1
+
+
+def test_push_corpo_segue_a_ordem_do_modo_operador(monkeypatch):
+    c = _conn()
+    env = _cenario_push(monkeypatch, c, modo="operador")
+    db.kv_set(c, "agentLog", [{"time": "13/10/2026 11:00", "kind": "info",
+                               "marcoMotor": {"tipo": "stop_subiu", "ticker": "VALE3", "stop": 30.5,
+                                              "motivo": "gestao_trailing"}, "text": "x"}], user_id="u1")
+    _run(dnb.maybe_run(c, dt(17, 30)))
+    assert len(env) == 1 and "VALE3" in env[0]["body"] and "PETR4" not in env[0]["body"]
+
+
+def test_push_sem_convite_aceito_grava_card_e_nao_envia(monkeypatch):
+    c = _conn()
+    env = _cenario_push(monkeypatch, c, quer=False)
+    _run(dnb.maybe_run(c, dt(17, 30)))
+    assert env == [] and _card(c, "u1")["vazio"] is False and _card(c, "u1")["pushEnviado"] is False
+
+
+def test_push_sem_token_nao_envia(monkeypatch):
+    c = _conn()
+    env = _cenario_push(monkeypatch, c, token=False)
+    _run(dnb.maybe_run(c, dt(17, 30)))
+    assert env == []
+
+
+def test_push_prefs_levantando_e_fail_closed(monkeypatch):
+    c = _conn()
+    env = _cenario_push(monkeypatch, c)
+
+    def boom(conn, uid):
+        raise RuntimeError("kv fora")
+    monkeypatch.setattr(push, "prefs_for", boom)
+    _run(dnb.maybe_run(c, dt(17, 30)))
+    assert env == [] and _card(c, "u1")["vazio"] is False
+
+
+def test_push_teto_de_engajamento_esgotado_nao_envia(monkeypatch):
+    c = _conn()
+    env = _cenario_push(monkeypatch, c)
+    assert push.reservar_engajamento(c, "u1", HOJE, "radar")
+    assert push.reservar_engajamento(c, "u1", HOJE, "outro")      # teto de 2 usado
+    _run(dnb.maybe_run(c, dt(17, 30)))
+    assert env == []
+
+
+def test_push_card_vazio_nao_envia(monkeypatch):
+    c = _conn()
+    env = _cenario_push(monkeypatch, c)
+    db.kv_set(c, dnb.K_VISTOS, [], user_id="u1")
+    _run(dnb.maybe_run(c, dt(17, 30)))
+    assert env == [] and _card(c, "u1") == {"data": HOJE, "vazio": True}
+
+
+def test_e_se_de_ontem_na_segunda_pega_a_sexta_por_ordem_de_ticker():
+    c = _conn()
+    est = lambda res, em: {"resultado": res, "r": 1.0, "resolvidoEm": em, "aberto": False}  # noqa: E731
+    db.kv_set(c, dnb.K_VISTOS, [
+        _visto("VALE3", estado=est("stop", "2026-10-09")),
+        _visto("PETR4", estado=est("alvo", "2026-10-09")),
+        _visto("ABEV3", estado=est("expirou", "2026-10-09")),
+        _visto("ITUB4", estado=est("alvo", "2026-10-08"))], user_id="u1")
+    # terça 13/10: o pregão anterior é 09/10 (12/10 é feriado)
+    r = dnb.e_se_de_ontem(c, "u1", "2026-10-13")
+    assert r == {"chave": "corpo_ontem_alvo", "T": "PETR4"}   # ordem de ticker, sem preferir alvo
+    assert dnb.e_se_de_ontem(c, "u2", "2026-10-13") is None
+    # operado depois: sai
+    db.kv_set(c, "history", [{"date": "09/10/2026 15:00", "type": "COMPRA", "t": "PETR4"}], user_id="u1")
+    assert dnb.e_se_de_ontem(c, "u1", "2026-10-13") == {"chave": "corpo_ontem_stop", "T": "VALE3"}
+
+
+def test_agent_tem_hook_do_job_e_marco_motor():
+    src = open(os.path.join(os.path.dirname(__file__), "..", "app", "agent.py"), encoding="utf-8").read()
+    assert src.count("dia_na_bolsa.maybe_run") == 1 and src.count('"marcoMotor"') == 1
+    assert src.index("snapshot_diario.maybe_run") < src.index("dia_na_bolsa.maybe_run") \
+        < src.index("ADR-001 (item 7): passada INTRADAY")

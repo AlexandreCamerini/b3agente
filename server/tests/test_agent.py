@@ -135,6 +135,20 @@ def test_trailing_sobe_o_stop_e_nunca_desce():
     assert db.kv_get(c, "positions", user_id="u1") == [] or db.kv_get(c, "positions", user_id="u1")[0]["stop"] == 11.4
 
 
+def test_trailing_evento_carrega_marco_motor_sem_t_nem_tag():
+    """Fase 51 (51-05): a família 2 do card "Seu dia na bolsa" lê o campo
+    estruturado, nunca `text`. Sem `t`/`tag`: não muda roteamento nem classe do push."""
+    c = _conn()
+    _seed(c, [{"t": "DDDD3", "qty": 100, "avg": 10.0, "stop": 9.0}],
+          {"serverEnabled": True, "mode": "executar", "rules": {"trailing": True}, "trailingPct": 5})
+    r = _run(c, {"DDDD3": 12.0})
+    ev = [e for e in r["events"] if e.get("marcoMotor")]
+    assert len(ev) == 1
+    assert ev[0]["marcoMotor"]["ticker"] == "DDDD3" and ev[0]["marcoMotor"]["stop"] == 11.4
+    assert ev[0]["marcoMotor"]["tipo"] in ("stop_subiu", "breakeven")
+    assert "t" not in ev[0] and "tag" not in ev[0]
+
+
 # ---------------------------------------------------------------------------
 # F2 — Trailing dinâmico. Série REAL de PETR4 (Yahoo, pregões de 02/07 a
 # 29/07/2026): é nela que percentual e critério técnico divergem de verdade.
