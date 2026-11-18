@@ -242,7 +242,7 @@ Substitui o rótulo do streak atual (hoje lê `config.streak.days`, conta abertu
 - Data sempre `hojeBRT()` (D-17). Nada de `toISOString().slice(0,10)`.
 - Nenhuma medalha, selo, confete, número recorde, ranking ou contagem de operações. Nenhum texto sugere que comprar/vender melhora o número.
 - Evento `decision_day` (1× por dia BRT, com `modo` e `origem`: `card|plano|stop`) emitido no momento da decisão, não na abertura do app.
-- Decidir "não entrar": Grep em `web/src/App.jsx` (não entrar, descartar, dispensar, pular) não achou controle de usuário para isso (só o veredito do motor, ~L1367). Este caminho do D-16 fica SEM origem de evento nesta fase, a decidir no planejamento (P-7). Não há botão novo neste contrato. `decision_day` nesta fase cobre `card`, `plano` (revisar) e `stop` (ajustar).
+- Decidir "não entrar": Grep em `web/src/App.jsx` (não entrar, descartar, dispensar, pular) não achou controle de usuário para isso (só o veredito do motor, ~L1367). Este caminho do D-16 fica SEM origem de evento nesta fase, FORA da v1 por decisão do Alex em 2026-11-17 (P-7). Não há botão novo neste contrato. `decision_day` nesta fase cobre `card`, `plano` (revisar) e `stop` (ajustar).
 
 ---
 
@@ -307,7 +307,7 @@ Nenhuma dependência nova de UI ou ícones.
 - P-4. Sem card no dia e conta existente elegível ao convite: alinhado ao D-13 (convite no próprio card): sem card no dia, o convite NÃO aparece e espera o próximo card gerado. Sem linha isolada.
 - P-5. Sem botão de dispensar na v1; o card some quando o próximo é gerado (D-15).
 - P-6. Linha de família 1 = um único alvo tocável (abre o plano), para evitar alvos de 44px aninhados; o ticker não é link próprio.
-- P-7. Não existe no app controle de usuário para "decidir não entrar" (Grep em `App.jsx` por não entrar/descartar/dispensar/pular: nada além do veredito do motor). Esse caminho do D-16 fica sem origem de evento nesta fase, a decidir no planejamento. Nenhum botão inventado.
+- P-7. Não existe no app controle de usuário para "decidir não entrar" (Grep em `App.jsx` por não entrar/descartar/dispensar/pular: nada além do veredito do motor). Esse caminho do D-16 fica FORA da v1 (decisão do Alex, 2026-11-17). Nenhum botão inventado.
 - P-8. Limiar de "amostra pequena" no portal: 20 vistos por célula.
 - P-9. Desfecho alvo/stop com o mesmo tratamento neutro de cor; carteira em P&L segue verde/vermelho como o resto do app (valor de carteira, não julgamento de decisão).
 - P-10. Texto do convite é igual nos dois modos (configuração, não didática).
@@ -326,4 +326,4 @@ Nenhuma dependência nova de UI ou ícones.
 - [x] Dimension 5 Spacing: PASS
 - [x] Dimension 6 Registry Safety: PASS
 
-**Approval:** approved 2026-11-17 (gsd-ui-checker, revisão 1/2; FLAG aberto: D-16 "não entrar" sem origem de evento — confirmar com o Alex no plan-phase)
+**Approval:** approved 2026-11-17 (gsd-ui-checker, revisão 1/2; FLAG D-16 "não entrar" resolvido: fora da v1, decisão do Alex 2026-11-17)

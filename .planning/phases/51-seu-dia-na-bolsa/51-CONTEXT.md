@@ -110,6 +110,7 @@ Fora do escopo:
   - Compra e venda **não** são exigidas, para não estimular overtrading.
   - Fim de semana e feriado não quebram nada.
   - Nada zera: a exibição é "X dias de decisão nas últimas 4 semanas".
+  - **Emenda D-16 (2026-11-17, decisão do Alex):** "decidir não entrar" fica FORA da v1 — não existe controle de usuário para isso no app; `decision_day` cobre só `card`, `plano` e `stop`. Não criar botão nesta fase.
 - **D-17 Data de Brasília:** o streak atual usa data UTC (`App.jsx:10938-10951`, `toISOString().slice(0,10)`) e credita o dia seguinte depois das 21:00 BRT. Passa a usar `hojeBRT()`, como o efeito do snapshot logo acima. Isso entra como correção junto com a mudança de regra.
 
 ### Medição (Q7)
