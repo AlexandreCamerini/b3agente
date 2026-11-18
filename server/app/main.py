@@ -5729,6 +5729,45 @@ async def push_register(body: dict = Body(default={}), user: dict = Depends(requ
     return {"ok": True, "tokens": len(toks), "apnsConfigured": configurado}
 
 
+# Fase 51 (ENG-06/ENG-09) — "Seu dia na bolsa": card do fechamento, registro de
+# vistos e convite do push. Todas exigem login; o uid vem do token, nunca do
+# corpo (T-51-19). Nenhuma chama LLM nem brapi.
+@app.get("/api/dia-na-bolsa")
+async def dia_na_bolsa_get(modo: str = "estudo", user: dict = Depends(require_user)):
+    from . import dia_na_bolsa
+    m = "operador" if modo == "operador" else "estudo"  # modo inválido = estudo
+    return dia_na_bolsa.payload_para(_conn, user["id"], m)
+
+
+@app.post("/api/dia-na-bolsa/vistos")
+async def dia_na_bolsa_vistos(body: dict = Body(default={}), user: dict = Depends(require_user)):
+    from . import dia_na_bolsa
+    b = body or {}
+    tickers = b.get("tickers")
+    if not isinstance(tickers, list):
+        raise HTTPException(400, "Informe a lista de ativos.")
+    if len(tickers) > dia_na_bolsa.TICKERS_MAX:
+        raise HTTPException(400, "Lista de ativos grande demais.")
+    # Preço do corpo é ignorado: registrar_vistos nem o recebe (T-50-13).
+    try:
+        return dia_na_bolsa.registrar_vistos(_conn, user["id"], tickers, b.get("origem"))
+    except ValueError:
+        raise HTTPException(400, "Origem ou lista de ativos inválida.")
+
+
+# Único caminho do consentimento do push de fechamento (D-13): register-token
+# NÃO grava `fechamento` (set_prefs descarta a chave; guardião em
+# test_dia_na_bolsa_rotas.py).
+@app.post("/api/dia-na-bolsa/convite")
+async def dia_na_bolsa_convite(body: dict = Body(default={}), user: dict = Depends(require_user)):
+    aceite = (body or {}).get("aceite")
+    if not isinstance(aceite, bool):
+        raise HTTPException(400, "Informe se aceita receber o aviso de fechamento.")
+    uid = user["id"]
+    push.decidir_fechamento(_conn, uid, aceite)
+    return {"fechamento": push.estado_fechamento(_conn, uid)}
+
+
 # BLOCO D3/D4/E2 — Operador IA: visibilidade e demonstração.
 @app.get("/api/agent/status")
 async def agent_status(scope: Optional[str] = Depends(current_scope)):
