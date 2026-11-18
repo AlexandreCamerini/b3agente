@@ -265,6 +265,84 @@ function EventoComSerie({ label, value, serie }) {
   );
 }
 
+// Fase 51 (ENG-12, D-19/D-20): painel do card "Seu dia na bolsa". Exploração,
+// WAU e operações por usuário ativo com o MESMO peso visual (mesmas
+// componentes, cor e tamanho). Sem meta, sem alvo, sem tone, sem alerta: a
+// hipótese vive só nas decisões da fase, nunca na tela.
+function EngajamentoFechamento({ dias }) {
+  const { loading, error, data } = useFetch(() => api.analyticsEngajamento(dias), [dias]);
+  const exp = data?.exploracao?.global;
+  const celulas = data?.exploracao?.porFamiliaModo || [];
+  const semDados = data && !exp?.viu && !data.wau7d && !(data.series?.operacoesPorAtivoSemanal || []).length;
+  const modos = [...new Set(celulas.map((c) => c.modo))].filter((m) => m != null).sort();
+  const familias = [...new Set(celulas.map((c) => c.familia))].sort();
+  const NOME_FAMILIA = { "1": "Família 1", "2": "Família 2", "3": "Família 3" };
+  const sparkExp = (data?.series?.exploracaoSemanal || []).map((p) => ({ count: p.value }));
+  const sparkOps = (data?.series?.operacoesPorAtivoSemanal || []).map((p) => ({ count: p.value }));
+  const celula = (f, m) => {
+    const c = celulas.find((x) => x.familia === f && x.modo === m);
+    if (!c) return <span style={{ color: T.faint }}>—</span>;
+    return (
+      <span>
+        {c.explorou}/{c.viu} ({c.pct == null ? "—" : c.pct + "%"})
+        {c.amostraPequena && <span style={{ color: T.faint, fontFamily: "inherit", fontWeight: 400 }}> amostra pequena</span>}
+      </span>
+    );
+  };
+  return (
+    <>
+      <Estado loading={loading} error={error} empty={semDados}>
+        {data && (
+          <>
+            <ResumoExecutivo>
+              <Kpi label="WAU (7 DIAS)" value={data.wau7d} />
+              <Kpi label={`EXPLORAÇÃO DO CARD (${dias} DIAS)`} value={exp?.pct == null ? null : `${exp.pct}% (n=${exp.viu})`} />
+              <Kpi label={`DIAS DE DECISÃO / USUÁRIO (${dias} DIAS)`} value={data.diasDecisao?.mediana} />
+              <Kpi label={`OPERAÇÕES / USUÁRIO ATIVO (${dias} DIAS)`} value={data.operacoesPorAtivo} />
+            </ResumoExecutivo>
+            <Card title="Engajamento do fechamento — dias de decisão">
+              <Kv label="Mediana (usuários com decisão)" value={data.diasDecisao?.mediana ?? "—"} />
+              <Kv label="Média" value={data.diasDecisao?.media ?? "—"} />
+              <Kv label="Usuários com ao menos um dia de decisão" value={data.diasDecisao?.usuarios ?? 0} />
+            </Card>
+            <Card title="Exploração × operações, lado a lado">
+              <EventoComSerie label="Exploração do card por semana" value={`${exp?.explorou ?? 0} explorados de ${exp?.viu ?? 0} vistos`} serie={sparkExp} />
+              <EventoComSerie label="Operações simuladas por usuário ativo, por semana" value={data.operacoesPorAtivo == null ? "—" : data.operacoesPorAtivo + " no período"} serie={sparkOps} />
+            </Card>
+            <Card title="Exploração por família e modo">
+              <div style={{ overflowX: "auto" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "12.5px" }}>
+                  <thead>
+                    <tr>
+                      <th style={{ textAlign: "left", color: T.faint, fontWeight: 700, padding: "6px 8px 6px 0" }}></th>
+                      {modos.map((m) => <th key={m} style={{ textAlign: "left", color: T.faint, fontWeight: 700, padding: "6px 8px" }}>{m}</th>)}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {familias.map((f) => (
+                      <tr key={f} style={{ borderTop: `1px solid ${T.border}` }}>
+                        <td style={{ color: T.muted, padding: "7px 8px 7px 0" }}>{NOME_FAMILIA[f] || "Família " + f}</td>
+                        {modos.map((m) => <td key={m} style={{ fontFamily: MONO, fontWeight: 700, color: T.text, padding: "7px 8px" }}>{celula(f, m)}</td>)}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <div style={{ marginTop: "8px", fontSize: "11px", color: T.faint }}>Cada célula mostra explorados/vistos; o denominador está sempre visível.</div>
+            </Card>
+            <Card title="WAU">
+              <EventoComSerie label="Usuários ativos em 7 dias" value={data.wau7d} serie={paraSparkline(data.series?.wau)} />
+              <div style={{ marginTop: "8px", fontSize: "11px", color: T.faint }}>Fonte da série: {data.fonteSerie}.</div>
+            </Card>
+            <div style={{ fontSize: "11px", color: T.faint, marginBottom: "16px" }}>Sem meta e sem alerta. Compare a tendência após 4 semanas de baseline.</div>
+          </>
+        )}
+      </Estado>
+      {semDados && <div style={{ color: T.faint, fontSize: "13px" }}>Ainda não há eventos do card de fechamento neste período.</div>}
+    </>
+  );
+}
+
 function Comportamento() {
   const [dias, setDias] = useState(30);
   const { loading, error, data, reload } = useFetch(() => api.analyticsSummary(dias), [dias]);
@@ -304,6 +382,7 @@ function Comportamento() {
           Sem gráfico de tendência aqui: o funil depende da ORDEM de eventos por usuário, que só existe no dado bruto (90 dias de retenção) — o rollup diário não guarda isso.
         </div>
       </Card>
+      <EngajamentoFechamento dias={dias} />
       <Card title="Shown vs. dismissed" right={<button onClick={reload} style={btnGhost}>↻ atualizar</button>}>
         <Estado loading={loading} error={error} empty={data && (data.shownVsDismissed || []).length === 0}>
           {data && (data.shownVsDismissed || []).map((r) => (

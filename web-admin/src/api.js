@@ -52,6 +52,7 @@ export const api = {
   me: () => req("GET", "/api/auth/me"),
   agentStatus: () => req("GET", "/api/agent/status"),
   obsUsage: () => req("GET", "/api/obs/usage"),
+  analyticsEngajamento: (dias) => req("GET", "/api/analytics/engajamento" + (dias ? "?dias=" + encodeURIComponent(dias) : "")),
   analyticsSummary: (dias) => req("GET", "/api/analytics/summary" + (dias ? "?dias=" + encodeURIComponent(dias) : "")),
   iaEficiencia: () => req("GET", "/api/analytics/ia-eficiencia"),
   automacao: () => req("GET", "/api/analytics/automacao"),
