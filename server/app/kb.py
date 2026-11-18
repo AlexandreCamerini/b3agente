@@ -106,6 +106,11 @@ _FAMILIA_DO_CONCEITO = {
     # verbete de prosa própria, sem fonte determinística de card). Vive em
     # "mercado_b3" pelo mesmo motivo de `mkt-opcao`.
     "liquidez-opcao": "mercado_b3",
+    # Fase 51 (ENG-05): conceitos do card "Seu dia na bolsa". Amplitude é leitura
+    # do mercado inteiro (quantos ativos subiram/caíram); máxima/mínima de 52
+    # semanas é estrutura de preço do próprio ativo.
+    "amplitude": "mercado_b3",
+    "extremo-52-semanas": "estrutura",
 }
 
 
