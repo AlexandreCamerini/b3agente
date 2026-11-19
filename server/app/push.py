@@ -275,8 +275,9 @@ _REASON_HELP = {
         "OU alinhe APNS_SANDBOX no Railway: 1 = build do Xcode (sandbox); remova a variável = TestFlight/App Store (produção)."
     ),
     "BadDeviceToken": (
-        "o token deste aparelho pertence ao OUTRO ambiente (build do Xcode gera token de sandbox; "
-        "TestFlight/App Store gera de produção). Alinhe APNS_SANDBOX e toque de novo em 'Ativar push neste aparelho' — o token inválido foi descartado."
+        "a Apple recusou o token deste aparelho nos DOIS ambientes (o servidor já tenta produção e sandbox, "
+        "independente de APNS_SANDBOX) — token velho, de outro app ou de outra conta. "
+        "Toque de novo em 'Ativar push neste aparelho' — o token inválido foi descartado."
     ),
     "Unregistered": "o aparelho removeu o app ou o token expirou — token descartado; reative o push no aparelho.",
     "DeviceTokenNotForTopic": "o token não pertence a este app (APNS_TOPIC) — token descartado; confira o bundle id e reative o push.",
@@ -297,6 +298,15 @@ def explain_reason(reason: str) -> str:
 
 def env_label() -> str:
     return "sandbox (APNS_SANDBOX=1)" if os.environ.get("APNS_SANDBOX") == "1" else "produção"
+
+
+def _outro_host() -> str:
+    """Host do ambiente que NÃO é o principal — alvo do fallback de BadDeviceToken."""
+    return "https://api.push.apple.com" if os.environ.get("APNS_SANDBOX") == "1" else "https://api.sandbox.push.apple.com"
+
+
+def _outro_label() -> str:
+    return "produção" if os.environ.get("APNS_SANDBOX") == "1" else "sandbox"
 async def send_to_user(conn, user_id: str, title: str, body: str,
                        som: bool = True, prioridade: str = "10",
                        client=None, extra: Optional[dict] = None) -> dict:
@@ -336,31 +346,53 @@ async def send_to_user(conn, user_id: str, title: str, body: str,
     keep = list(toks)
     detalhes = []
 
+    async def _post(cli, host, tk):
+        r = await cli.post(
+            host + "/3/device/" + tk,
+            headers={
+                "authorization": "bearer " + _jwt(),
+                "apns-topic": os.environ["APNS_TOPIC"],
+                "apns-push-type": "alert",
+                "apns-priority": str(prioridade),
+            },
+            content=json.dumps(payload),
+        )
+        if r.status_code == 200:
+            return 200, ""
+        try:
+            reason = (r.json() or {}).get("reason", "")
+        except Exception:  # noqa: BLE001
+            reason = ""
+        return r.status_code, reason
+
     async def _enviar(cli):
         nonlocal sent
         for tk in toks:
             try:
-                r = await cli.post(
-                    _host() + "/3/device/" + tk,
-                    headers={
-                        "authorization": "bearer " + _jwt(),
-                        "apns-topic": os.environ["APNS_TOPIC"],
-                        "apns-push-type": "alert",
-                        "apns-priority": str(prioridade),
-                    },
-                    content=json.dumps(payload),
-                )
-                if r.status_code == 200:
+                status, reason = await _post(cli, _host(), tk)
+                rotulo = env_label()
+                # Fallback de ambiente (2026-11-18): o servidor fala com UM host
+                # (APNS_SANDBOX), mas build do Xcode gera token de sandbox e
+                # TestFlight/App Store de produção. BadDeviceToken no host
+                # principal → tenta o outro antes de descartar o token. Só
+                # funciona com chave .p8 sem restrição de ambiente (a 42D5CDUT49
+                # é); chave restrita devolve BadEnvironmentKeyInToken no outro
+                # host e o token cai no descarte normal.
+                if reason == "BadDeviceToken":
+                    status2, reason2 = await _post(cli, _outro_host(), tk)
+                    if status2 == 200:
+                        status, reason = 200, ""
+                    else:
+                        rotulo = f"{env_label()} e {_outro_label()}"
+                        if reason2 not in ("BadDeviceToken", ""):
+                            status, reason = status2, reason2
+                if status == 200:
                     sent += 1
                 else:
-                    try:
-                        reason = (r.json() or {}).get("reason", "")
-                    except Exception:  # noqa: BLE001
-                        reason = ""
                     # FASE 6 (fix 5): reason cru + ambiente em uso + instrução exata
                     ajuda = explain_reason(reason)
                     detalhes.append(
-                        (f"{tk[:10]}…: HTTP {r.status_code} {reason} [ambiente: {env_label()}]"
+                        (f"{tk[:10]}…: HTTP {status} {reason} [ambiente: {rotulo}]"
                          + (f" → {ajuda}" if ajuda else "")).strip()
                     )
                     if reason in _DROP_TOKEN_REASONS and tk in keep:
