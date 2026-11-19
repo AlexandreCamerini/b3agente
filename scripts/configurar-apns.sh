@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # configurar-apns.sh — Boris+ · configura o push (APNs) no Railway em 1 comando.
 #
-#   bash scripts/configurar-apns.sh 22Y76F52NJ             # lê $P8_DIR/AuthKey_22Y76F52NJ.p8
-#   bash scripts/configurar-apns.sh 22Y76F52NJ --sandbox   # build de desenvolvimento
+#   bash scripts/configurar-apns.sh 42D5CDUT49             # lê $P8_DIR/AuthKey_42D5CDUT49.p8
+#   bash scripts/configurar-apns.sh 42D5CDUT49 --sandbox   # build de desenvolvimento
 #   bash scripts/configurar-apns.sh                        # lista as chaves em $P8_DIR
 #   bash scripts/configurar-apns.sh /outro/AuthKey_XXXXXXXXXX.p8   # caminho explícito
 #
@@ -11,7 +11,8 @@
 #
 # Parâmetros JÁ preenchidos com os dados da conta do Alex (confira se mudar):
 #   APNS_TEAM_ID = LC65399YC9   (Membership da conta Apple Developer)
-#   APNS_KEY_ID  = 22Y76F52NJ   (chave "notification" criada no portal)
+#   APNS_KEY_ID  = 42D5CDUT49   (vale em produção E sandbox — 2026-11-18; a antiga
+#                               22Y76F52NJ é só sandbox e dava BadEnvironmentKeyInToken)
 #   APNS_TOPIC   = com.alexandrecamerini.bolsia  (appId do capacitor.config.ts)
 #
 # SEGURANÇA: a chave .p8 NUNCA entra no git (o .gitignore bloqueia *.p8 e o
@@ -28,7 +29,7 @@ TEAM_ID="LC65399YC9"
 # nomeia o arquivo como AuthKey_<KEYID>.p8, então o script DETECTA o ID do
 # próprio arquivo (troca de chave nunca mais exige editar este script).
 # Fallback: a última chave conhecida; override: KEY_ID=XXXX bash scripts/...
-KEY_ID="${KEY_ID:-22Y76F52NJ}"
+KEY_ID="${KEY_ID:-42D5CDUT49}"
 TOPIC="com.alexandrecamerini.bolsia"
 # Serviço do backend no Railway. Sem --service, o CLI usa o serviço linkado ao
 # diretório — e com "Linked service: None" grava FORA do b3agente (achado
