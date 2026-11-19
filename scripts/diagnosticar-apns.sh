@@ -3,6 +3,7 @@
 #
 #   bash scripts/diagnosticar-apns.sh                       # lê as variáveis do Railway (serviço linkado)
 #   bash scripts/diagnosticar-apns.sh --environment staging # outro ambiente do Railway
+#   P8_DIR=/outra/pasta bash scripts/diagnosticar-apns.sh   # .p8 locais fora de /Users/acamerini/p8
 #
 # Lê APNS_* (e SIWA_* para comparação) via `railway variables --json` e entrega
 # por PIPE ao scripts/diagnosticar_apns.py: nada de segredo em argumento, arquivo
@@ -21,5 +22,13 @@ PY="server/.venv/bin/python"
   || die "faltam dependências no server/.venv — rode: server/.venv/bin/python -m pip install -r server/requirements.txt"
 command -v railway >/dev/null 2>&1 || die "Railway CLI ausente (npm i -g @railway/cli) — ou exporte as APNS_* e rode: $PY scripts/diagnosticar_apns.py --from-env"
 railway status >/dev/null 2>&1 || die "Railway CLI não está linkado a este diretório — rode: railway link (projeto bolsIA, serviço do backend)"
+
+# Pasta dos AuthKey_*.p8 que o diagnóstico cruza com a chave do Railway.
+export P8_DIR="${P8_DIR:-/Users/acamerini/p8}"
+if [ -d "$P8_DIR" ]; then
+  printf "  .p8 locais lidos de %s (%s arquivo(s) AuthKey_*.p8)\n" "$P8_DIR" "$(ls "$P8_DIR" | grep -cE '^AuthKey_[A-Z0-9]{10}\.p8$' || true)"
+else
+  printf "  \033[33m[!]\033[0m pasta %s não existe — o cruzamento com arquivos locais vai ser pulado\n" "$P8_DIR"
+fi
 
 railway variables --json "$@" | "$PY" scripts/diagnosticar_apns.py

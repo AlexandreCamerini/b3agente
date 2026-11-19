@@ -1,8 +1,13 @@
 #!/usr/bin/env bash
 # configurar-apns.sh — Boris+ · configura o push (APNs) no Railway em 1 comando.
 #
-#   bash scripts/configurar-apns.sh /Users/acamerini/p8/AuthKey_22Y76F52NJ.p8
-#   bash scripts/configurar-apns.sh /Users/acamerini/p8/AuthKey_22Y76F52NJ.p8 --sandbox   # build de desenvolvimento
+#   bash scripts/configurar-apns.sh 22Y76F52NJ             # lê $P8_DIR/AuthKey_22Y76F52NJ.p8
+#   bash scripts/configurar-apns.sh 22Y76F52NJ --sandbox   # build de desenvolvimento
+#   bash scripts/configurar-apns.sh                        # lista as chaves em $P8_DIR
+#   bash scripts/configurar-apns.sh /outro/AuthKey_XXXXXXXXXX.p8   # caminho explícito
+#
+# P8_DIR (padrão /Users/acamerini/p8) é a pasta dos AuthKey_*.p8 baixados do
+# portal Apple — a mesma que o diagnosticar-apns.sh varre.
 #
 # Parâmetros JÁ preenchidos com os dados da conta do Alex (confira se mudar):
 #   APNS_TEAM_ID = LC65399YC9   (Membership da conta Apple Developer)
@@ -25,6 +30,7 @@ TEAM_ID="LC65399YC9"
 # Fallback: a última chave conhecida; override: KEY_ID=XXXX bash scripts/...
 KEY_ID="${KEY_ID:-22Y76F52NJ}"
 TOPIC="com.alexandrecamerini.bolsia"
+P8_DIR="${P8_DIR:-/Users/acamerini/p8}"
 
 P8=""; SANDBOX=""
 for arg in "$@"; do
@@ -33,7 +39,16 @@ for arg in "$@"; do
     *) P8="$arg" ;;
   esac
 done
-[ -n "$P8" ] || die "informe o caminho do .p8 (ex.: /Users/acamerini/p8/AuthKey_${KEY_ID}.p8)"
+if [ -z "$P8" ]; then
+  [ -d "$P8_DIR" ] || die "pasta $P8_DIR não existe — crie e mova os AuthKey_*.p8 para lá (ou P8_DIR=/outra/pasta)"
+  printf "  chaves em %s:\n" "$P8_DIR"
+  ls "$P8_DIR" | sed -n 's/^AuthKey_\([A-Z0-9]\{10\}\)\.p8$/    \1/p'
+  die "informe o Key ID (ex.: bash scripts/configurar-apns.sh ${KEY_ID}) ou o caminho do .p8"
+fi
+# Só o Key ID (10 caracteres) → arquivo padrão da Apple dentro de P8_DIR.
+if printf "%s" "$P8" | grep -qE '^[A-Z0-9]{10}$'; then
+  P8="$P8_DIR/AuthKey_$P8.p8"
+fi
 P8="${P8/#\~/$HOME}"
 [ -f "$P8" ] || die "arquivo não encontrado: $P8"
 
