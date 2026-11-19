@@ -4,6 +4,7 @@ Chamado por scripts/diagnosticar-apns.sh (que lê as variáveis do Railway e as
 entrega por stdin, em JSON). Também roda sozinho com as variáveis no ambiente:
 
     server/.venv/bin/python scripts/diagnosticar_apns.py --from-env
+    server/.venv/bin/python scripts/diagnosticar_apns.py --testar-locais   # cada .p8 de P8_DIR na Apple
 
 O que confere, em ordem:
   1. presença de APNS_TEAM_ID, APNS_KEY_ID, APNS_AUTH_KEY, APNS_TOPIC (e o valor de APNS_SANDBOX);
@@ -167,7 +168,52 @@ def interpretar(ambiente: str, status: int, motivo: str) -> tuple[bool, str]:
     return False, f"resposta inesperada {status} {motivo}"
 
 
+def testar_locais() -> int:
+    """Assina o JWT com CADA AuthKey_<KID>.p8 de P8_DIR e pergunta à Apple qual é aceita.
+
+    Não lê o Railway: responde "qual das minhas chaves tem APNs e está viva?".
+    Team e topic vêm de APNS_TEAM_ID/APNS_TOPIC no ambiente ou dos valores esperados.
+    """
+    team = (os.environ.get("APNS_TEAM_ID") or TEAM_ESPERADO).strip()
+    topic = (os.environ.get("APNS_TOPIC") or TOPIC_ESPERADO).strip()
+    secao(f"Chaves em {P8_DIR} × Apple (team {team}, topic {topic}; token de aparelho falso)")
+    arquivos = sorted(glob.glob(os.path.join(P8_DIR, "AuthKey_*.p8")))
+    vistos: set[str] = set()
+    aceitas: list[str] = []
+    for caminho in arquivos:
+        m = re.search(r"AuthKey_([A-Z0-9]{10})\.p8$", caminho)
+        if not m or m.group(1) in vistos:  # ignora "AuthKey_X - cópia.p8"
+            continue
+        kid = m.group(1)
+        vistos.add(kid)
+        try:
+            with open(caminho, encoding="utf-8") as f:
+                pem = f.read()
+            carregar_chave(pem)
+        except Exception as e:
+            falha(f"{kid}: arquivo ilegível ({type(e).__name__})")
+            continue
+        for amb, (status, motivo) in sondar_apple(team, kid, pem, topic).items():
+            aceito, texto = interpretar(amb, status, motivo)
+            (ok if aceito else aviso)(f"{kid} · {amb}: HTTP {status} {motivo} → {texto}")
+            if aceito and amb == "produção":
+                aceitas.append(kid)
+    print()
+    if not vistos:
+        print(f"nenhum AuthKey_<KID>.p8 em {P8_DIR}")
+        return 1
+    if aceitas:
+        print(f"{VERDE}{NEGRITO}Aceita(s) em produção: {', '.join(aceitas)}.{FIM} "
+              f"Configure com: bash scripts/configurar-apns.sh {aceitas[0]}")
+        return 0
+    print(f"{VERMELHO}{NEGRITO}Nenhuma chave local foi aceita em produção.{FIM} Todas revogadas, sem APNs "
+          f"ou de outro time: crie uma chave nova com APNs em developer.apple.com → Keys e salve em {P8_DIR}.")
+    return 1
+
+
 def main() -> int:
+    if "--testar-locais" in sys.argv:
+        return testar_locais()
     if "--from-env" in sys.argv:
         vars_ = dict(os.environ)
     else:

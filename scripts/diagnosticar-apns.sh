@@ -3,6 +3,7 @@
 #
 #   bash scripts/diagnosticar-apns.sh                       # lê as variáveis do Railway (serviço linkado)
 #   bash scripts/diagnosticar-apns.sh --environment staging # outro ambiente do Railway
+#   bash scripts/diagnosticar-apns.sh --testar-locais         # qual .p8 de P8_DIR a Apple aceita (sem Railway)
 #   P8_DIR=/outra/pasta bash scripts/diagnosticar-apns.sh   # .p8 locais fora de /Users/acamerini/p8
 #
 # Lê APNS_* (e SIWA_* para comparação) via `railway variables --json` e entrega
@@ -20,6 +21,11 @@ PY="server/.venv/bin/python"
 [ -x "$PY" ] || die "server/.venv ausente — crie com: python3.12 -m venv server/.venv && server/.venv/bin/python -m pip install -r server/requirements.txt"
 "$PY" -c "import jwt, httpx, h2, cryptography" 2>/dev/null \
   || die "faltam dependências no server/.venv — rode: server/.venv/bin/python -m pip install -r server/requirements.txt"
+# --testar-locais: testa cada AuthKey_*.p8 de P8_DIR direto na Apple, sem Railway.
+if [ "${1:-}" = "--testar-locais" ]; then
+  export P8_DIR="${P8_DIR:-/Users/acamerini/p8}"
+  exec "$PY" scripts/diagnosticar_apns.py --testar-locais
+fi
 command -v railway >/dev/null 2>&1 || die "Railway CLI ausente (npm i -g @railway/cli) — ou exporte as APNS_* e rode: $PY scripts/diagnosticar_apns.py --from-env"
 railway status >/dev/null 2>&1 || die "Railway CLI não está linkado a este diretório — rode: railway link (projeto bolsIA, serviço do backend)"
 
