@@ -30,6 +30,10 @@ TEAM_ID="LC65399YC9"
 # Fallback: a última chave conhecida; override: KEY_ID=XXXX bash scripts/...
 KEY_ID="${KEY_ID:-22Y76F52NJ}"
 TOPIC="com.alexandrecamerini.bolsia"
+# Serviço do backend no Railway. Sem --service, o CLI usa o serviço linkado ao
+# diretório — e com "Linked service: None" grava FORA do b3agente (achado
+# 2026-11-18: chave nova aplicada e o servidor seguia com a velha).
+RAILWAY_SERVICE="${RAILWAY_SERVICE:-b3agente}"
 P8_DIR="${P8_DIR:-/Users/acamerini/p8}"
 
 P8=""; SANDBOX=""
@@ -77,10 +81,10 @@ KEY_CONTENT="$(cat "$P8")"
 
 say "2/3 · Aplicando as variáveis no Railway"
 if command -v railway >/dev/null 2>&1 && railway status >/dev/null 2>&1; then
-  railway variables --set "APNS_TEAM_ID=$TEAM_ID" --set "APNS_KEY_ID=$KEY_ID" \
+  railway variables --service "$RAILWAY_SERVICE" --set "APNS_TEAM_ID=$TEAM_ID" --set "APNS_KEY_ID=$KEY_ID" \
     --set "APNS_TOPIC=$TOPIC" --set "APNS_AUTH_KEY=$KEY_CONTENT" \
     ${SANDBOX:+--set "APNS_SANDBOX=1"} || die "railway variables falhou — use o caminho manual abaixo"
-  ok "variáveis aplicadas via Railway CLI (redeploy automático)"
+  ok "variáveis aplicadas no serviço $RAILWAY_SERVICE via Railway CLI (redeploy automático)"
 else
   echo "  Railway CLI ausente/não logado — caminho manual (2 minutos):"
   if command -v pbcopy >/dev/null 2>&1; then

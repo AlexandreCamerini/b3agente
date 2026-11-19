@@ -27,7 +27,7 @@ if [ "${1:-}" = "--testar-locais" ]; then
   exec "$PY" scripts/diagnosticar_apns.py --testar-locais
 fi
 command -v railway >/dev/null 2>&1 || die "Railway CLI ausente (npm i -g @railway/cli) — ou exporte as APNS_* e rode: $PY scripts/diagnosticar_apns.py --from-env"
-railway status >/dev/null 2>&1 || die "Railway CLI não está linkado a este diretório — rode: railway link (projeto bolsIA, serviço do backend)"
+railway status >/dev/null 2>&1 || die "Railway CLI não está linkado a este diretório — rode: railway link (projeto bolsIA)"
 
 # Pasta dos AuthKey_*.p8 que o diagnóstico cruza com a chave do Railway.
 export P8_DIR="${P8_DIR:-/Users/acamerini/p8}"
@@ -37,4 +37,8 @@ else
   printf "  \033[33m[!]\033[0m pasta %s não existe — o cruzamento com arquivos locais vai ser pulado\n" "$P8_DIR"
 fi
 
-railway variables --json "$@" | "$PY" scripts/diagnosticar_apns.py
+# Serviço explícito: com "Linked service: None" o CLI leria variáveis que o
+# b3agente não usa (achado 2026-11-18).
+RAILWAY_SERVICE="${RAILWAY_SERVICE:-b3agente}"
+printf "  variáveis lidas do serviço %s\n" "$RAILWAY_SERVICE"
+railway variables --service "$RAILWAY_SERVICE" --json "$@" | "$PY" scripts/diagnosticar_apns.py
