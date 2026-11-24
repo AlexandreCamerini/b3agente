@@ -6897,7 +6897,7 @@ function PushInfoWidget({ refreshKey }) {
   useEffect(() => { carregar(); }, [refreshKey]);
   const fmt = (t) => { try { return new Date(t * 1000).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }); } catch { return "—"; } };
   const { info } = st;
-  const chip = (txt, ok) => (
+  const selo = (txt, ok) => (
     <span style={{ padding: "2px 8px", borderRadius: "999px", fontSize: "11px", fontWeight: 700, border: `1px solid ${ok ? T.positive : T.negative}`, color: ok ? T.positive : T.negative }}>{txt}</span>
   );
   const classes = [["gatilho", "Gatilho"], ["radar", "Radar"], ["execucao", "Execuções"], ["protecao", "Proteção"], ["fechamento", "Fechamento"]];
@@ -6912,8 +6912,8 @@ function PushInfoWidget({ refreshKey }) {
       {info && (
         <>
           <div style={{ display: "flex", gap: "6px", flexWrap: "wrap", marginTop: "9px" }}>
-            {chip(info.configurado ? "APNs configurado" : "APNs NÃO configurado", info.configurado)}
-            {chip(info.aparelhos > 0 ? info.aparelhos + " aparelho(s)" : "nenhum aparelho", info.aparelhos > 0)}
+            {selo(info.configurado ? "APNs configurado" : "APNs NÃO configurado", info.configurado)}
+            {selo(info.aparelhos > 0 ? info.aparelhos + " aparelho(s)" : "nenhum aparelho", info.aparelhos > 0)}
             <span style={{ padding: "2px 8px", borderRadius: "999px", fontSize: "11px", fontWeight: 700, border: `1px solid ${T.borderSubtle}`, color: T.textMuted }}>{info.ambiente}</span>
           </div>
           <div style={{ marginTop: "9px", fontSize: "12px", color: T.textMuted, lineHeight: 1.5 }}>
