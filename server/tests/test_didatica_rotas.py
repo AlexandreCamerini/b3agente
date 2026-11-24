@@ -25,6 +25,10 @@ CHAVES_TIMING = {
     "riscoPorAcao", "setup", "fechamento15m", "asOf", "barraEmFormacao",
     "lacuna", "cobertura", "distancia", "distanciaEmR", "excedente",
     "excedenteEmR", "motivo", "foraDoPregao", "barraDeOutroDia",
+    # Nota (Fase 50, D-08, plano 50-05): o timing expõe os níveis do plano do
+    # MOTOR (determinístico, não didática) — mesma nota de
+    # test_didatica_isolamento.py; este guardião ficou para trás na época.
+    "alvo", "alvo1", "gatilho", "invalidacao",
 }
 
 
