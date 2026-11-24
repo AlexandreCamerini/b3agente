@@ -5860,6 +5860,13 @@ async def agent_log(n: int = 50, user: dict = Depends(require_user)):
     return {"log": list(reversed(log[-n:])), "total": len(log)}
 
 
+@app.get("/api/push/info")
+async def push_info(user: dict = Depends(require_user)):
+    """Widget de informações do push: servidor configurado, ambiente, aparelhos,
+    preferências e últimos envios desta conta."""
+    return push.info_for(_conn, user["id"])
+
+
 @app.post("/api/push/test")
 async def push_test(user: dict = Depends(require_user)):
     """BLOCO E2 + FASE 3 (observabilidade): smoke test do APNs, com o MOTIVO
