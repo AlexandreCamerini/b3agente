@@ -6883,6 +6883,64 @@ function AgenteScreen({ ctx }) {
   );
 }
 
+// Widget de informações do push (servidor): estado da conta lido de
+// /api/push/info — nada calculado aqui, só exibição. `refreshKey` força
+// recarga após ativar/testar. Estados: carregando, erro, vazio, ok.
+function PushInfoWidget({ refreshKey }) {
+  const [st, setSt] = useState({ loading: true, info: null, err: "" });
+  const carregar = () => {
+    setSt((o) => ({ ...o, loading: true, err: "" }));
+    store.pushInfo()
+      .then((info) => setSt({ loading: false, info, err: "" }))
+      .catch((e) => setSt({ loading: false, info: null, err: (e && e.message) || "falha ao ler o push" }));
+  };
+  useEffect(() => { carregar(); }, [refreshKey]);
+  const fmt = (t) => { try { return new Date(t * 1000).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }); } catch { return "—"; } };
+  const { info } = st;
+  const selo = (txt, ok) => (
+    <span style={{ padding: "2px 8px", borderRadius: "999px", fontSize: "11px", fontWeight: 700, border: `1px solid ${ok ? T.positive : T.negative}`, color: ok ? T.positive : T.negative }}>{txt}</span>
+  );
+  const classes = [["gatilho", "Gatilho"], ["radar", "Radar"], ["execucao", "Execuções"], ["protecao", "Proteção"], ["fechamento", "Fechamento"]];
+  return (
+    <div role="region" aria-label="Informações do push" style={{ marginTop: "14px", padding: "12px", borderRadius: "10px", background: T.bgBase, border: `1px solid ${T.borderFaint}` }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px" }}>
+        <div style={{ fontSize: "11px", fontWeight: 800, letterSpacing: "0.05em", color: T.textSecondary }}>INFORMAÇÕES DO PUSH</div>
+        <button onClick={carregar} disabled={st.loading} style={{ background: "transparent", border: "none", color: T.accent, fontSize: "12px", fontWeight: 700, opacity: st.loading ? 0.6 : 1 }}>{st.loading ? "atualizando…" : "↻ atualizar"}</button>
+      </div>
+      {st.err && <div style={{ marginTop: "8px", fontSize: "12px", color: T.negative, lineHeight: 1.4 }}>{st.err}</div>}
+      {!info && !st.err && st.loading && <div style={{ marginTop: "8px", fontSize: "12px", color: T.textFaint }}>carregando…</div>}
+      {info && (
+        <>
+          <div style={{ display: "flex", gap: "6px", flexWrap: "wrap", marginTop: "9px" }}>
+            {selo(info.configurado ? "APNs configurado" : "APNs NÃO configurado", info.configurado)}
+            {selo(info.aparelhos > 0 ? info.aparelhos + " aparelho(s)" : "nenhum aparelho", info.aparelhos > 0)}
+            <span style={{ padding: "2px 8px", borderRadius: "999px", fontSize: "11px", fontWeight: 700, border: `1px solid ${T.borderSubtle}`, color: T.textMuted }}>{info.ambiente}</span>
+          </div>
+          <div style={{ marginTop: "9px", fontSize: "12px", color: T.textMuted, lineHeight: 1.5 }}>
+            Avisos ligados: {classes.filter(([k]) => info.prefs && info.prefs[k]).map(([, l]) => l).join(", ") || "nenhum"}
+          </div>
+          <div style={{ marginTop: "4px", fontSize: "12px", color: T.textMuted }}>
+            Último envio com sucesso: {info.ultimoOk ? fmt(info.ultimoOk) : "nenhum ainda"}
+          </div>
+          <div style={{ marginTop: "9px" }}>
+            {(info.ultimos || []).length === 0 && <div style={{ fontSize: "12px", color: T.textFaint }}>Nenhuma mensagem enviada ainda. Use “Testar push” para ver uma aqui.</div>}
+            {(info.ultimos || []).slice(0, 5).map((e, i) => (
+              <div key={i} style={{ padding: "6px 0", borderTop: `1px dashed ${T.borderFaint}`, fontSize: "12px", lineHeight: 1.4 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", gap: "8px" }}>
+                  <span style={{ fontWeight: 700, color: T.textSecondary, minWidth: 0 }}>{e.titulo}</span>
+                  <span style={{ color: e.enviados > 0 ? T.positive : T.negative, fontFamily: MONO, whiteSpace: "nowrap" }}>{e.enviados}/{e.total} · {fmt(e.at)}</span>
+                </div>
+                {e.corpo && <div style={{ color: T.textMuted }}>{e.corpo}</div>}
+                {e.erro && <div style={{ color: T.negative }}>{e.erro}</div>}
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 // FASE 6 (fix 4) — CENTRAL ÚNICA de notificações. Antes os controles viviam em
 // três lugares (Config = locais; Operador IA = ativar push; Observabilidade =
 // testar push) e o "Pedir permissão" parecia morto: depois de UMA negativa o
@@ -6931,6 +6989,8 @@ function NotifSection({ ctx }) {
   const logged = !!ctx.authUser;
   const [pushMsg, setPushMsg] = useState("");
   const [pushBusy, setPushBusy] = useState(false);
+  const [pushRev, setPushRev] = useState(0);
+  useEffect(() => { if (!pushBusy) setPushRev((n) => n + 1); }, [pushBusy]);
   const onAtivarPush = async () => {
     setPushBusy(true); setPushMsg("registrando este aparelho no push…");
     try {
@@ -7092,6 +7152,8 @@ function NotifSection({ ctx }) {
           )}
         </div>
       )}
+
+      {logged && <PushInfoWidget refreshKey={pushRev} />}
 
       {/* 260824-kc2: O QUE o push do servidor pode avisar. Bloco PRÓPRIO,
           separado do de classes locais lá em cima, porque o mestre é outro

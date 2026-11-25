@@ -346,6 +346,7 @@ function serverStore() {
     agentLog: (n) => api.agentLog(n),                              // FASE 3: Diário do operador
     agentRunNow: () => api.agentRunNow(),                          // BLOCO D4
     pushTest: () => api.pushTest(),                                // BLOCO E2
+    pushInfo: () => api.pushInfo(),                                // widget de info do push
     optionsExpirations: (t) => api.optionsExpirations(t),
     optionsChain: (t, expiration) => api.optionsChain(t, expiration),
     analyzeOption: (body) => api.analyzeOption(body),
@@ -1338,6 +1339,7 @@ function deviceStore() {
     async agentStatus() { ensure(); return api.agentStatus(); },     // BLOCO D3
     async agentRunNow() { ensure(); return api.agentRunNow(); },     // BLOCO D4
     async pushTest() { ensure(); return api.pushTest(); },           // BLOCO E2
+    async pushInfo() { ensure(); return api.pushInfo(); },           // widget de info do push
     async optionsExpirations(t) {
       ensure();
       return api.optionsExpirations(t);

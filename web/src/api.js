@@ -320,6 +320,7 @@ export const api = {
   agentRunNow: () => req("POST", "/api/agent/run-now", {}),                      // BLOCO D4 + FASE 3: responde na hora (ciclo em background)
   agentLog: (n) => req("GET", "/api/agent/log" + (n ? "?n=" + n : "")),           // FASE 3: Diário do operador
   pushTest: () => req("POST", "/api/push/test", {}, 20000),                      // BLOCO E2
+  pushInfo: () => req("GET", "/api/push/info", undefined, 15000),                // widget de info do push
   optionsExpirations: (t) => req("GET", "/api/options/expirations/" + encodeURIComponent(t), undefined, 30000),
   optionsChain: (t, expiration) => req("GET", "/api/options/chain/" + encodeURIComponent(t) + (expiration ? "?expiration=" + encodeURIComponent(expiration) : ""), undefined, 30000),
   analyzeOption: (body) => req("POST", "/api/options/analyze", body, TIMEOUT_LLM),

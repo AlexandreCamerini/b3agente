@@ -407,4 +407,42 @@ async def send_to_user(conn, user_id: str, title: str, body: str,
             await _enviar(cli)
     if keep != toks:
         db.kv_set(conn, "pushTokens", keep, user_id=user_id)
+    _registrar_envio(conn, user_id, title, body, sent, len(toks), detalhes)
     return {"sent": sent, "total": len(toks), "detalhes": detalhes}
+
+
+# ------------------- histórico de envios (widget de info) -------------------
+HISTORICO_MAX = 15
+
+
+def _registrar_envio(conn, user_id: str, title: str, body: str, sent: int,
+                     total: int, detalhes: list) -> None:
+    """Guarda os últimos envios por usuário para o widget de informações do
+    push. Best-effort: falha de gravação nunca derruba o envio. Só metadados
+    do que o servidor JÁ enviou — nada de valor calculado pela IA."""
+    try:
+        h = db.kv_get(conn, "pushHistorico", [], user_id=user_id) or []
+        h.append({"at": time.time(), "titulo": (title or "")[:80],
+                  "corpo": (body or "")[:140], "enviados": int(sent),
+                  "total": int(total),
+                  "erro": ("; ".join(detalhes)[:200] if sent == 0 and detalhes else None)})
+        db.kv_set(conn, "pushHistorico", h[-HISTORICO_MAX:], user_id=user_id)
+    except Exception:  # noqa: BLE001
+        pass
+
+
+def info_for(conn, user_id: str) -> dict:
+    """Estado do push desta conta para o widget: configuração do servidor,
+    aparelhos, preferências e os últimos envios (mais recente primeiro).
+    Nunca expõe token inteiro nem chave."""
+    h = db.kv_get(conn, "pushHistorico", [], user_id=user_id) or []
+    toks = tokens_for(conn, user_id)
+    prefs = prefs_for(conn, user_id)
+    return {
+        "configurado": is_configured(),
+        "ambiente": env_label(),
+        "aparelhos": len(toks),
+        "prefs": {k: bool(prefs.get(k)) for k in PREFS_BOOLS + ("fechamento",)},
+        "ultimos": list(reversed(h[-HISTORICO_MAX:])),
+        "ultimoOk": next((e["at"] for e in reversed(h) if e.get("enviados", 0) > 0), None),
+    }
