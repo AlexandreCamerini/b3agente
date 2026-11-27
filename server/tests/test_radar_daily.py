@@ -159,7 +159,9 @@ def test_push_body_nomeia_top3_com_veredito():
     assert "PETR4 86% estudar alta" in body
     assert "ITUB4 71% monitorar" in body
     assert "MGLU3" not in body, "top-3: o 4º não entra"
-    assert "4 ativos analisados" in body
+    # NOTA 261127: "4 ativos analisados" → "4 analisados" (corpo ≤110 no iPhone);
+    # a contagem continua obrigatória, só ficou mais curta.
+    assert "4 analisados" in body
 
 
 def test_push_body_sempre_diz_o_lado_nunca_so_o_percentual():

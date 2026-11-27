@@ -228,9 +228,15 @@ def test_corpo_usa_a_frase_canonica_e_diz_que_nada_foi_comprado(conn):
     e = _Espiao()
     _rodar(conn, _radar("PETR4"), _intra({"PETR4": 39.0}, hora="14:15"), e)
     corpo = e.enviados[0]["corpo"]
-    assert skill_ref.timing_txt("educacional", "gatilho", "14:15") in corpo
+    # NOTA 261127 (legibilidade do push no iPhone): o corpo deixou de embutir a
+    # frase longa do card (`timing_txt`, 94 caracteres só ela) e passou a vir de
+    # `skill_ref.PUSH_TIMING` (≤110 no total). A intenção do guardião fica: a
+    # frase é canônica (fonte única no skill_ref), diz "condição de estudo", que
+    # nada foi comprado e que o dado pode ter mudado.
+    assert skill_ref.PUSH_TIMING["gatilho"].replace("{hora}", "14:15") == corpo
     assert "Nada foi comprado" in corpo
     assert "pode ter mudado" in corpo   # a idade e a reversibilidade do dado
+    assert len(corpo) <= 110, "o banner do iOS corta por volta de 110 caracteres"
 
 
 def test_vocabulario_e_de_ESTUDO_mesmo_para_quem_esta_no_operador(conn):

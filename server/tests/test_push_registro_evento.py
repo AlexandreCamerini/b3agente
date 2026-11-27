@@ -90,18 +90,25 @@ def test_corpo_do_radar_envelopa_o_texto_qa43_sem_perder_nada():
         {"ticker": "VALE3", "confluencia": 100, "veredito": "Estudar baixa"},
         {"ticker": "PETR4", "confluencia": 86, "veredito": "Estudar alta"}]})
     baixo = corpo.lower()
-    assert "pré-abertura" in baixo and "não abriu" in baixo
+    # NOTA 261127 (legibilidade do push): "pré-abertura" vive no TÍTULO
+    # (`PUSH_RADAR["titulo"]`, travado em test_radar_daily); o corpo mantém a
+    # ressalva em forma curta ("Pode mudar ao abrir") e a contagem.
+    assert "pode mudar ao abrir" in baixo
     assert "VALE3 100% estudar baixa" in corpo    # veredito junto do percentual
-    assert "2 ativos analisados" in corpo
+    assert "2 analisados" in corpo
+    assert len(corpo) <= 110
 
 
 def test_corpo_vazio_do_radar_tambem_diz_pre_abertura():
     corpo = radar_daily.push_body({"results": [
         {"ticker": "VALE3", "confluencia": 0, "veredito": "Sem setup no momento"}]})
     baixo = corpo.lower()
-    assert "pré-abertura" in baixo and "não abriu" in baixo
+    # NOTA 261127: ver o teste acima — "pré-abertura" está no título; o corpo
+    # diz "Prévia" e que a abertura pode mudar.
+    assert "prévia" in baixo and "abertura pode mudar" in baixo
     assert "nenhum setup em destaque" in corpo
     assert "1 ativo(s) analisados" in corpo
+    assert len(corpo) <= 110
     assert "VALE3" not in corpo                   # confluência 0 não é destaque
 
 

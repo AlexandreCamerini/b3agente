@@ -275,7 +275,12 @@ def test_scheduler_push_do_operador_leva_marco_e_destino(monkeypatch):
     assert p["extra"] and TICKER_RE.match(p["extra"]["t"] or ""), \
         "sem `t` no formato de notify.js:382 o cliente descarta em silêncio"
     assert p["extra"]["kind"] == "operador"
-    assert "Resultado realizado" in p["body"]
+    # NOTA 261127 (legibilidade do push no iPhone): o corpo do PUSH deixou de ser
+    # o `text` do evento ("Resultado realizado: R$ -250.00") e passou a ser o
+    # corpo curto de `skill_ref.push_corpo` ("Resultado: -R$ 250,00"). O guardião
+    # segue travando o que importa — o RESULTADO do motor vai ao push — e o
+    # `text` do evento (acima, linha 159) continua com "Resultado realizado".
+    assert "Resultado:" in p["body"] and "-R$ 250,00" in p["body"]
 
 
 def test_scheduler_evento_sem_ticker_valido_nao_manda_t_morto(monkeypatch):

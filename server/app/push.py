@@ -307,9 +307,45 @@ def _outro_host() -> str:
 
 def _outro_label() -> str:
     return "produção" if os.environ.get("APNS_SANDBOX") == "1" else "sandbox"
+
+
+# Entrega por `kind` do evento (quick 261127 — legibilidade do push no iPhone).
+# `interruption-level`: "passive" entra na lista sem acender a tela nem tocar —
+# é o que cabe a leitura informativa (timing, prévia do Radar, resumo do
+# fechamento); "active" é o padrão do iOS e fica para operação JÁ executada.
+# NUNCA "time-sensitive": exige entitlement próprio e furaria o Foco — simulador
+# educacional não tem urgência que justifique isso. `expira_s` só no timing:
+# "condição atingida às 11:15" entregue às 12:00 afirma o que já não vale.
+# `kind` fora da tabela (teste, admin) → sem campo: o iOS aplica o padrão.
+ENTREGA_POR_KIND = {
+    "ordem": {"nivel": "active"},
+    "operador": {"nivel": "active"},
+    "timing": {"nivel": "passive", "expira_s": 1800},
+    "radar": {"nivel": "passive"},
+    "fechamento": {"nivel": "passive"},
+}
+
+
+def entrega_do_kind(kind) -> dict:
+    """`{"nivel": ..., "expira_s": ...}` do kind; `{}` se desconhecido."""
+    return dict(ENTREGA_POR_KIND.get(str(kind or ""), {}))
+
+
+def subtitulo_do_ticker(ticker) -> Optional[str]:
+    """Subtítulo "PETR4 · Petrobras PN" a partir da tabela FIXA do catálogo.
+    Ticker fora do catálogo → None (omite o campo; nunca inventa nome)."""
+    from . import catalog
+    t = str(ticker or "").strip().upper()
+    if not t or not catalog.is_catalog_ticker(t):
+        return None
+    return f"{t} · {catalog.name_of(t)}"
+
+
 async def send_to_user(conn, user_id: str, title: str, body: str,
                        som: bool = True, prioridade: str = "10",
-                       client=None, extra: Optional[dict] = None) -> dict:
+                       client=None, extra: Optional[dict] = None,
+                       thread_id: Optional[str] = None,
+                       subtitle: Optional[str] = None) -> dict:
     """Envia o push a todos os aparelhos do usuário.
 
     FASE 3 (observabilidade do push): devolve um DIAGNÓSTICO completo, não
@@ -331,9 +367,23 @@ async def send_to_user(conn, user_id: str, title: str, body: str,
     if not toks:
         return {"sent": 0, "total": 0, "detalhes": []}
     import httpx
-    aps = {"alert": {"title": title, "body": body}}
+    extra = extra or {}
+    # `thread-id` = ticker quando o push tem destino único: 3 avisos do mesmo
+    # ativo viram UM grupo na tela de bloqueio. Sem ticker, sem agrupamento.
+    tk_extra = str(extra.get("t") or "").strip().upper()
+    thread_id = thread_id or tk_extra or None
+    subtitle = subtitle or subtitulo_do_ticker(tk_extra)
+    alert = {"title": title, "body": body}
+    if subtitle:
+        alert["subtitle"] = subtitle
+    aps = {"alert": alert}
     if som:
         aps["sound"] = "default"
+    if thread_id:
+        aps["thread-id"] = thread_id
+    entrega = entrega_do_kind(extra.get("kind"))
+    if entrega.get("nivel"):
+        aps["interruption-level"] = entrega["nivel"]
     payload = {"aps": aps}
     # `extra` viaja FORA do `aps` (convenção da Apple para dados do app) e é o
     # que dá DESTINO ao toque: sem o ticker aqui, o app abre na aba inicial e
@@ -346,6 +396,11 @@ async def send_to_user(conn, user_id: str, title: str, body: str,
     keep = list(toks)
     detalhes = []
 
+    headers_extra = {}
+    if entrega.get("expira_s"):
+        # epoch absoluto (UTC), como a Apple exige; 0 significaria "não guardar".
+        headers_extra["apns-expiration"] = str(int(time.time()) + int(entrega["expira_s"]))
+
     async def _post(cli, host, tk):
         r = await cli.post(
             host + "/3/device/" + tk,
@@ -354,6 +409,7 @@ async def send_to_user(conn, user_id: str, title: str, body: str,
                 "apns-topic": os.environ["APNS_TOPIC"],
                 "apns-push-type": "alert",
                 "apns-priority": str(prioridade),
+                **headers_extra,
             },
             content=json.dumps(payload),
         )

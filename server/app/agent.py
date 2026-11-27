@@ -884,6 +884,7 @@ async def _avaliar_entradas(conn, scope, ag, par, app_mode, positions, executed:
         # `t`/`tag` (260824-i45, itens 1 e 2): destino do toque e marco do
         # título. O `text` fica byte a byte como estava.
         events.append({"time": _now_str(), "kind": "buy", "t": ticker, "tag": "entrada-auto",
+                       "preco": price, "qty": qty, "pctCaixa": par["allocPct"],   # 261127: corpo curto do push
                        "text": f"Entrada automática: {ticker} comprado ({qty} ações, "
                                f"{par['allocPct']:.0f}% do caixa) a R$ {price:.2f} — gatilho de entrada "
                                f"atingido."})
@@ -1366,8 +1367,13 @@ async def _run_cycle_inner(conn, scope, quotes_getter, origem: str, t0: float, s
                     f" Resultado realizado: R$ {pnl:+.2f}.")
         # `t`/`tag` (item 2): o marco já existia como `breach_stop`/`motivo` e
         # morria aqui — só `text` viajava até o push, que caía no genérico.
+        # 261127: `preco` alimenta o CORPO curto do push (`skill_ref.push_corpo`).
+        # Venda PARCIAL não leva `preco`: o corpo curto não diria quantas ações
+        # ficaram travadas, então ela cai no `text` completo (cortado em 110).
         events.append({"time": _now_str(), "kind": "buy", "t": pos["t"],
-                       "tag": "stop" if breach_stop else "alvo", "pnl": pnl, "text": _txt})
+                       "tag": "stop" if breach_stop else "alvo", "pnl": pnl,
+                       **({"preco": price} if livre >= (pos.get("qty") or 0) else {}),
+                       "text": _txt})
     executed = await _avaliar_opcoes(conn, scope, ag, par, option_quotes_getter, executed, events,
                                       app_mode=app_mode, somente_vencimento=False)
     # Fase B: entrada automática — DEPOIS da saída (stop/alvo) e das opções,
@@ -1803,7 +1809,8 @@ async def scheduler_loop(conn, quotes_getter, notify_push=None, interval_s: int 
                                         _extra["t"] = _tk
                                     try:
                                         await notify_push(uid, skill_ref.push_titulo(_modo, ev.get("tag"), _tk),
-                                                          ev["text"], extra=_extra)
+                                                          skill_ref.push_corpo(_modo, ev.get("tag"), ev, ev["text"]),
+                                                          extra=_extra)
                                     except Exception:  # noqa: BLE001 — push é best-effort
                                         _registrar_push_falho()
                         LAST_PENDING.update(at=datetime.now(BRT).strftime("%d/%m %H:%M"),
@@ -1863,7 +1870,8 @@ async def scheduler_loop(conn, quotes_getter, notify_push=None, interval_s: int 
                                     _extra["t"] = _tk
                                 try:
                                     await notify_push(uid, skill_ref.push_titulo(_modo, e.get("tag"), _tk),
-                                                      e["text"], extra=_extra)
+                                                      skill_ref.push_corpo(_modo, e.get("tag"), e, e["text"]),
+                                                      extra=_extra)
                                 except Exception:  # noqa: BLE001 — push é best-effort
                                     _registrar_push_falho()
                     except Exception as e:  # noqa: BLE001 — 1 usuário não derruba o laço

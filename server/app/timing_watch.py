@@ -200,17 +200,19 @@ def mensagem(novos: list) -> tuple:
     if not novos:
         return None, None
     hora = timing._hora_de((novos[0][1] or {}).get("asOf")) or "—"
+    # 261127 (legibilidade): título "· condição atingida às HH:MM" (≤40 com
+    # ticker de 6 letras) e corpo ≤110 vindo de `skill_ref.PUSH_TIMING`. O
+    # carimbo continua no TÍTULO (ADR-001); a ressalva de dado atrasado e o
+    # "Nada foi comprado" ficam no corpo, curtos, antes do corte do banner.
     if len(novos) >= AGREGA_A_PARTIR_DE:
-        tickers = ", ".join(t for t, _ in novos)
-        return (f"{len(novos)} ativos · condição atingida na barra de {hora}",
-                f"{tickers}. Leitura da barra de 15m fechada às {hora} — pode ter "
-                "mudado desde então. Abra o app para ver o plano de cada um. "
-                "Nada foi comprado: a decisão continua sendo sua.")
+        nomes = [t for t, _ in novos]
+        # no máximo 4 nomes no corpo; o resto vira "+N" (lista longa estoura o banner)
+        lista = ", ".join(nomes[:4]) + (f" +{len(nomes) - 4}" if len(nomes) > 4 else "")
+        return (f"{len(novos)} ativos · condição atingida às {hora}",
+                skill_ref.PUSH_TIMING["agregado"].replace("{tickers}", lista).replace("{hora}", hora))
     t, r = novos[0]
-    return (f"{t} · condição atingida na barra de {hora}",
-            skill_ref.timing_txt("educacional", ESTADO_ALVO, hora)
-            + f" Leitura da barra de 15m fechada às {hora}; pode ter mudado desde "
-              "então — confira no app. Nada foi comprado.")
+    return (f"{t} · condição atingida às {hora}",
+            skill_ref.PUSH_TIMING["gatilho"].replace("{hora}", hora))
 
 
 async def rodar(conn, radar_stored, intra_stored, notificar, agora=None) -> int:

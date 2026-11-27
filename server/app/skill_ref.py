@@ -330,6 +330,81 @@ def push_titulo(modo: str, tag: str = "", ticker: str = "") -> str:
     return frase.replace("{t}", ticker)
 
 
+# --- CORPO do push do Operador (quick 261127 — legibilidade no iPhone) -------
+# O banner do iOS corta o corpo por volta de 110 caracteres; a informação que
+# a pessoa precisa (preço, resultado) vinha DEPOIS de um preâmbulo. O `text` do
+# evento NÃO muda (alimenta "Eventos e avisos recentes" e vários guardiões):
+# só o corpo do push é composto aqui, a partir dos números estruturados do
+# evento (`preco`, `pnl`, `qty`, `pctCaixa`) — todos calculados pelo motor,
+# nunca pela IA. Sem algum número → cai no `text` do evento, cortado em 110.
+# Título continua carregando "(simulado/simulada)": ver `PUSH_TITULOS`.
+PUSH_CORPO_MAX = 110
+
+PUSH_CORPOS = {
+    "operador": {
+        "stop": "Saída a {preco} (stop). Resultado: {pnl}.",
+        "alvo": "Saída a {preco} (alvo). Resultado: {pnl}.",
+        "entrada-auto": "Compra de {qty} a {preco} — {pct}% do caixa. Gatilho cumprido.",
+    },
+    "educacional": {
+        "stop": "Venda simulada a {preco} pelo stop. Resultado: {pnl}.",
+        "alvo": "Venda simulada a {preco} pelo alvo. Resultado: {pnl}.",
+        "entrada-auto": "Compra simulada de {qty} ações a {preco} ({pct}% do caixa).",
+    },
+}
+
+
+def _brl(v) -> str:
+    return "R$ " + num_br(v)
+
+
+def _brl_sinal(v) -> str:
+    """"+R$ 120,00" / "-R$ 184,00": o sinal vai na frente, nunca escondido."""
+    f = float(v)
+    return ("-" if f < 0 else "+") + "R$ " + num_br(abs(f))
+
+
+def cortar_push(txt, n: int = PUSH_CORPO_MAX) -> str:
+    """Normaliza espaços e corta em `n` caracteres com reticências."""
+    t = " ".join(str(txt or "").split())
+    return t if len(t) <= n else t[: n - 1].rstrip() + "…"
+
+
+def push_corpo(modo: str, tag: str, dados: dict, fallback: str = "") -> str:
+    """Corpo do push no vocabulário do modo (pt-BR, vírgula decimal, ≤110).
+
+    Degradação definida: modo desconhecido → educacional; tag sem frase ou
+    qualquer número ausente/inválido → `fallback` (o `text` do evento) cortado.
+    Nunca devolve placeholder cru nem número inventado."""
+    d = PUSH_CORPOS.get(modo if modo in PUSH_CORPOS else "educacional", PUSH_CORPOS["educacional"])
+    frase = d.get(tag or "")
+    dados = dados or {}
+    try:
+        if not frase:
+            return cortar_push(fallback)
+        vals = {
+            "preco": _brl(float(dados["preco"])) if "{preco}" in frase else "",
+            "pnl": _brl_sinal(dados["pnl"]) if "{pnl}" in frase else "",
+            "qty": str(int(dados["qty"])) if "{qty}" in frase else "",
+            "pct": f"{float(dados['pctCaixa']):.0f}" if "{pct}" in frase else "",
+        }
+    except (KeyError, TypeError, ValueError):
+        return cortar_push(fallback)
+    for k, v in vals.items():
+        frase = frase.replace("{" + k + "}", v)
+    return cortar_push(frase)
+
+
+# Corpo do aviso de gatilho (timing_watch). Vocabulário de ESTUDO nos dois
+# modos (canal interruptivo, sem contexto de tela — decisão do timing_watch).
+# O dado é atrasado (~15 min de feed + barra fechada): a ressalva fica no
+# corpo, curta, e o carimbo da hora vai no TÍTULO (única parte garantida).
+PUSH_TIMING = {
+    "gatilho": "Condição de estudo atingida (barra {hora}). Dado atrasado: pode ter mudado. Nada foi comprado.",
+    "agregado": "{tickers}. Dado de {hora}: pode ter mudado. Nada foi comprado.",
+}
+
+
 # --- Vocabulário do PUSH do Radar diário (260824-i45, item 6) ---------------
 # Decisão D1: o job das 08:45 FICA. `B3_RADAR_DAILY_HHMM`, a audiência e o gate
 # por `is_trading_day` (em vez de `in_market_hours`) são escolha deliberada e
@@ -349,8 +424,12 @@ def push_titulo(modo: str, tag: str = "", ticker: str = "") -> str:
 # `test_radar_daily.py` continuam valendo palavra por palavra.
 PUSH_RADAR = {
     "titulo": "Prévia do Radar · pré-abertura 📡",
-    "corpo_destaques": "Prévia pré-abertura: maior confluência em {itens}. O pregão ainda não abriu — a abertura pode mudar estes preços. Abra para ver o plano e o risco ({n} ativos analisados).",
-    "corpo_vazio": "Prévia pré-abertura: varredura concluída, {n} ativo(s) analisados, nenhum setup em destaque hoje. O pregão ainda não abriu. Abra o Radar para estudar.",
+    # 261127 (legibilidade): ≤110 com 3 destaques + n de 2 dígitos. O título já
+    # diz "pré-abertura"; o corpo mantém só a ressalva que importa (abertura
+    # pode mudar) e a contagem. "confluência" saiu do corpo: sem definição na
+    # tela de bloqueio, "100%" lia como certeza (guardrail CVM).
+    "corpo_destaques": "{itens}. Pode mudar ao abrir. {n} analisados.",
+    "corpo_vazio": "Prévia: nenhum setup em destaque; {n} ativo(s) analisados. Abertura pode mudar.",
     # Fase 51 (D-14): linha extra ao final do corpo com o "e se" de ontem. Alvo
     # e stop com a MESMA construção e comprimento próximo; sem R no push.
     # PUSH_RADAR continua SEM espelho em copy.js (o push não é renderizado no

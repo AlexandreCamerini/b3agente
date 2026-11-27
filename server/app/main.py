@@ -5910,6 +5910,12 @@ async def _start_agent_scheduler():
         # `extra` (260824-i45, item 1): sem isto o payload chega sem `data.t`,
         # `web/src/notify.js:382` descarta em silêncio e o toque no push abre o
         # app sem destino. `send_to_user` já sabia tratar `extra`/`None`.
+        # Prévia do Radar chama `notify_push(uid, titulo, corpo)` SEM extra (os
+        # guardiões de test_radar_daily fixam essa assinatura de 3 argumentos).
+        # O kind entra aqui, pelo título canônico, para o push ganhar
+        # `interruption-level: passive` sem tocar a assinatura nem inventar `t`.
+        if extra is None and title == skill_ref.PUSH_RADAR["titulo"]:
+            extra = {"kind": "radar"}
         await push.send_to_user(_conn, uid, title, body, extra=extra)
     asyncio.get_event_loop().create_task(
         agent_mod.scheduler_loop(_conn, candle_provider.get_quotes_exclusive, notify_push=_notify,
